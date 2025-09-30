@@ -5,8 +5,8 @@ from crudadmin.admin_interface.model_view import PasswordTransformer
 from pydantic import BaseModel, Field
 
 from ..core.security import get_password_hash
-from ..models.post import Post
-from ..models.tier import Tier
+from ..models.lesson import Post
+from ..models.course import Tier
 from ..models.user import User
 from ..schemas.post import PostUpdate
 from ..schemas.tier import TierCreate, TierUpdate

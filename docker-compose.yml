@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  # -------- FastAPI Web App --------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: korean_app_web
+    # -------- dùng uvicorn khi dev, gunicorn khi production --------
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # command: gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+    env_file:
+      - ./src/.env
+    ports:
+      - "8000:8000"   # API docs: http://localhost:8000/docs
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./src/app:/code/app
+      - ./src/.env:/code/.env
+
+  # -------- Background Worker (ARQ + Redis) --------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: korean_app_worker
+    command: arq app.core.worker.settings.WorkerSettings
+    env_file:
+      - ./src/.env
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./src/app:/code/app
+      - ./src/.env:/code/.env
+
+  # -------- PostgreSQL Database --------
+  db:
+    image: postgres:15
+    container_name: korean_app_db
+    restart: always
+    env_file:
+      - ./src/.env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"   # mở port để connect từ TablePlus / DBeaver / psql
+
+  # -------- Redis --------
+  redis:
+    image: redis:alpine
+    container_name: korean_app_redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+
+  # -------- pgAdmin (UI quản lý Postgres) --------
+  pgadmin:
+    container_name: korean_app_pgadmin
+    image: dpage/pgadmin4:latest
+    restart: always
+    ports:
+      - "5050:80"   # truy cập http://localhost:5050
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    env_file:
+      - ./src/.env
+    depends_on:
+      - db
+
+volumes:
+  postgres-data:
+  redis-data:
+  pgadmin-data:

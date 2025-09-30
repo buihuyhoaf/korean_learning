@@ -14,7 +14,6 @@ from fastapi.openapi.utils import get_openapi
 from ..api.dependencies import get_current_superuser
 from ..core.utils.rate_limit import rate_limiter
 from ..middleware.client_cache_middleware import ClientCacheMiddleware
-from ..models import *  # noqa: F403
 from .config import (
     AppSettings,
     ClientSideCacheSettings,
