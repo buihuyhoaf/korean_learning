@@ -18,8 +18,8 @@ services:
       - db
       - redis
     volumes:
-      - ./src/app:/code/app
-      - ./src/.env:/code/.env
+      - ./src:/code
+      - ./src/alembic.ini:/code/alembic.ini
 
   # -------- Background Worker (ARQ + Redis) --------
   worker:

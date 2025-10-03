@@ -30,7 +30,7 @@ def import_models(package_name):
         importlib.import_module(module_name)
 
 
-import_models("app.models")
+import_models("src.app.models")
 target_metadata = Base.metadata
 
 
