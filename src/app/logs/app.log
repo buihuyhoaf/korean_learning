@@ -26,3 +26,21 @@
 2025-10-04 04:29:28,643 - crudadmin.core.db - INFO - Creating table: admin_event_log
 2025-10-04 04:29:28,643 - crudadmin.core.db - INFO - Creating table: admin_audit_log
 2025-10-04 04:29:28,644 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-04 08:00:59,410 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-04 08:00:59,412 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-04 08:00:59,413 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-04 08:00:59,413 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-04 08:00:59,413 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-04 08:00:59,414 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-04 08:05:19,601 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-04 08:05:19,603 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-04 08:05:19,605 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-04 08:05:19,605 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-04 08:05:19,606 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-04 08:05:19,607 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-04 08:05:45,051 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-04 08:05:45,052 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-04 08:05:45,053 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-04 08:05:45,053 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-04 08:05:45,054 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-04 08:05:45,054 - crudadmin.core.db - INFO - Admin database tables created successfully
