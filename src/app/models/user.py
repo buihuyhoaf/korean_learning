@@ -1,30 +1,38 @@
-from uuid6 import uuid7
 from datetime import UTC, datetime
+from uuid6 import uuid7
 import uuid as uuid_pkg
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, String, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
 
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(autoincrement=True, primary_key=True, init=False)
-    
-    name: Mapped[str] = mapped_column(String(30))
-    username: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    hashed_password: Mapped[str] = mapped_column(String)
-
-    profile_image_url: Mapped[str] = mapped_column(String, default="https://profileimageurl.com")
-    uuid: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), default_factory=uuid7, unique=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    password: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), default="student")  # admin, student
+    exp: Mapped[int] = mapped_column(Integer, default=0)  # Tổng điểm EXP của user
+    streak_days: Mapped[int] = mapped_column(Integer, default=0)  # Số ngày học liên tiếp
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    is_deleted: Mapped[bool] = mapped_column(default=False, index=True)
-    is_superuser: Mapped[bool] = mapped_column(default=False)
 
-    tier_id: Mapped[int | None] = mapped_column(ForeignKey("tier.id"), index=True, default=None, init=False)
+    # Relationships
+    course_progress = relationship("UserCourseProgress", back_populates="user")
+    unit_progress = relationship("UserUnitProgress", back_populates="user")
+    lesson_progress = relationship("UserLessonProgress", back_populates="user")
+    quiz_attempts = relationship("UserQuizAttempt", back_populates="user")
+    question_errors = relationship("UserQuestionError", back_populates="user")
+    exp_logs = relationship("UserExpLog", back_populates="user")
+    badges = relationship("UserBadge", back_populates="user")
+    daily_goals = relationship("DailyGoal", back_populates="user")
+    challenges = relationship("UserChallenge", back_populates="user")
+    friends = relationship("Friend", back_populates="user", foreign_keys="Friend.user_id")
+    friend_of = relationship("Friend", back_populates="friend", foreign_keys="Friend.friend_user_id")
+    leaderboard = relationship("Leaderboard", back_populates="user")
+    ai_logs = relationship("AiLog", back_populates="user")
+    notifications = relationship("Notification", back_populates="user")

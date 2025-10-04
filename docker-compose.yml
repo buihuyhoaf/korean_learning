@@ -77,3 +77,4 @@ volumes:
   postgres-data:
   redis-data:
   pgadmin-data:
+  korean_app_web:

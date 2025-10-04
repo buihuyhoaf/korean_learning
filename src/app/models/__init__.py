@@ -1,4 +1,28 @@
-from .post import Post
+# Import all models to ensure they are registered with SQLAlchemy
+from .user import User
+from .course import Course, Unit, Lesson
+from .quiz import Quiz, QuestionType, Question, QuestionOption
+from .exercise import ListeningExercise, SpeakingExercise, WritingExercise
+from .progress import (
+    UserCourseProgress, 
+    UserUnitProgress, 
+    UserLessonProgress, 
+    UserQuizAttempt, 
+    UserQuestionAttempt, 
+    UserQuestionError
+)
+from .gamification import (
+    UserExpLog, 
+    Badge, 
+    UserBadge, 
+    DailyGoal, 
+    Challenge, 
+    UserChallenge
+)
+from .social import Friend, Leaderboard
+from .ai_log import AiLog
+from .notification import Notification
+
+# Keep old models for backward compatibility (can be removed later)
 from .rate_limit import RateLimit
 from .tier import Tier
-from .user import User
