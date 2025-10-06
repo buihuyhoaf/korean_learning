@@ -44,3 +44,562 @@
 2025-10-04 08:05:45,053 - crudadmin.core.db - INFO - Creating table: admin_event_log
 2025-10-04 08:05:45,054 - crudadmin.core.db - INFO - Creating table: admin_audit_log
 2025-10-04 08:05:45,054 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-04 08:17:52,803 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-04 08:17:52,803 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-04 08:17:52,804 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-04 08:17:52,804 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-04 08:17:52,805 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-04 08:17:52,805 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-04 08:19:02,261 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-04 08:19:02,261 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-04 08:19:02,262 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-04 08:19:02,262 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-04 08:19:02,263 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-04 08:19:02,263 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:26:34,875 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:26:34,877 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:26:34,878 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:26:34,878 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:26:34,878 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:26:34,879 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:34:38,703 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:34:38,705 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:34:38,705 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:34:38,706 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:34:38,706 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:34:38,707 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:34:41,000 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:34:41,001 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:34:41,002 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:34:41,002 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:34:41,003 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:34:41,003 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:35:07,546 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:35:07,547 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:35:07,548 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:35:07,548 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:35:07,549 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:35:07,549 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:35:09,913 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:35:09,914 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:35:09,915 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:35:09,915 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:35:09,916 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:35:09,916 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:35:13,509 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:35:13,510 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:35:13,511 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:35:13,511 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:35:13,512 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:35:13,512 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:35:15,972 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:35:15,973 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:35:15,974 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:35:15,974 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:35:15,975 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:35:15,975 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:35:35,388 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:35:35,389 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:35:35,390 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:35:35,391 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:35:35,391 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:35:35,392 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:48:20,603 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 02:48:20,604 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 02:48:20,604 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 02:48:20,605 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 02:48:20,605 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 02:48:20,606 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 02:49:32,589 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:49:32,598 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: dev
+2025-10-06 02:50:11,276 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:50:11,523 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 02:56:55,808 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:56:56,060 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 02:57:35,412 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:57:35,641 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 02:57:53,685 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:57:53,928 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 02:59:55,282 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 02:59:55,517 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 03:00:14,317 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:00:14,318 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:00:14,319 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:00:14,319 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:00:14,319 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:00:14,320 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:00:23,268 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:00:23,530 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 03:01:00,134 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:01:00,374 - crudadmin.admin_interface.admin_site - WARNING - Authentication failed for user: admin
+2025-10-06 03:01:20,518 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:01:20,519 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:01:20,519 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:01:20,520 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:01:20,520 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:01:20,520 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:01:39,491 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:01:39,492 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:01:39,493 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:01:39,493 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:01:39,494 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:01:39,494 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:01:42,220 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:01:42,468 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:01:42,468 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:01:42,468 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:01:42,474 - crudadmin.session.manager - INFO - Session e20b261e-c144-449a-aa93-79ce65865fc4 created successfully
+2025-10-06 03:01:42,474 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: e20b261e-c144-449a-aa93-79ce65865fc4
+2025-10-06 03:01:42,474 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:01:46,172 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:01:46,399 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:01:46,399 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:01:46,400 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:01:46,404 - crudadmin.session.manager - INFO - Session 33d858d9-a988-4ad9-a5f7-7957e068df49 created successfully
+2025-10-06 03:01:46,404 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 33d858d9-a988-4ad9-a5f7-7957e068df49
+2025-10-06 03:01:46,404 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:01:55,711 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:01:55,959 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:01:55,959 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:01:55,959 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:01:55,965 - crudadmin.session.manager - INFO - Session 39f6b3b9-b623-474a-9401-9bf8bdc100af created successfully
+2025-10-06 03:01:55,965 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 39f6b3b9-b623-474a-9401-9bf8bdc100af
+2025-10-06 03:01:55,965 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:02:03,348 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:02:03,595 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:02:03,595 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:02:03,595 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:02:03,600 - crudadmin.session.manager - INFO - Session 169616b3-b1b9-4470-93bc-384cabb00e0b created successfully
+2025-10-06 03:02:03,600 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 169616b3-b1b9-4470-93bc-384cabb00e0b
+2025-10-06 03:02:03,600 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:02:37,044 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:02:37,289 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:02:37,289 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:02:37,289 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:02:37,294 - crudadmin.session.manager - INFO - Session e7e965f7-372e-4e37-af40-9f1216b693dd created successfully
+2025-10-06 03:02:37,295 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: e7e965f7-372e-4e37-af40-9f1216b693dd
+2025-10-06 03:02:37,295 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:26:51,176 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:26:51,177 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:26:51,178 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:26:51,178 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:26:51,179 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:26:51,179 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:27:01,869 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:27:01,870 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:27:01,871 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:27:01,872 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:27:01,872 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:27:01,873 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:27:07,131 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:27:07,132 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:27:07,133 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:27:07,135 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:27:07,135 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:27:07,136 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:27:11,277 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:27:11,278 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:27:11,279 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:27:11,279 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:27:11,280 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:27:11,280 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:27:20,346 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:27:20,347 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:27:20,347 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:27:20,348 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:27:20,348 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:27:20,349 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:27:41,677 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:27:41,906 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:27:41,906 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:27:41,906 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:27:41,915 - crudadmin.session.manager - INFO - Session dfb6abb6-ac54-4ca0-ba22-a46b3ef7dcad created successfully
+2025-10-06 03:27:41,915 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: dfb6abb6-ac54-4ca0-ba22-a46b3ef7dcad
+2025-10-06 03:27:41,915 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:34:46,129 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:34:46,383 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:34:46,384 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:34:46,384 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:34:46,390 - crudadmin.session.manager - INFO - Session 38e9170c-193a-4947-9f17-cb5cf1253733 created successfully
+2025-10-06 03:34:46,390 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 38e9170c-193a-4947-9f17-cb5cf1253733
+2025-10-06 03:34:46,391 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:34:55,230 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 03:34:55,484 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 03:34:55,484 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 03:34:55,484 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 03:34:55,491 - crudadmin.session.manager - INFO - Session 6237a703-f8ce-42c3-9c2e-e8aa618db9ae created successfully
+2025-10-06 03:34:55,491 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 6237a703-f8ce-42c3-9c2e-e8aa618db9ae
+2025-10-06 03:34:55,492 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 03:36:18,070 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:36:18,071 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:36:18,072 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:36:18,073 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:36:18,073 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:36:18,074 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:38:57,237 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:38:57,239 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:38:57,239 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:38:57,240 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:38:57,240 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:38:57,241 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:39:44,190 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:39:44,191 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:39:44,192 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:39:44,193 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:39:44,193 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:39:44,193 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:39:56,072 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:39:56,073 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:39:56,074 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:39:56,074 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:39:56,075 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:39:56,075 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:40:53,111 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:40:53,113 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:40:53,113 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:40:53,114 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:40:53,114 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:40:53,115 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:40:59,770 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:40:59,771 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:40:59,772 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:40:59,772 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:40:59,773 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:40:59,773 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:43:25,747 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:43:25,748 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:43:25,749 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:43:25,750 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:43:25,750 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:43:25,750 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:43:29,036 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:43:29,037 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:43:29,037 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:43:29,038 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:43:29,038 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:43:29,039 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:43:37,059 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:43:37,061 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:43:37,061 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:43:37,062 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:43:37,062 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:43:37,063 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:45:50,937 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:45:50,938 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:45:50,939 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:45:50,939 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:45:50,940 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:45:50,940 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:45:54,735 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:45:54,736 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:45:54,737 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:45:54,738 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:45:54,738 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:45:54,739 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 03:46:55,347 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 03:46:55,348 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 03:46:55,349 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 03:46:55,349 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 03:46:55,350 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 03:46:55,350 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:03:40,856 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:03:40,858 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:03:40,859 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:03:40,859 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:03:40,860 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:03:40,860 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:08:06,441 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:08:06,443 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:08:06,443 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:08:06,444 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:08:06,444 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:08:06,445 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:08:10,529 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:08:10,531 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:08:10,532 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:08:10,532 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:08:10,533 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:08:10,533 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:08:41,583 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 04:08:41,844 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 04:08:41,844 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 04:08:41,844 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 04:08:41,857 - crudadmin.session.manager - INFO - Session 386e893c-51f9-49d9-9aba-c7895ddf3f81 created successfully
+2025-10-06 04:08:41,857 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 386e893c-51f9-49d9-9aba-c7895ddf3f81
+2025-10-06 04:08:41,857 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 04:09:20,309 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:09:20,310 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:09:20,311 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:09:20,311 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:09:20,312 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:09:20,312 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:11:32,853 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:11:32,855 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:11:32,856 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:11:32,857 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:11:32,857 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:11:32,858 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:11:39,511 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:11:39,512 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:11:39,513 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:11:39,513 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:11:39,514 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:11:39,514 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:12:08,870 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:12:08,871 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:12:08,872 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:12:08,872 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:12:08,873 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:12:08,873 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:12:14,466 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:12:14,467 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:12:14,467 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:12:14,468 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:12:14,468 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:12:14,469 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:12:26,121 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:12:26,122 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:12:26,123 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:12:26,124 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:12:26,124 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:12:26,124 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:13:53,186 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 04:13:53,437 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 04:13:53,437 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 04:13:53,437 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 04:13:53,447 - crudadmin.session.manager - INFO - Session 4accb5b2-6b29-4ae8-9e43-6d29439dcf71 created successfully
+2025-10-06 04:13:53,448 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: 4accb5b2-6b29-4ae8-9e43-6d29439dcf71
+2025-10-06 04:13:53,448 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 04:15:02,118 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:15:02,119 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:15:02,120 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:15:02,120 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:15:02,120 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:15:02,121 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:15:52,110 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:15:52,110 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:15:52,111 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:15:52,111 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:15:52,112 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:15:52,112 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:15:54,974 - crudadmin.admin_interface.middleware.auth - ERROR - Auth error: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: SELECT count(*) AS count_1 
+FROM users]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+Traceback (most recent call last):
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 545, in _prepare_and_execute
+    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 176, in fetch
+    data = await self.__bind_execute(args, 0, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 267, in __bind_execute
+    data, status, _ = await self.__do_execute(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/asyncpg/prepared_stmt.py", line 256, in __do_execute
+    return await executor(protocol)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "asyncpg/protocol/protocol.pyx", line 206, in bind_execute
+asyncpg.exceptions.InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 508, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 792, in _handle_exception
+    raise translated_error from error
+sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.Error: <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/app/.venv/lib/python3.11/site-packages/crudadmin/admin_interface/middleware/auth.py", line 104, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 163, in call_next
+    raise app_exc
+  File "/app/.venv/lib/python3.11/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "/app/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 62, in wrapped_app
+    raise exc
+  File "/app/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "/app/.venv/lib/python3.11/site-packages/starlette/routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/crudadmin/admin_interface/model_view.py", line 1017, in get_model_admin_page_inner
+    base_context = await self.admin_site.get_base_context(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/crudadmin/admin_interface/admin_site.py", line 472, in get_base_context
+    cnt = await crud.count(app_db)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/fastcrud/crud/fast_crud.py", line 1299, in count
+    total_count: Optional[int] = await db.scalar(count_query)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/ext/asyncio/session.py", line 519, in scalar
+    return await greenlet_spawn(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 201, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2413, in scalar
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+           ^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 580, in execute
+    self._adapt_connection.await_(
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 558, in _prepare_and_execute
+    self._handle_exception(error)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 508, in _handle_exception
+    self._adapt_connection._handle_exception(error)
+  File "/app/.venv/lib/python3.11/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 792, in _handle_exception
+    raise translated_error from error
+sqlalchemy.exc.DBAPIError: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.InFailedSQLTransactionError'>: current transaction is aborted, commands ignored until end of transaction block
+[SQL: SELECT count(*) AS count_1 
+FROM users]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+2025-10-06 04:23:53,036 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:23:53,037 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:23:53,038 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:23:53,038 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:23:53,039 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:23:53,039 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:24:03,984 - crudadmin.admin_interface.admin_site - INFO - Processing login attempt...
+2025-10-06 04:24:04,233 - crudadmin.admin_interface.admin_site - INFO - User authenticated successfully, creating session
+2025-10-06 04:24:04,233 - crudadmin.admin_interface.admin_site - INFO - Creating user session...
+2025-10-06 04:24:04,233 - crudadmin.session.manager - INFO - Creating new session for user_id: 1
+2025-10-06 04:24:04,246 - crudadmin.session.manager - INFO - Session f7c27b27-a866-4981-bc70-3ab5bd418a1d created successfully
+2025-10-06 04:24:04,246 - crudadmin.admin_interface.admin_site - INFO - Session created successfully: f7c27b27-a866-4981-bc70-3ab5bd418a1d
+2025-10-06 04:24:04,246 - crudadmin.admin_interface.admin_site - INFO - Login completed successfully
+2025-10-06 04:25:58,207 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:25:58,208 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:25:58,209 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:25:58,210 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:25:58,210 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:25:58,211 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:26:21,695 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:26:21,696 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:26:21,697 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:26:21,697 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:26:21,698 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:26:21,698 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:26:32,055 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:26:32,056 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:26:32,057 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:26:32,058 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:26:32,058 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:26:32,059 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:27:02,213 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:27:02,214 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:27:02,215 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:27:02,215 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:27:02,216 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:27:02,216 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:27:30,840 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:27:30,841 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:27:30,842 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:27:30,843 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:27:30,843 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:27:30,844 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:28:11,241 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:28:11,242 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:28:11,243 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:28:11,244 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:28:11,244 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:28:11,245 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:28:21,721 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:28:21,722 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:28:21,724 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:28:21,725 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:28:21,725 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:28:21,726 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:28:35,190 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:28:35,191 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:28:35,192 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:28:35,192 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:28:35,193 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:28:35,193 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:29:05,291 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:29:05,292 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:29:05,293 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:29:05,293 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:29:05,293 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:29:05,294 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:29:35,237 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:29:35,238 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:29:35,239 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:29:35,239 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:29:35,240 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:29:35,240 - crudadmin.core.db - INFO - Admin database tables created successfully
+2025-10-06 04:29:39,660 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-06 04:29:39,661 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-06 04:29:39,662 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-06 04:29:39,662 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-06 04:29:39,663 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-06 04:29:39,663 - crudadmin.core.db - INFO - Admin database tables created successfully
