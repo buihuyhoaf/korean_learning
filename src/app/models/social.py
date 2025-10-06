@@ -10,8 +10,8 @@ class Friend(Base):
     __tablename__ = "friends"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    friend_user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    friend_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, accepted, blocked
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
@@ -27,7 +27,7 @@ class Leaderboard(Base):
     __tablename__ = "leaderboard"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     season: Mapped[str] = mapped_column(String(50))
     rank: Mapped[int] = mapped_column(Integer)
     exp: Mapped[int] = mapped_column(Integer)

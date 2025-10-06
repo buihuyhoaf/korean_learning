@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String, Integer, Text
+from sqlalchemy import DateTime, String, Integer, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -24,7 +24,7 @@ class Unit(Base):
     __tablename__ = "units"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    course_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
@@ -40,7 +40,7 @@ class Lesson(Base):
     __tablename__ = "lessons"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    unit_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_id: Mapped[int] = mapped_column(Integer, ForeignKey("units.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)

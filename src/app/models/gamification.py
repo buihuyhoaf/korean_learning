@@ -10,7 +10,7 @@ class UserExpLog(Base):
     __tablename__ = "user_exp_log"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     source: Mapped[str] = mapped_column(String(100))  # quiz, daily_goal, challenge, etc.
     amount: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
@@ -36,8 +36,8 @@ class UserBadge(Base):
     __tablename__ = "user_badges"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    badge_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    badge_id: Mapped[int] = mapped_column(Integer, ForeignKey("badges.id"), nullable=False)
     earned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
     # Relationships
@@ -52,7 +52,7 @@ class DailyGoal(Base):
     __tablename__ = "daily_goals"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     target_exp: Mapped[int] = mapped_column(Integer, default=100)
     target_lessons: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[date] = mapped_column(Date, default_factory=lambda: datetime.now(UTC).date())
@@ -80,8 +80,8 @@ class UserChallenge(Base):
     __tablename__ = "user_challenges"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    challenge_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    challenge_id: Mapped[int] = mapped_column(Integer, ForeignKey("challenges.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -9,6 +9,7 @@ from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.course import Course, Lesson
+from ...models.progress import UserCourseProgress
 
 router = APIRouter(tags=["courses"])
 
@@ -26,17 +27,21 @@ async def get_courses(
     offset = compute_offset(page, items_per_page)
     
     # Get courses
-    courses_query = db.query(Course).order_by(Course.order_index)
-    courses = courses_query.offset(offset).limit(items_per_page).all()
-    total = courses_query.count()
+    from sqlalchemy import select, func
+    courses_query = select(Course).order_by(Course.order_index)
+    result = await db.execute(courses_query.offset(offset).limit(items_per_page))
+    courses = result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(Course))
+    total = total_result.scalar()
     
     # Get user progress if authenticated
     user_progress = {}
     if current_user:
-        progress_query = db.query(UserCourseProgress).filter(
+        progress_query = select(UserCourseProgress).where(
             UserCourseProgress.user_id == current_user["id"]
         )
-        user_progress = {p.course_id: p for p in progress_query.all()}
+        progress_result = await db.execute(progress_query)
+        user_progress = {p.course_id: p for p in progress_result.scalars().all()}
     
     # Format response
     courses_data = []

@@ -72,3 +72,28 @@ class UserDelete(BaseModel):
 
 class UserRestoreDeleted(BaseModel):
     is_deleted: bool
+
+
+class UserRegistration(BaseModel):
+    """Schema for user registration endpoint."""
+    model_config = ConfigDict(extra="forbid")
+    
+    username: Annotated[str, Field(min_length=2, max_length=20, pattern=r"^[a-z0-9]+$", examples=["newuser"])]
+    email: Annotated[EmailStr, Field(examples=["newuser@example.com"])]
+    password: Annotated[str, Field(min_length=8, examples=["SecurePass123!"])]
+
+
+class UserModelCreate(BaseModel):
+    """Schema for creating users that matches the actual User model."""
+    username: str
+    email: str
+    password: str
+    role: str = "student"
+    exp: int = 0
+    streak_days: int = 0
+
+
+class UserRegistrationResponse(BaseModel):
+    """Response schema for successful user registration."""
+    message: str
+    user: dict  # Use dict to avoid schema mismatch with actual User model

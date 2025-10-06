@@ -10,7 +10,7 @@ class AiLog(Base):
     __tablename__ = "ai_logs"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     exercise_type: Mapped[str] = mapped_column(String(50))  # writing, speaking
     input_url: Mapped[str] = mapped_column(String(500))
     recognized_text: Mapped[str] = mapped_column(Text)

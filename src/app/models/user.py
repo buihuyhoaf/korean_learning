@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid6 import uuid7
 import uuid as uuid_pkg
 
-from sqlalchemy import DateTime, String, Integer, Boolean
+from sqlalchemy import DateTime, String, Integer, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,7 @@ class User(Base):
     exp: Mapped[int] = mapped_column(Integer, default=0)  # Tổng điểm EXP của user
     streak_days: Mapped[int] = mapped_column(Integer, default=0)  # Số ngày học liên tiếp
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    tier_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tier.id"), nullable=True, default=None)
 
     # Relationships
     course_progress = relationship("UserCourseProgress", back_populates="user")

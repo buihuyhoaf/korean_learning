@@ -10,8 +10,8 @@ class UserCourseProgress(Base):
     __tablename__ = "user_course_progress"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    course_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
@@ -25,8 +25,8 @@ class UserUnitProgress(Base):
     __tablename__ = "user_unit_progress"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    unit_id: Mapped[int] = mapped_column(Integer, ForeignKey("units.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
@@ -40,8 +40,8 @@ class UserLessonProgress(Base):
     __tablename__ = "user_lesson_progress"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    lesson_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
@@ -55,8 +55,8 @@ class UserQuizAttempt(Base):
     __tablename__ = "user_quiz_attempts"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    quiz_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     score: Mapped[float] = mapped_column(Float, default=0.0)
     exp_earned: Mapped[int] = mapped_column(Integer, default=0)
@@ -72,8 +72,8 @@ class UserQuestionAttempt(Base):
     __tablename__ = "user_question_attempts"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_quiz_attempt_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    question_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_quiz_attempt_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_quiz_attempts.id"), nullable=False)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id"), nullable=False)
     user_answer: Mapped[str] = mapped_column(String(1000))
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
     answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
@@ -87,8 +87,8 @@ class UserQuestionError(Base):
     __tablename__ = "user_question_errors"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    question_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id"), nullable=False)
     last_wrong_answer: Mapped[str] = mapped_column(String(1000), nullable=True)
     last_wrong_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
