@@ -604,3 +604,9 @@ FROM users]
 2025-10-06 04:29:39,663 - crudadmin.core.db - INFO - Creating table: admin_audit_log
 2025-10-06 04:29:39,663 - crudadmin.core.db - INFO - Admin database tables created successfully
 2025-10-06 09:23:49,927 - httpx - INFO - HTTP Request: GET http://testserver/api/v1/test-courses "HTTP/1.1 200 OK"
+2025-10-07 09:18:34,422 - crudadmin.core.db - INFO - Initializing admin database tables...
+2025-10-07 09:18:34,423 - crudadmin.core.db - INFO - Creating table: admin_user
+2025-10-07 09:18:34,424 - crudadmin.core.db - INFO - Creating table: admin_session
+2025-10-07 09:18:34,424 - crudadmin.core.db - INFO - Creating table: admin_event_log
+2025-10-07 09:18:34,425 - crudadmin.core.db - INFO - Creating table: admin_audit_log
+2025-10-07 09:18:34,425 - crudadmin.core.db - INFO - Admin database tables created successfully

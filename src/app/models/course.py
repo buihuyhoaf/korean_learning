@@ -9,11 +9,11 @@ from ..core.db.database import Base
 class Course(Base):
     __tablename__ = "courses"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     units = relationship("Unit", back_populates="course")
@@ -23,12 +23,12 @@ class Course(Base):
 class Unit(Base):
     __tablename__ = "units"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     course = relationship("Course", back_populates="units")
@@ -39,12 +39,12 @@ class Unit(Base):
 class Lesson(Base):
     __tablename__ = "lessons"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     unit_id: Mapped[int] = mapped_column(Integer, ForeignKey("units.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     unit = relationship("Unit", back_populates="lessons")
