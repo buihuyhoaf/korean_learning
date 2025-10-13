@@ -233,3 +233,4 @@ Response format hoàn toàn tương thích với yêu cầu Android app:
 **Lưu ý**: API đã sẵn sàng sử dụng với Android app. Chỉ cần setup environment variables và chạy database migration.
 
 
+

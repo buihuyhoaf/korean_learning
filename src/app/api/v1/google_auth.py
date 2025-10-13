@@ -65,15 +65,20 @@ async def google_sign_in(
         If Google ID token is invalid or authentication fails
     """
     try:
+        print(f"[DEBUG] Received Google token: {request.token[:50]}...")
+        
         # Verify Google ID token
-        google_user_info = await verify_google_token(request.id_token)
+        google_user_info = await verify_google_token(request.token)
+        print(f"[DEBUG] Google token verified successfully: {google_user_info}")
         
         email = google_user_info["email"]
         name = google_user_info["name"]
         picture = google_user_info.get("picture")
+        print(f"[DEBUG] Extracted user info - Email: {email}, Name: {name}")
         
         # Check if user already exists
         existing_user = await crud_users.get(db=db, email=email, is_deleted=False)
+        print(f"[DEBUG] User lookup result: {existing_user}")
         
         if existing_user:
             # User exists, update name and picture if changed
@@ -117,7 +122,9 @@ async def google_sign_in(
             }
             
             # Create user in database
+            print(f"[DEBUG] Creating new user with data: {user_data}")
             new_user = await crud_users.create(db=db, obj_in=user_data)
+            print(f"[DEBUG] User created successfully: {new_user}")
             username = new_user["username"]
         
         # Create JWT access token with 7 days expiration
@@ -126,17 +133,24 @@ async def google_sign_in(
             data={"sub": username}, 
             expires_delta=access_token_expires
         )
+        print(f"[DEBUG] JWT token created for user: {username}")
         
-        return GoogleSignInResponse(
-            access_token=access_token,
+        response = GoogleSignInResponse(
+            token=access_token,
             token_type="bearer"
         )
+        print(f"[DEBUG] Returning response: {response}")
+        return response
         
     except HTTPException:
         # Re-raise HTTP exceptions from verify_google_token
         raise
     except Exception as e:
         # Handle any unexpected errors
+        print(f"[ERROR] Google authentication failed: {str(e)}")
+        print(f"[ERROR] Exception type: {type(e)}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during Google authentication"
