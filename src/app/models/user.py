@@ -16,6 +16,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     password: Mapped[str] = mapped_column(String(255))
+    picture: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Google profile picture URL
     role: Mapped[str] = mapped_column(String(20), default="student")  # admin, student
     exp: Mapped[int] = mapped_column(Integer, default=0)  # Tổng điểm EXP của user
     streak_days: Mapped[int] = mapped_column(Integer, default=0)  # Số ngày học liên tiếp

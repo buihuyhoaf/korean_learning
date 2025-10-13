@@ -26,6 +26,10 @@ class CryptSettings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = config("REFRESH_TOKEN_EXPIRE_DAYS", default=7)
 
 
+class GoogleAuthSettings(BaseSettings):
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="461063240681-81vk4ofnni0lru1vdmnmtvlrbd0k9hpt.apps.googleusercontent.com")
+
+
 class DatabaseSettings(BaseSettings):
     pass
 
@@ -132,6 +136,7 @@ class Settings(
     SQLiteSettings,
     PostgresSettings,
     CryptSettings,
+    GoogleAuthSettings,
     FirstUserSettings,
     TestSettings,
     RedisCacheSettings,
