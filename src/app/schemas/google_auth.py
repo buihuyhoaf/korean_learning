@@ -18,3 +18,5 @@ class GoogleSignInResponse(BaseModel):
 class GoogleAuthError(BaseModel):
     """Error schema for Google Authentication."""
     detail: str
+
+

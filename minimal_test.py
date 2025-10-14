@@ -47,3 +47,5 @@ if __name__ == "__main__":
     print("Starting minimal test server...")
     print("Test with: curl -X POST http://localhost:8000/api/v1/auth/google -H 'Content-Type: application/json' -d '{\"token\": \"test_token\"}'")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

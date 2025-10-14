@@ -26,6 +26,36 @@ from ...core.exceptions.http_exceptions import UnauthorizedException
 router = APIRouter(tags=["google-auth"])
 
 
+@router.post("/auth/google/test")
+async def google_sign_in_test(request: GoogleSignInRequest) -> dict:
+    """Test endpoint to debug Google auth without database dependency"""
+    try:
+        print(f"[DEBUG] Test endpoint - Received token: {request.token[:50]}...")
+        
+        # Test Google token verification only
+        from ...core.google_auth import verify_google_token
+        google_user_info = await verify_google_token(request.token)
+        print(f"[DEBUG] Test endpoint - Token verified: {google_user_info}")
+        
+        return {
+            "status": "success",
+            "message": "Token verified successfully",
+            "user_info": google_user_info
+        }
+        
+    except HTTPException as e:
+        print(f"[ERROR] Test endpoint - HTTP Exception: {e.detail} (Status: {e.status_code})")
+        raise e
+    except Exception as e:
+        print(f"[ERROR] Test endpoint - Unexpected error: {str(e)}")
+        import traceback
+        print(f"[ERROR] Test endpoint - Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during Google authentication test"
+        ) from e
+
+
 @router.post(
     "/auth/google",
     response_model=GoogleSignInResponse,
@@ -142,9 +172,11 @@ async def google_sign_in(
         print(f"[DEBUG] Returning response: {response}")
         return response
         
-    except HTTPException:
-        # Re-raise HTTP exceptions from verify_google_token
-        raise
+    except HTTPException as e:
+        # Re-raise HTTP exceptions from verify_google_token with proper status code
+        print(f"[ERROR] Google authentication failed: {e.detail}")
+        print(f"[ERROR] Status code: {e.status_code}")
+        raise e
     except Exception as e:
         # Handle any unexpected errors
         print(f"[ERROR] Google authentication failed: {str(e)}")
