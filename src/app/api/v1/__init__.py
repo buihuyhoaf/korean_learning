@@ -7,6 +7,10 @@ from .tasks import router as tasks_router
 from .tiers import router as tiers_router
 from .users import router as users_router
 from .google_auth import router as google_auth_router
+from .google_auth_new_working import router as google_auth_new_working_router
+# from .google_auth_simple import router as google_auth_simple_router
+# from .google_auth_working import router as google_auth_working_router
+# from .google_auth_new import router as google_auth_new_router
 
 # Korean Learning App API routers
 from .course_management import router as course_management_router
@@ -25,6 +29,10 @@ router = APIRouter(prefix="/v1")
 router.include_router(login_router)
 router.include_router(logout_router)
 router.include_router(google_auth_router)
+router.include_router(google_auth_new_working_router)
+# router.include_router(google_auth_simple_router)
+# router.include_router(google_auth_working_router)
+# router.include_router(google_auth_new_router)
 router.include_router(users_router)
 router.include_router(tasks_router)
 router.include_router(tiers_router)

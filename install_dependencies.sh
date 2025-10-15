@@ -24,3 +24,4 @@ echo "Now you can start the backend with:"
 echo "python -m uvicorn src.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 
+

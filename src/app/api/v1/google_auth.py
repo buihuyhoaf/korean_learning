@@ -3,6 +3,8 @@ Google Authentication endpoints.
 """
 from datetime import timedelta
 from typing import Annotated
+import logging
+import traceback
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,36 +26,21 @@ from ...schemas.google_auth import (
 from ...core.exceptions.http_exceptions import UnauthorizedException
 
 router = APIRouter(tags=["google-auth"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/auth/google/test")
-async def google_sign_in_test(request: GoogleSignInRequest) -> dict:
-    """Test endpoint to debug Google auth without database dependency"""
-    try:
-        print(f"[DEBUG] Test endpoint - Received token: {request.token[:50]}...")
-        
-        # Test Google token verification only
-        from ...core.google_auth import verify_google_token
-        google_user_info = await verify_google_token(request.token)
-        print(f"[DEBUG] Test endpoint - Token verified: {google_user_info}")
-        
-        return {
-            "status": "success",
-            "message": "Token verified successfully",
-            "user_info": google_user_info
-        }
-        
-    except HTTPException as e:
-        print(f"[ERROR] Test endpoint - HTTP Exception: {e.detail} (Status: {e.status_code})")
-        raise e
-    except Exception as e:
-        print(f"[ERROR] Test endpoint - Unexpected error: {str(e)}")
-        import traceback
-        print(f"[ERROR] Test endpoint - Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error during Google authentication test"
-        ) from e
+async def google_sign_in_test(request: GoogleSignInRequest):
+    """Simple test endpoint without dependencies"""
+    print("=== TEST ENDPOINT CALLED ===")
+    return {"message": "Test endpoint works", "token_length": len(request.token)}
+
+
+@router.post("/auth/google/simple")
+async def google_sign_in_simple():
+    """Ultra simple endpoint without any parameters"""
+    print("=== SIMPLE ENDPOINT CALLED ===")
+    return {"message": "Simple endpoint works"}
 
 
 @router.post(
@@ -94,98 +81,104 @@ async def google_sign_in(
     HTTPException
         If Google ID token is invalid or authentication fails
     """
+    print("=== GOOGLE AUTH ENDPOINT CALLED ===")  # Debug print
+    logger.info(f"[GOOGLE_AUTH_ENDPOINT] Starting Google sign-in process...")
+    logger.info(f"[GOOGLE_AUTH_ENDPOINT] Request token length: {len(request.token)}")
+    logger.info(f"[GOOGLE_AUTH_ENDPOINT] Request token preview: {request.token[:50]}...")
+    
     try:
-        print(f"[DEBUG] Received Google token: {request.token[:50]}...")
-        
+        # Test basic functionality first
+        print(f"[DEBUG] Request object: {request}")
+        print(f"[DEBUG] Database session: {db}")
+        print(f"[DEBUG] Settings GOOGLE_CLIENT_ID: {settings.GOOGLE_CLIENT_ID}")
         # Verify Google ID token
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 1: Verifying Google ID token...")
         google_user_info = await verify_google_token(request.token)
-        print(f"[DEBUG] Google token verified successfully: {google_user_info}")
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Token verification successful!")
         
-        email = google_user_info["email"]
-        name = google_user_info["name"]
-        picture = google_user_info.get("picture")
-        print(f"[DEBUG] Extracted user info - Email: {email}, Name: {name}")
+        email = google_user_info['email']
+        name = google_user_info.get('name', '')
+        picture = google_user_info.get('picture', '')
+        
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 2: Processing user info - Email: {email}, Name: {name}")
         
         # Check if user already exists
-        existing_user = await crud_users.get(db=db, email=email, is_deleted=False)
-        print(f"[DEBUG] User lookup result: {existing_user}")
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 3: Checking if user exists in database...")
+        existing_user = await crud_users.get(db=db, email=email)
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] User exists check result: {existing_user is not None}")
         
         if existing_user:
-            # User exists, update name and picture if changed
+            # User exists, get username
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 4a: User exists, retrieving username...")
             existing_user = existing_user[0] if isinstance(existing_user, list) else existing_user
-            
-            # Check if we need to update user info
-            update_data = {}
-            if existing_user.get("username") != name:
-                update_data["username"] = name
-            if existing_user.get("picture") != picture:
-                update_data["picture"] = picture
-                
-            if update_data:
-                await crud_users.update(db=db, db_obj=existing_user, obj_in=update_data)
-                
             username = existing_user["username"]
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Existing user username: {username}")
         else:
             # User doesn't exist, create new user
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 4b: User doesn't exist, creating new user...")
             username = extract_username_from_email(email)
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Initial username: {username}")
             
             # Check if username already exists, if so append a number
             original_username = username
             counter = 1
-            while await crud_users.get(db=db, username=username, is_deleted=False):
+            while await crud_users.get(db=db, username=username):
                 username = f"{original_username}{counter}"
                 counter += 1
+                logger.info(f"[GOOGLE_AUTH_ENDPOINT] Username conflict, trying: {username}")
+            
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Final username: {username}")
             
             # Generate a random password for Google users
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Generating password for Google user...")
             random_password = generate_password_for_google_user()
             hashed_password = get_password_hash(random_password)
             
             # Create user data
-            user_data = {
-                "username": username,
-                "email": email,
-                "password": hashed_password,
-                "picture": picture,
-                "role": "student",  # Default role for new users
-                "exp": 0,
-                "streak_days": 0,
-            }
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Creating user data object...")
+            from ...schemas.user import UserCreateInternal
+            
+            user_data = UserCreateInternal(
+                username=username,
+                email=email,
+                hashed_password=hashed_password,
+            )
             
             # Create user in database
-            print(f"[DEBUG] Creating new user with data: {user_data}")
-            new_user = await crud_users.create(db=db, obj_in=user_data)
-            print(f"[DEBUG] User created successfully: {new_user}")
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Saving user to database...")
+            new_user = await crud_users.create(db=db, object=user_data)
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] User created successfully: {new_user}")
             username = new_user["username"]
         
         # Create JWT access token with 7 days expiration
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 5: Creating JWT access token for username: {username}")
         access_token_expires = timedelta(days=7)
         access_token = await create_access_token(
             data={"sub": username}, 
             expires_delta=access_token_expires
         )
-        print(f"[DEBUG] JWT token created for user: {username}")
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] JWT token created successfully")
         
         response = GoogleSignInResponse(
             token=access_token,
             token_type="bearer"
         )
-        print(f"[DEBUG] Returning response: {response}")
+        
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Google sign-in completed successfully for user: {email}")
         return response
         
     except HTTPException as e:
-        # Re-raise HTTP exceptions from verify_google_token with proper status code
-        print(f"[ERROR] Google authentication failed: {e.detail}")
-        print(f"[ERROR] Status code: {e.status_code}")
+        logger.error(f"[GOOGLE_AUTH_ENDPOINT] HTTPException: {e.detail}")
+        logger.error(f"[GOOGLE_AUTH_ENDPOINT] HTTPException status: {e.status_code}")
         raise e
     except Exception as e:
-        # Handle any unexpected errors
-        print(f"[ERROR] Google authentication failed: {str(e)}")
-        print(f"[ERROR] Exception type: {type(e)}")
-        import traceback
-        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        # Log error for debugging
+        logger.error(f"[GOOGLE_AUTH_ENDPOINT] Unexpected error during Google authentication: {str(e)}")
+        logger.error(f"[GOOGLE_AUTH_ENDPOINT] Error type: {type(e).__name__}")
+        logger.error(f"[GOOGLE_AUTH_ENDPOINT] Full traceback: {traceback.format_exc()}")
+        
+        error_detail = f"Internal server error during Google authentication: {str(e)}"
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal server error during Google authentication"
+            detail=error_detail
         ) from e
-
-

@@ -8,13 +8,21 @@ if not os.path.exists(LOG_DIR):
 
 LOG_FILE_PATH = os.path.join(LOG_DIR, "app.log")
 
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG  # Changed to DEBUG for detailed logging
 LOGGING_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-logging.basicConfig(level=LOGGING_LEVEL, format=LOGGING_FORMAT)
+# Configure root logger
+logging.basicConfig(
+    level=LOGGING_LEVEL, 
+    format=LOGGING_FORMAT,
+    handlers=[
+        logging.StreamHandler(),  # Console handler
+        RotatingFileHandler(LOG_FILE_PATH, maxBytes=10485760, backupCount=5)
+    ]
+)
 
-file_handler = RotatingFileHandler(LOG_FILE_PATH, maxBytes=10485760, backupCount=5)
-file_handler.setLevel(LOGGING_LEVEL)
-file_handler.setFormatter(logging.Formatter(LOGGING_FORMAT))
-
-logging.getLogger("").addHandler(file_handler)
+# Set specific loggers to DEBUG level
+logging.getLogger("app.core.google_auth").setLevel(logging.DEBUG)
+logging.getLogger("app.api.v1.google_auth").setLevel(logging.DEBUG)
+logging.getLogger("app.core").setLevel(logging.DEBUG)
+logging.getLogger("app.api").setLevel(logging.DEBUG)
