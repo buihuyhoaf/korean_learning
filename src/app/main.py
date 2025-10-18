@@ -1,7 +1,9 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+import traceback
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from .admin.initialize import create_admin_interface
 from .api import router
@@ -28,6 +30,20 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = create_application(router=router, settings=settings, lifespan=lifespan_with_admin)
+
+# Add global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler to catch all unhandled exceptions"""
+    print(f"[GLOBAL_EXCEPTION_HANDLER] Caught exception: {exc}")
+    print(f"[GLOBAL_EXCEPTION_HANDLER] Exception type: {type(exc).__name__}")
+    print(f"[GLOBAL_EXCEPTION_HANDLER] Full traceback:")
+    print(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"}
+    )
 
 # Mount admin interface if enabled
 if admin:

@@ -2,6 +2,7 @@
 from .user import User
 from .course import Course, Unit, Lesson
 from .quiz import Quiz, QuestionType, Question, QuestionOption
+from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult
 from .exercise import ListeningExercise, SpeakingExercise, WritingExercise
 from .progress import (
     UserCourseProgress, 

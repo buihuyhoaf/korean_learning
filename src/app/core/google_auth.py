@@ -39,10 +39,17 @@ async def verify_google_token(id_token_value: str) -> dict[str, Any]:
     logger.info(f"[GOOGLE_AUTH] Token preview: {id_token_value[:50]}...")
     logger.info(f"[GOOGLE_AUTH] Google Client ID: {settings.GOOGLE_CLIENT_ID}")
     
+    # Also print for immediate visibility in Docker logs
+    print(f"[GOOGLE_AUTH] Starting token verification...")
+    print(f"[GOOGLE_AUTH] Token length: {len(id_token_value)}")
+    print(f"[GOOGLE_AUTH] Token preview: {id_token_value[:50]}...")
+    print(f"[GOOGLE_AUTH] Google Client ID: {settings.GOOGLE_CLIENT_ID}")
+    
     try:
         # Verify the token
         logger.info(f"[GOOGLE_AUTH] Attempting to verify token with Google...")
         logger.debug(f"[GOOGLE_AUTH] Full token: {id_token_value}")
+        print(f"[GOOGLE_AUTH] Attempting to verify token with Google...")
         
         idinfo = id_token.verify_oauth2_token(
             id_token_value, 
@@ -96,10 +103,13 @@ async def verify_google_token(id_token_value: str) -> dict[str, Any]:
         return user_info
         
     except HTTPException as e:
+        print(f"[GOOGLE_AUTH] HTTPException during token verification: {e.detail}")
         logger.error(f"[GOOGLE_AUTH] HTTPException during token verification: {e.detail}")
         raise e
     except ValueError as e:
         # Invalid token
+        print(f"[GOOGLE_AUTH] ValueError during token verification: {str(e)}")
+        print(f"[GOOGLE_AUTH] Traceback: {traceback.format_exc()}")
         logger.error(f"[GOOGLE_AUTH] ValueError during token verification: {str(e)}")
         logger.error(f"[GOOGLE_AUTH] Traceback: {traceback.format_exc()}")
         raise HTTPException(
@@ -108,6 +118,8 @@ async def verify_google_token(id_token_value: str) -> dict[str, Any]:
         ) from e
     except Exception as e:
         # Any other error
+        print(f"[GOOGLE_AUTH] Unexpected error during token verification: {str(e)}")
+        print(f"[GOOGLE_AUTH] Traceback: {traceback.format_exc()}")
         logger.error(f"[GOOGLE_AUTH] Unexpected error during token verification: {str(e)}")
         logger.error(f"[GOOGLE_AUTH] Traceback: {traceback.format_exc()}")
         raise HTTPException(
@@ -118,7 +130,7 @@ async def verify_google_token(id_token_value: str) -> dict[str, Any]:
 
 def extract_username_from_email(email: str) -> str:
     """
-    Extract username from email address.
+    Extract username from email address, ensuring it matches the pattern ^[a-z0-9]+$.
     
     Parameters
     ----------
@@ -128,9 +140,24 @@ def extract_username_from_email(email: str) -> str:
     Returns
     -------
     str
-        Username extracted from email (part before @)
+        Username extracted from email, sanitized to match pattern requirements
     """
-    return email.split('@')[0]
+    # Extract the part before @
+    username = email.split('@')[0].lower()
+    
+    # Remove all characters that don't match the pattern ^[a-z0-9]+$
+    import re
+    username = re.sub(r'[^a-z0-9]', '', username)
+    
+    # Ensure we have at least 2 characters (minimum length requirement)
+    if len(username) < 2:
+        username = 'user' + username
+    
+    # Ensure we don't exceed 20 characters (maximum length requirement)
+    if len(username) > 20:
+        username = username[:20]
+    
+    return username
 
 
 def generate_password_for_google_user() -> str:

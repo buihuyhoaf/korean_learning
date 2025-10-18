@@ -7,52 +7,65 @@ from ..core.schemas import PersistentDeletion, TimestampSchema, UUIDSchema
 
 
 class UserBase(BaseModel):
-    name: Annotated[str, Field(min_length=2, max_length=30, examples=["User Userson"])]
     username: Annotated[str, Field(min_length=2, max_length=20, pattern=r"^[a-z0-9]+$", examples=["userson"])]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
 
 
-class User(TimestampSchema, UserBase, UUIDSchema, PersistentDeletion):
-    profile_image_url: Annotated[str, Field(default="https://www.profileimageurl.com")]
-    hashed_password: str
-    is_superuser: bool = False
-    tier_id: int | None = None
+# Removed UserSchema class to avoid conflicts with User model
 
 
 class UserRead(BaseModel):
     id: int
-
-    name: Annotated[str, Field(min_length=2, max_length=30, examples=["User Userson"])]
-    username: Annotated[str, Field(min_length=2, max_length=20, pattern=r"^[a-z0-9]+$", examples=["userson"])]
+    username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
-    profile_image_url: str
-    tier_id: int | None
+    picture: Annotated[str | None, Field(examples=["https://example.com/picture.jpg"])]
+    role: Annotated[str, Field(examples=["student"])]
+    exp: Annotated[int, Field(examples=[0])]
+    streak_days: Annotated[int, Field(examples=[0])]
+    created_at: datetime
+    tier_id: Annotated[int | None, Field(examples=[None])]
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    """Schema for creating users that matches the actual User model."""
     model_config = ConfigDict(extra="forbid")
-
+    
+    username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
+    email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     password: Annotated[str, Field(pattern=r"^.{8,}|[0-9]+|[A-Z]+|[a-z]+|[^a-zA-Z0-9]+$", examples=["Str1ngst!"])]
 
 
-class UserCreateInternal(UserBase):
-    hashed_password: str
+class UserCreateInternal(BaseModel):
+    """Schema for creating users that matches the actual User model."""
+    model_config = ConfigDict(extra="forbid")
+    
+    username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
+    email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
+    password: Annotated[str, Field(examples=["hashed_password_string"])]
+    picture: Annotated[str | None, Field(default=None, examples=["https://example.com/picture.jpg"])]
+    role: Annotated[str, Field(default="student", examples=["student"])]
+    exp: Annotated[int, Field(default=0, examples=[0])]
+    streak_days: Annotated[int, Field(default=0, examples=[0])]
+    tier_id: Annotated[int | None, Field(default=None, examples=[None])]
 
 
 class UserUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str | None, Field(min_length=2, max_length=30, examples=["User Userberg"], default=None)]
     username: Annotated[
-        str | None, Field(min_length=2, max_length=20, pattern=r"^[a-z0-9]+$", examples=["userberg"], default=None)
+        str | None, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userberg"], default=None)
     ]
     email: Annotated[EmailStr | None, Field(examples=["user.userberg@example.com"], default=None)]
-    profile_image_url: Annotated[
+    picture: Annotated[
         str | None,
         Field(
-            pattern=r"^(https?|ftp)://[^\s/$.?#].[^\s]*$", examples=["https://www.profileimageurl.com"], default=None
+            pattern=r"^(https?|ftp)://[^\s/$.?#].[^\s]*$", examples=["https://www.example.com/picture.jpg"], default=None
         ),
     ]
+    role: Annotated[str | None, Field(examples=["student"], default=None)]
+    exp: Annotated[int | None, Field(examples=[0], default=None)]
+    streak_days: Annotated[int | None, Field(examples=[0], default=None)]
+    tier_id: Annotated[int | None, Field(examples=[None], default=None)]
 
 
 class UserUpdateInternal(UserUpdate):
@@ -81,16 +94,6 @@ class UserRegistration(BaseModel):
     username: Annotated[str, Field(min_length=2, max_length=20, pattern=r"^[a-z0-9]+$", examples=["newuser"])]
     email: Annotated[EmailStr, Field(examples=["newuser@example.com"])]
     password: Annotated[str, Field(min_length=8, examples=["SecurePass123!"])]
-
-
-class UserModelCreate(BaseModel):
-    """Schema for creating users that matches the actual User model."""
-    username: str
-    email: str
-    password: str
-    role: str = "student"
-    exp: int = 0
-    streak_days: int = 0
 
 
 class UserRegistrationResponse(BaseModel):

@@ -12,7 +12,7 @@ from ..core.db.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     password: Mapped[str] = mapped_column(String(255))
@@ -20,11 +20,16 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default="student")  # admin, student
     exp: Mapped[int] = mapped_column(Integer, default=0)  # Tổng điểm EXP của user
     streak_days: Mapped[int] = mapped_column(Integer, default=0)  # Số ngày học liên tiếp
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
     tier_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tier.id"), nullable=True, default=None)
+    current_course_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("courses.id"), nullable=True)
+    entry_test_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    has_completed_entry_test: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
     course_progress = relationship("UserCourseProgress", back_populates="user")
+    current_course = relationship("Course", foreign_keys=[current_course_id])
+    entry_test_results = relationship("UserEntryTestResult", back_populates="user")
     unit_progress = relationship("UserUnitProgress", back_populates="user")
     lesson_progress = relationship("UserLessonProgress", back_populates="user")
     quiz_attempts = relationship("UserQuizAttempt", back_populates="user")

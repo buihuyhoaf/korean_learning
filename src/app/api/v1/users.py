@@ -30,8 +30,7 @@ async def write_user(
         raise DuplicateValueException("Username not available")
 
     user_internal_dict = user.model_dump()
-    user_internal_dict["hashed_password"] = get_password_hash(password=user_internal_dict["password"])
-    del user_internal_dict["password"]
+    user_internal_dict["password"] = get_password_hash(password=user_internal_dict["password"])
 
     user_internal = UserCreateInternal(**user_internal_dict)
     created_user = await crud_users.create(db=db, object=user_internal)
@@ -210,4 +209,4 @@ async def patch_user_tier(
         raise NotFoundException("Tier not found")
 
     await crud_users.update(db=db, object=values.model_dump(), username=username)
-    return {"message": f"User {db_user.name} Tier updated"}
+    return {"message": f"User {db_user.username} Tier updated"}

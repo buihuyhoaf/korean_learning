@@ -29,29 +29,27 @@ async def create_first_user(session: AsyncSession) -> None:
         if user is None:
             metadata = MetaData()
             user_table = Table(
-                "user",
+                "users",
                 metadata,
                 Column("id", Integer, primary_key=True, autoincrement=True, nullable=False),
-                Column("name", String(30), nullable=False),
-                Column("username", String(20), nullable=False, unique=True, index=True),
-                Column("email", String(50), nullable=False, unique=True, index=True),
-                Column("hashed_password", String, nullable=False),
-                Column("profile_image_url", String, default="https://profileimageurl.com"),
-                Column("uuid", UUID(as_uuid=True), default=uuid7, unique=True),
+                Column("username", String(50), nullable=False, unique=True, index=True),
+                Column("email", String(100), nullable=False, unique=True, index=True),
+                Column("password", String(255), nullable=False),
+                Column("picture", String(500), nullable=True),
+                Column("role", String(20), default="student"),
+                Column("exp", Integer, default=0),
+                Column("streak_days", Integer, default=0),
                 Column("created_at", DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False),
-                Column("updated_at", DateTime),
-                Column("deleted_at", DateTime),
-                Column("is_deleted", Boolean, default=False, index=True),
-                Column("is_superuser", Boolean, default=False),
-                Column("tier_id", Integer, ForeignKey("tier.id"), index=True),
+                Column("tier_id", Integer, ForeignKey("tier.id"), nullable=True, default=None),
             )
 
             data = {
-                "name": name,
                 "email": email,
                 "username": username,
-                "hashed_password": hashed_password,
-                "is_superuser": True,
+                "password": hashed_password,
+                "role": "admin",
+                "exp": 0,
+                "streak_days": 0,
             }
 
             stmt = insert(user_table).values(data)
