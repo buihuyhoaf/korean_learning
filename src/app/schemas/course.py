@@ -16,6 +16,7 @@ class Course(CourseBase):
 
 
 class CourseRead(CourseBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     order_index: int
     created_at: datetime

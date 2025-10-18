@@ -56,4 +56,10 @@ async def get_task(task_id: str) -> dict[str, Any] | None:
     if job_info is None:
         return None
 
-    return job_info.__dict__
+    # Convert job_info to dict safely
+    if hasattr(job_info, 'model_dump'):
+        return job_info.model_dump()
+    elif hasattr(job_info, '__dict__'):
+        return job_info.__dict__
+    else:
+        return dict(job_info)

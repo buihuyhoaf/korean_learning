@@ -1,8 +1,8 @@
-"""update table
+"""black list
 
-Revision ID: ce216575debb
-Revises: 41931443617e
-Create Date: 2025-10-06 08:44:47.201533
+Revision ID: cff85dfb8f54
+Revises: 60ce6fc2071c
+Create Date: 2025-10-18 09:32:49.437833
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'ce216575debb'
-down_revision: Union[str, None] = '41931443617e'
+revision: str = 'cff85dfb8f54'
+down_revision: Union[str, None] = '60ce6fc2071c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

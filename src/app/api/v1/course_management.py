@@ -8,10 +8,55 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...models.course import Course, Lesson
-from ...models.progress import UserCourseProgress
+from ...models.course import Course, Lesson, Unit
+from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
 
 router = APIRouter(tags=["courses"])
+
+
+def _convert_user_course_progress_to_dict(progress: UserCourseProgress) -> dict:
+    """Convert UserCourseProgress ORM object to dictionary."""
+    if not progress:
+        return None
+    return {
+        "id": progress.id,
+        "user_id": progress.user_id,
+        "course_id": progress.course_id,
+        "started_at": progress.started_at,
+        "completed_at": progress.completed_at,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed
+    }
+
+
+def _convert_user_unit_progress_to_dict(progress: UserUnitProgress) -> dict:
+    """Convert UserUnitProgress ORM object to dictionary."""
+    if not progress:
+        return None
+    return {
+        "id": progress.id,
+        "user_id": progress.user_id,
+        "unit_id": progress.unit_id,
+        "started_at": progress.started_at,
+        "completed_at": progress.completed_at,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed
+    }
+
+
+def _convert_user_lesson_progress_to_dict(progress: UserLessonProgress) -> dict:
+    """Convert UserLessonProgress ORM object to dictionary."""
+    if not progress:
+        return None
+    return {
+        "id": progress.id,
+        "user_id": progress.user_id,
+        "lesson_id": progress.lesson_id,
+        "started_at": progress.started_at,
+        "completed_at": progress.completed_at,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed
+    }
 
 
 # UC2: View Courses/Units/Lessons
@@ -53,7 +98,7 @@ async def get_courses(
             "order_index": course.order_index,
             "created_at": course.created_at,
             "units_count": len(course.units),
-            "progress": user_progress.get(course.id, {}).__dict__ if course.id in user_progress else None
+            "progress": _convert_user_course_progress_to_dict(user_progress.get(course.id)) if course.id in user_progress else None
         }
         courses_data.append(course_dict)
     
@@ -102,7 +147,7 @@ async def get_course(
                 UserUnitProgress.user_id == current_user["id"],
                 UserUnitProgress.unit_id == unit.id
             ).first()
-            unit_dict["progress"] = unit_progress.__dict__ if unit_progress else None
+            unit_dict["progress"] = _convert_user_unit_progress_to_dict(unit_progress)
         
         units_data.append(unit_dict)
     
@@ -113,7 +158,7 @@ async def get_course(
         "order_index": course.order_index,
         "created_at": course.created_at,
         "units": units_data,
-        "progress": user_progress.__dict__ if user_progress else None
+        "progress": _convert_user_course_progress_to_dict(user_progress)
     }
 
 
@@ -155,7 +200,7 @@ async def get_unit(
                 UserLessonProgress.user_id == current_user["id"],
                 UserLessonProgress.lesson_id == lesson.id
             ).first()
-            lesson_dict["progress"] = lesson_progress.__dict__ if lesson_progress else None
+            lesson_dict["progress"] = _convert_user_lesson_progress_to_dict(lesson_progress)
         
         lessons_data.append(lesson_dict)
     
@@ -167,7 +212,7 @@ async def get_unit(
         "order_index": unit.order_index,
         "created_at": unit.created_at,
         "lessons": lessons_data,
-        "progress": user_progress.__dict__ if user_progress else None
+        "progress": _convert_user_unit_progress_to_dict(user_progress)
     }
 
 
@@ -221,7 +266,7 @@ async def get_lesson(
         "created_at": lesson.created_at,
         "quizzes": quizzes_data,
         "exercises": exercises_data,
-        "progress": user_progress.__dict__ if user_progress else None
+        "progress": _convert_user_lesson_progress_to_dict(user_progress)
     }
 
 

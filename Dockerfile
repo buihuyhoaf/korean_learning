@@ -22,7 +22,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-editable
 
 # --------- Final Stage ---------
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim
+
+# Update package lists and install basic dependencies
+RUN apt-get update && apt-get install -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
 RUN groupadd --gid 1000 app \

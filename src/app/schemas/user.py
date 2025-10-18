@@ -15,6 +15,8 @@ class UserBase(BaseModel):
 
 
 class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
@@ -24,6 +26,9 @@ class UserRead(BaseModel):
     streak_days: Annotated[int, Field(examples=[0])]
     created_at: datetime
     tier_id: Annotated[int | None, Field(examples=[None])]
+    has_completed_entry_test: Annotated[bool, Field(examples=[False])]
+    current_course_id: Annotated[int | None, Field(examples=[None])]
+    entry_test_score: Annotated[int | None, Field(examples=[None])]
 
 
 class UserCreate(BaseModel):

@@ -22,9 +22,9 @@ class User(Base):
     streak_days: Mapped[int] = mapped_column(Integer, default=0)  # Số ngày học liên tiếp
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
     tier_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("tier.id"), nullable=True, default=None)
-    current_course_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("courses.id"), nullable=True)
-    entry_test_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    has_completed_entry_test: Mapped[bool] = mapped_column(Boolean, default=False)
+    current_course_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("courses.id"), nullable=True, default=None)
+    entry_test_score: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    has_completed_entry_test: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     course_progress = relationship("UserCourseProgress", back_populates="user")

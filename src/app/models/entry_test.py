@@ -9,22 +9,24 @@ from ..core.db.database import Base
 class EntryTest(Base):
     __tablename__ = "entry_tests"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     related_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
+
 
     # Relationships
     related_course = relationship("Course", back_populates="entry_tests")
     questions = relationship("EntryTestQuestion", back_populates="entry_test")
     user_results = relationship("UserEntryTestResult", back_populates="entry_test")
+    score_ranges = relationship("EntryTestResult")
 
 
 class EntryTestQuestion(Base):
     __tablename__ = "entry_test_questions"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
     content: Mapped[str] = mapped_column(Text)
     audio_url: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -32,7 +34,7 @@ class EntryTestQuestion(Base):
     correct_answer: Mapped[str] = mapped_column(Text)
     explanation: Mapped[str] = mapped_column(Text, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     entry_test = relationship("EntryTest", back_populates="questions")
@@ -42,11 +44,11 @@ class EntryTestQuestion(Base):
 class EntryTestQuestionOption(Base):
     __tablename__ = "entry_test_question_options"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     question_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_test_questions.id"), nullable=False)
     option_text: Mapped[str] = mapped_column(Text)
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     question = relationship("EntryTestQuestion", back_populates="options")
@@ -55,14 +57,47 @@ class EntryTestQuestionOption(Base):
 class UserEntryTestResult(Base):
     __tablename__ = "user_entry_test_results"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
     recommended_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
     user = relationship("User", back_populates="entry_test_results")
     entry_test = relationship("EntryTest", back_populates="user_results")
+    recommended_course = relationship("Course", foreign_keys=[recommended_course_id])
+
+
+class EntryTestResult(Base):
+    """Maps score ranges to recommended courses"""
+    __tablename__ = "entry_test_results"
+
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
+    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    min_score: Mapped[float] = mapped_column(Float, nullable=False)
+    max_score: Mapped[float] = mapped_column(Float, nullable=False)
+    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
+
+    # Relationships
+    entry_test = relationship("EntryTest")
+    course = relationship("Course", foreign_keys=[course_id])
+
+
+class UserEntryTestHistory(Base):
+    """Read-only history of user entry test attempts"""
+    __tablename__ = "user_entry_test_history"
+
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    recommended_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
+
+    # Relationships
+    user = relationship("User")
+    entry_test = relationship("EntryTest")
     recommended_course = relationship("Course", foreign_keys=[recommended_course_id])

@@ -2,7 +2,10 @@
 from .user import User
 from .course import Course, Unit, Lesson
 from .quiz import Quiz, QuestionType, Question, QuestionOption
-from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult
+from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult, EntryTestResult, UserEntryTestHistory
+
+# Import TokenBlacklist model
+from ..core.db.token_blacklist import TokenBlacklist
 from .exercise import ListeningExercise, SpeakingExercise, WritingExercise
 from .progress import (
     UserCourseProgress, 

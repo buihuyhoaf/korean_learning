@@ -1,10 +1,11 @@
 from typing import Annotated, List, Optional
 from datetime import datetime, UTC
+import random
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
@@ -13,13 +14,71 @@ from ...models.entry_test import EntryTest, EntryTestQuestion, EntryTestQuestion
 from ...models.user import User
 from ...models.course import Course
 from ...schemas.entry_test import (
-    EntryTestRead, 
+    EntryTestRead,
+    EntryTestQuestionRead,
+    EntryTestQuestionOptionRead,
     EntryTestSubmitResponse, 
     EntryTestSubmission,
     EntryTestResult
 )
+from ...schemas.course import CourseRead
 
 router = APIRouter(tags=["entry_test"])
+
+
+def _convert_entry_test_to_read(entry_test: EntryTest, limit_questions: int = 10) -> EntryTestRead:
+    """
+    Convert EntryTest ORM object to EntryTestRead using proper Pydantic v2 approach.
+    Uses model_validate on individual components to avoid nested validation issues.
+    Randomly selects up to limit_questions questions if available.
+    """
+    # Step 1: Randomly select questions and convert with their nested options
+    all_questions = list(entry_test.questions)
+    
+    # Randomly select up to limit_questions questions, or all if fewer exist
+    selected_questions = random.sample(
+        all_questions, 
+        min(limit_questions, len(all_questions))
+    ) if all_questions else []
+    
+    questions_data = []
+    for question in selected_questions:
+        # Convert question options first using model_validate
+        options_data = [
+            EntryTestQuestionOptionRead.model_validate(option)
+            for option in question.options
+        ]
+        
+        # Create question read model manually to avoid nested validation conflicts
+        question_read = EntryTestQuestionRead(
+            id=question.id,
+            entry_test_id=question.entry_test_id,
+            content=question.content,
+            audio_url=question.audio_url,
+            image_url=question.image_url,
+            correct_answer=question.correct_answer,
+            explanation=question.explanation,
+            order_index=question.order_index,
+            created_at=question.created_at,
+            options=options_data
+        )
+        questions_data.append(question_read)
+    
+    # Step 2: Convert related course to proper Read model
+    related_course_read = None
+    if entry_test.related_course:
+        related_course_read = CourseRead.model_validate(entry_test.related_course)
+    
+    # Step 3: Create EntryTestRead with all properly converted nested objects
+    return EntryTestRead(
+        id=entry_test.id,
+        name=entry_test.name,
+        description=entry_test.description,
+        related_course_id=entry_test.related_course_id,
+        created_at=entry_test.created_at,
+        questions=questions_data,
+        related_course=related_course_read
+    )
 
 
 def determine_recommended_course(score: float) -> int:
@@ -45,29 +104,89 @@ def determine_recommended_course(score: float) -> int:
 async def get_entry_test(
     request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_user)]
+    current_user: Annotated[dict, Depends(get_current_user)],
+    limit: int = 10,
+    entry_test_id: Optional[int] = None
 ) -> EntryTestRead:
-    """Fetch entry test questions for the placement test."""
+    """Fetch entry test questions for the placement test. Returns random 10 questions by default.
+    If entry_test_id is provided, it will get questions from that specific entry test.
+    Otherwise, it will get questions from all available entry tests."""
     
-    # Get the first available entry test (you might want to make this more flexible)
-    stmt = (
-        select(EntryTest)
-        .options(
-            selectinload(EntryTest.questions).selectinload(EntryTestQuestion.options),
-            selectinload(EntryTest.related_course)
-        )
-        .limit(1)
-    )
+    # Get entry test(s) - either specific one or first available
+    if entry_test_id:
+        entry_test_stmt = select(EntryTest).where(EntryTest.id == entry_test_id).options(selectinload(EntryTest.related_course))
+    else:
+        # Get first available entry test for backward compatibility
+        entry_test_stmt = select(EntryTest).options(selectinload(EntryTest.related_course)).limit(1)
     
-    result = await db.execute(stmt)
-    entry_test = result.scalar_one_or_none()
+    entry_test_result = await db.execute(entry_test_stmt)
+    entry_test = entry_test_result.scalar_one_or_none()
     
     if not entry_test:
-        # Create a default entry test if none exists
-        # This is a fallback - in production you'd want to ensure tests exist
         raise NotFoundException("No entry test found. Please contact administrator.")
     
-    return EntryTestRead.model_validate(entry_test)
+    # Get random questions from all entry tests (if no specific entry_test_id) or just the specified one
+    if entry_test_id:
+        # Get questions from specific entry test
+        question_ids_stmt = select(EntryTestQuestion.id).where(EntryTestQuestion.entry_test_id == entry_test_id)
+    else:
+        # Get questions from all entry tests (ID 1-5 based on user's requirement)
+        question_ids_stmt = select(EntryTestQuestion.id).where(EntryTestQuestion.entry_test_id.in_([1, 2, 3, 4, 5]))
+    
+    question_ids_result = await db.execute(question_ids_stmt)
+    all_question_ids = [row[0] for row in question_ids_result.fetchall()]
+    
+    if not all_question_ids:
+        raise NotFoundException("No questions found for entry test(s).")
+    
+    # Select random question IDs (limit to 10 or fewer if not enough questions exist)
+    random_question_ids = random.sample(all_question_ids, min(limit, len(all_question_ids)))
+    
+    # Fetch the selected questions with their options
+    questions_stmt = (
+        select(EntryTestQuestion)
+        .options(selectinload(EntryTestQuestion.options))
+        .where(EntryTestQuestion.id.in_(random_question_ids))
+    )
+    questions_result = await db.execute(questions_stmt)
+    selected_questions = questions_result.scalars().all()
+    
+    # Manually create EntryTestRead with selected questions
+    questions_data = []
+    for question in selected_questions:
+        options_data = [
+            EntryTestQuestionOptionRead.model_validate(option)
+            for option in question.options
+        ]
+        
+        question_read = EntryTestQuestionRead(
+            id=question.id,
+            entry_test_id=question.entry_test_id,
+            content=question.content,
+            audio_url=question.audio_url,
+            image_url=question.image_url,
+            correct_answer=question.correct_answer,
+            explanation=question.explanation,
+            order_index=question.order_index,
+            created_at=question.created_at,
+            options=options_data
+        )
+        questions_data.append(question_read)
+    
+    # Convert related course to proper Read model
+    related_course_read = None
+    if entry_test.related_course:
+        related_course_read = CourseRead.model_validate(entry_test.related_course)
+    
+    return EntryTestRead(
+        id=entry_test.id,
+        name=entry_test.name,
+        description=entry_test.description,
+        related_course_id=entry_test.related_course_id,
+        created_at=entry_test.created_at,
+        questions=questions_data,
+        related_course=related_course_read
+    )
 
 
 @router.post("/entry-test/submit", response_model=EntryTestSubmitResponse)
@@ -92,34 +211,43 @@ async def submit_entry_test(
     if user.has_completed_entry_test:
         raise BadRequestException("User has already completed the entry test")
     
-    # Get entry test questions and options
-    entry_test_stmt = (
-        select(EntryTest)
-        .options(
-            selectinload(EntryTest.questions).selectinload(EntryTestQuestion.options)
-        )
-        .limit(1)
-    )
-    
+    # Get entry test (we only need basic info)
+    entry_test_stmt = select(EntryTest).limit(1)
     entry_test_result = await db.execute(entry_test_stmt)
     entry_test = entry_test_result.scalar_one_or_none()
     
     if not entry_test:
         raise NotFoundException("Entry test not found")
     
-    # Calculate score
-    correct_answers = 0
-    total_questions = len(entry_test.questions)
+    if not submission.answers:
+        raise BadRequestException("No answers provided")
     
-    if total_questions == 0:
-        raise BadRequestException("Entry test has no questions")
+    # Get the specific questions that were answered by the user
+    answered_question_ids = [answer.question_id for answer in submission.answers]
     
-    # Create a mapping of question_id to correct option_id
+    # Fetch questions and options for the specific questions user answered
+    questions_stmt = (
+        select(EntryTestQuestion)
+        .options(selectinload(EntryTestQuestion.options))
+        .where(EntryTestQuestion.id.in_(answered_question_ids))
+        .where(EntryTestQuestion.entry_test_id == entry_test.id)
+    )
+    questions_result = await db.execute(questions_stmt)
+    answered_questions = questions_result.scalars().all()
+    
+    if len(answered_questions) != len(submission.answers):
+        raise BadRequestException("Some answered questions not found or invalid")
+    
+    # Create a mapping of question_id to correct option_id for answered questions only
     correct_options = {}
-    for question in entry_test.questions:
+    for question in answered_questions:
         for option in question.options:
             if option.is_correct:
                 correct_options[question.id] = option.id
+    
+    # Calculate score based on answered questions only
+    correct_answers = 0
+    total_answered_questions = len(submission.answers)
     
     # Check submitted answers
     for answer in submission.answers:
@@ -127,8 +255,8 @@ async def submit_entry_test(
             if answer.selected_option_id == correct_options[answer.question_id]:
                 correct_answers += 1
     
-    # Calculate percentage score
-    score_percentage = (correct_answers / total_questions) * 100
+    # Calculate percentage score based on answered questions
+    score_percentage = (correct_answers / total_answered_questions) * 100
     
     # Determine recommended course
     recommended_course_id = determine_recommended_course(score_percentage)

@@ -7,6 +7,11 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import ProgrammingError
+import logging
+import asyncpg
+
+logger = logging.getLogger(__name__)
 
 from ..crud.crud_users import crud_users
 from .config import settings
@@ -91,9 +96,15 @@ async def verify_token(token: str, expected_token_type: TokenType, db: AsyncSess
     TokenData | None
         TokenData instance if the token is valid, None otherwise.
     """
-    is_blacklisted = await crud_token_blacklist.exists(db, token=token)
-    if is_blacklisted:
-        return None
+    # Check if token is blacklisted, handle case where table doesn't exist
+    try:
+        is_blacklisted = await crud_token_blacklist.exists(db, token=token)
+        if is_blacklisted:
+            return None
+    except (ProgrammingError, asyncpg.exceptions.UndefinedTableError) as e:
+        # Log the error and continue with token validation if table doesn't exist
+        logger.warning(f"Token blacklist table not found, continuing without blacklist check: {e}")
+        # Table doesn't exist yet, continue with normal token validation
 
     try:
         payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
@@ -121,17 +132,26 @@ async def blacklist_tokens(access_token: str, refresh_token: str, db: AsyncSessi
     db: AsyncSession
         Database session for performing database operations.
     """
-    for token in [access_token, refresh_token]:
+    try:
+        for token in [access_token, refresh_token]:
+            payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
+            exp_timestamp = payload.get("exp")
+            if exp_timestamp is not None:
+                expires_at = datetime.fromtimestamp(exp_timestamp)
+                await crud_token_blacklist.create(db, object=TokenBlacklistCreate(token=token, expires_at=expires_at))
+    except (ProgrammingError, asyncpg.exceptions.UndefinedTableError) as e:
+        logger.warning(f"Cannot blacklist tokens - table not found: {e}")
+        # Table doesn't exist yet, silently continue
+
+
+async def blacklist_token(token: str, db: AsyncSession) -> None:
+    """Blacklist a single token."""
+    try:
         payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
         exp_timestamp = payload.get("exp")
         if exp_timestamp is not None:
             expires_at = datetime.fromtimestamp(exp_timestamp)
             await crud_token_blacklist.create(db, object=TokenBlacklistCreate(token=token, expires_at=expires_at))
-
-
-async def blacklist_token(token: str, db: AsyncSession) -> None:
-    payload = jwt.decode(token, SECRET_KEY.get_secret_value(), algorithms=[ALGORITHM])
-    exp_timestamp = payload.get("exp")
-    if exp_timestamp is not None:
-        expires_at = datetime.fromtimestamp(exp_timestamp)
-        await crud_token_blacklist.create(db, object=TokenBlacklistCreate(token=token, expires_at=expires_at))
+    except (ProgrammingError, asyncpg.exceptions.UndefinedTableError) as e:
+        logger.warning(f"Cannot blacklist token - table not found: {e}")
+        # Table doesn't exist yet, silently continue
