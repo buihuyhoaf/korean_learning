@@ -12,12 +12,14 @@ class GoogleSignInRequest(BaseModel):
 class GoogleSignInResponse(BaseModel):
     """Response schema for Google Sign-In."""
     token: str
+    refresh_token: str | None = None
     token_type: str = "bearer"
 
 
 class GoogleAuthError(BaseModel):
     """Error schema for Google Authentication."""
     detail: str
+
 
 
 

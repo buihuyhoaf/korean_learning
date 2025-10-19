@@ -16,7 +16,7 @@ from ...core.google_auth import (
     extract_username_from_email,
     generate_password_for_google_user,
 )
-from ...core.security import create_access_token, get_password_hash
+from ...core.security import create_access_token, get_password_hash, create_refresh_token_with_storage
 from ...crud.crud_users import crud_users, create_user_safe
 from ...schemas.google_auth import (
     GoogleSignInRequest,
@@ -138,12 +138,14 @@ async def google_sign_in(
         existing_user = await crud_users.get(db=db, email=email)
         logger.info(f"[GOOGLE_AUTH_ENDPOINT] User exists check result: {existing_user is not None}")
         
+        user_id = None
         if existing_user:
-            # User exists, get username
+            # User exists, get username and user_id
             logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 4a: User exists, retrieving username...")
             existing_user = existing_user[0] if isinstance(existing_user, list) else existing_user
             username = existing_user["username"]
-            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Existing user username: {username}")
+            user_id = existing_user["id"]
+            logger.info(f"[GOOGLE_AUTH_ENDPOINT] Existing user username: {username}, user_id: {user_id}")
         else:
             # User doesn't exist, create new user
             logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 4b: User doesn't exist, creating new user...")
@@ -185,6 +187,7 @@ async def google_sign_in(
             new_user = await create_user_safe(db=db, user_data=user_data)
             logger.info(f"[GOOGLE_AUTH_ENDPOINT] User created successfully: {new_user}")
             username = new_user.username
+            user_id = new_user.id
         
         # Create JWT access token with 7 days expiration
         logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 5: Creating JWT access token for username: {username}")
@@ -193,10 +196,20 @@ async def google_sign_in(
             data={"sub": username}, 
             expires_delta=access_token_expires
         )
-        logger.info(f"[GOOGLE_AUTH_ENDPOINT] JWT token created successfully")
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] JWT access token created successfully")
+
+        # Create refresh token and store in database
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Step 6: Creating refresh token for user_id: {user_id}")
+        refresh_token = await create_refresh_token_with_storage(
+            data={"sub": username}, 
+            user_id=user_id, 
+            db=db
+        )
+        logger.info(f"[GOOGLE_AUTH_ENDPOINT] Refresh token created and stored successfully")
         
         response = GoogleSignInResponse(
             token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer"
         )
         

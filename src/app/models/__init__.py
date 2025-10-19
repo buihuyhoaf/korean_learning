@@ -1,5 +1,6 @@
 # Import all models to ensure they are registered with SQLAlchemy
 from .user import User
+from .user_refresh_token import UserRefreshToken
 from .course import Course, Unit, Lesson
 from .quiz import Quiz, QuestionType, Question, QuestionOption
 from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult, EntryTestResult, UserEntryTestHistory

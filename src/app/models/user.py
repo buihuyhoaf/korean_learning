@@ -43,3 +43,4 @@ class User(Base):
     leaderboard = relationship("Leaderboard", back_populates="user")
     ai_logs = relationship("AiLog", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
+    refresh_tokens = relationship("UserRefreshToken", back_populates="user", cascade="all, delete-orphan")
