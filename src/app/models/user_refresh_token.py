@@ -23,3 +23,4 @@ class UserRefreshToken(Base):
         Index('idx_user_refresh_tokens_expires_at', 'expires_at'),
     )
 
+

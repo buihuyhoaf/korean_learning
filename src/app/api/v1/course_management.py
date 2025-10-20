@@ -4,12 +4,14 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.course import Course, Lesson, Unit
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
+from ...models.quiz import Quiz, Question
 
 router = APIRouter(tags=["courses"])
 
@@ -73,7 +75,7 @@ async def get_courses(
     
     # Get courses
     from sqlalchemy import select, func
-    courses_query = select(Course).order_by(Course.order_index)
+    courses_query = select(Course).options(selectinload(Course.units)).order_by(Course.order_index)
     result = await db.execute(courses_query.offset(offset).limit(items_per_page))
     courses = result.scalars().all()
     total_result = await db.execute(select(func.count()).select_from(Course))
@@ -118,17 +120,27 @@ async def get_course(
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get a specific course with units and user progress"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    from sqlalchemy import select
+    
+    # Get course with units and their lessons
+    course_query = select(Course).options(
+        selectinload(Course.units).selectinload(Unit.lessons)
+    ).filter(Course.id == course_id)
+    course_result = await db.execute(course_query)
+    course = course_result.scalar_one_or_none()
+    
     if not course:
         raise NotFoundException("Course not found")
     
     # Get user progress
     user_progress = None
     if current_user:
-        user_progress = db.query(UserCourseProgress).filter(
+        progress_query = select(UserCourseProgress).filter(
             UserCourseProgress.user_id == current_user["id"],
             UserCourseProgress.course_id == course_id
-        ).first()
+        )
+        progress_result = await db.execute(progress_query)
+        user_progress = progress_result.scalar_one_or_none()
     
     # Get units with progress
     units_data = []
@@ -143,10 +155,12 @@ async def get_course(
         }
         
         if current_user:
-            unit_progress = db.query(UserUnitProgress).filter(
+            unit_progress_query = select(UserUnitProgress).filter(
                 UserUnitProgress.user_id == current_user["id"],
                 UserUnitProgress.unit_id == unit.id
-            ).first()
+            )
+            unit_progress_result = await db.execute(unit_progress_query)
+            unit_progress = unit_progress_result.scalar_one_or_none()
             unit_dict["progress"] = _convert_user_unit_progress_to_dict(unit_progress)
         
         units_data.append(unit_dict)
@@ -170,17 +184,30 @@ async def get_unit(
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get a specific unit with lessons and user progress"""
-    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    from sqlalchemy import select
+    
+    # Get unit with lessons and their related data
+    unit_query = select(Unit).options(
+        selectinload(Unit.lessons).selectinload(Lesson.quizzes),
+        selectinload(Unit.lessons).selectinload(Lesson.listening_exercises),
+        selectinload(Unit.lessons).selectinload(Lesson.speaking_exercises),
+        selectinload(Unit.lessons).selectinload(Lesson.writing_exercises)
+    ).filter(Unit.id == unit_id)
+    unit_result = await db.execute(unit_query)
+    unit = unit_result.scalar_one_or_none()
+    
     if not unit:
         raise NotFoundException("Unit not found")
     
     # Get user progress
     user_progress = None
     if current_user:
-        user_progress = db.query(UserUnitProgress).filter(
+        progress_query = select(UserUnitProgress).filter(
             UserUnitProgress.user_id == current_user["id"],
             UserUnitProgress.unit_id == unit_id
-        ).first()
+        )
+        progress_result = await db.execute(progress_query)
+        user_progress = progress_result.scalar_one_or_none()
     
     # Get lessons with progress
     lessons_data = []
@@ -196,10 +223,12 @@ async def get_unit(
         }
         
         if current_user:
-            lesson_progress = db.query(UserLessonProgress).filter(
+            lesson_progress_query = select(UserLessonProgress).filter(
                 UserLessonProgress.user_id == current_user["id"],
                 UserLessonProgress.lesson_id == lesson.id
-            ).first()
+            )
+            lesson_progress_result = await db.execute(lesson_progress_query)
+            lesson_progress = lesson_progress_result.scalar_one_or_none()
             lesson_dict["progress"] = _convert_user_lesson_progress_to_dict(lesson_progress)
         
         lessons_data.append(lesson_dict)
@@ -224,17 +253,30 @@ async def get_lesson(
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get a specific lesson with quizzes, exercises and user progress"""
-    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    from sqlalchemy import select
+    
+    # Get lesson with all related data
+    lesson_query = select(Lesson).options(
+        selectinload(Lesson.quizzes).selectinload(Quiz.questions),
+        selectinload(Lesson.listening_exercises),
+        selectinload(Lesson.speaking_exercises),
+        selectinload(Lesson.writing_exercises)
+    ).filter(Lesson.id == lesson_id)
+    lesson_result = await db.execute(lesson_query)
+    lesson = lesson_result.scalar_one_or_none()
+    
     if not lesson:
         raise NotFoundException("Lesson not found")
     
     # Get user progress
     user_progress = None
     if current_user:
-        user_progress = db.query(UserLessonProgress).filter(
+        progress_query = select(UserLessonProgress).filter(
             UserLessonProgress.user_id == current_user["id"],
             UserLessonProgress.lesson_id == lesson_id
-        ).first()
+        )
+        progress_result = await db.execute(progress_query)
+        user_progress = progress_result.scalar_one_or_none()
     
     # Get quizzes
     quizzes_data = []
@@ -304,7 +346,12 @@ async def update_course(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Update a course (Admin only)"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    from sqlalchemy import select
+    
+    course_query = select(Course).filter(Course.id == course_id)
+    course_result = await db.execute(course_query)
+    course = course_result.scalar_one_or_none()
+    
     if not course:
         raise NotFoundException("Course not found")
     
@@ -312,8 +359,8 @@ async def update_course(
     course.description = course_data.get("description", course.description)
     course.order_index = course_data.get("order_index", course.order_index)
     
-    db.commit()
-    db.refresh(course)
+    await db.commit()
+    await db.refresh(course)
     
     return {"message": "Course updated successfully"}
 
@@ -325,12 +372,17 @@ async def delete_course(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Delete a course (Admin only)"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    from sqlalchemy import select
+    
+    course_query = select(Course).filter(Course.id == course_id)
+    course_result = await db.execute(course_query)
+    course = course_result.scalar_one_or_none()
+    
     if not course:
         raise NotFoundException("Course not found")
     
     db.delete(course)
-    db.commit()
+    await db.commit()
     
     return {"message": "Course deleted successfully"}
 
@@ -343,7 +395,12 @@ async def create_unit(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Create a new unit (Admin only)"""
-    course = db.query(Course).filter(Course.id == course_id).first()
+    from sqlalchemy import select
+    
+    course_query = select(Course).filter(Course.id == course_id)
+    course_result = await db.execute(course_query)
+    course = course_result.scalar_one_or_none()
+    
     if not course:
         raise NotFoundException("Course not found")
     
@@ -354,8 +411,8 @@ async def create_unit(
         order_index=unit_data.get("order_index", 0)
     )
     db.add(unit)
-    db.commit()
-    db.refresh(unit)
+    await db.commit()
+    await db.refresh(unit)
     
     return {
         "id": unit.id,
@@ -375,7 +432,12 @@ async def create_lesson(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Create a new lesson (Admin only)"""
-    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    from sqlalchemy import select
+    
+    unit_query = select(Unit).filter(Unit.id == unit_id)
+    unit_result = await db.execute(unit_query)
+    unit = unit_result.scalar_one_or_none()
+    
     if not unit:
         raise NotFoundException("Unit not found")
     
@@ -386,8 +448,8 @@ async def create_lesson(
         order_index=lesson_data.get("order_index", 0)
     )
     db.add(lesson)
-    db.commit()
-    db.refresh(lesson)
+    await db.commit()
+    await db.refresh(lesson)
     
     return {
         "id": lesson.id,
