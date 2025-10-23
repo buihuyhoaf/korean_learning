@@ -9,7 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
-from ...models.quiz import Quiz
+from ...models.quiz import Quiz, Question, QuestionOption, QuestionType
+from ...models.exercise import ListeningExercise, SpeakingExercise, WritingExercise
+from ...models.user import User
+from ...models.progress import UserQuizAttempt, UserQuestionAttempt, UserQuestionError
 
 router = APIRouter(tags=["quiz_exercises"])
 
@@ -23,7 +26,17 @@ async def get_quiz(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Get quiz details with questions and options"""
-    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    
+    # Get quiz with questions and options
+    quiz_query = select(Quiz).options(
+        selectinload(Quiz.questions).selectinload(Question.options),
+        selectinload(Quiz.questions).selectinload(Question.question_type)
+    ).filter(Quiz.id == quiz_id)
+    quiz_result = await db.execute(quiz_query)
+    quiz = quiz_result.scalar_one_or_none()
+    
     if not quiz:
         raise NotFoundException("Quiz not found")
     
@@ -74,7 +87,12 @@ async def submit_quiz_attempt(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Submit quiz answers and get results"""
-    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    from sqlalchemy import select
+    
+    quiz_query = select(Quiz).filter(Quiz.id == quiz_id)
+    quiz_result = await db.execute(quiz_query)
+    quiz = quiz_result.scalar_one_or_none()
+    
     if not quiz:
         raise NotFoundException("Quiz not found")
     
@@ -112,10 +130,12 @@ async def submit_quiz_attempt(
         
         # Update or create question error record for incorrect answers
         if not is_correct:
-            error_record = db.query(UserQuestionError).filter(
+            error_query = select(UserQuestionError).filter(
                 UserQuestionError.user_id == current_user["id"],
                 UserQuestionError.question_id == question.id
-            ).first()
+            )
+            error_result = await db.execute(error_query)
+            error_record = error_result.scalar_one_or_none()
             
             if error_record:
                 error_record.last_wrong_answer = user_answer
@@ -141,8 +161,11 @@ async def submit_quiz_attempt(
     quiz_attempt.completed_at = datetime.now(UTC)
     
     # Update user EXP
-    user = db.query(User).filter(User.id == current_user["id"]).first()
-    user.exp += exp_earned
+    user_query = select(User).filter(User.id == current_user["id"])
+    user_result = await db.execute(user_query)
+    user = user_result.scalar_one_or_none()
+    if user:
+        user.exp += exp_earned
     
     db.commit()
     
@@ -172,7 +195,9 @@ async def get_listening_exercise(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Get listening exercise details"""
-    exercise = db.query(ListeningExercise).filter(ListeningExercise.id == exercise_id).first()
+    exercise_query = select(ListeningExercise).filter(ListeningExercise.id == exercise_id)
+    exercise_result = await db.execute(exercise_query)
+    exercise = exercise_result.scalar_one_or_none()
     if not exercise:
         raise NotFoundException("Listening exercise not found")
     
@@ -193,7 +218,9 @@ async def get_speaking_exercise(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Get speaking exercise details"""
-    exercise = db.query(SpeakingExercise).filter(SpeakingExercise.id == exercise_id).first()
+    exercise_query = select(SpeakingExercise).filter(SpeakingExercise.id == exercise_id)
+    exercise_result = await db.execute(exercise_query)
+    exercise = exercise_result.scalar_one_or_none()
     if not exercise:
         raise NotFoundException("Speaking exercise not found")
     
@@ -214,7 +241,9 @@ async def get_writing_exercise(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Get writing exercise details"""
-    exercise = db.query(WritingExercise).filter(WritingExercise.id == exercise_id).first()
+    exercise_query = select(WritingExercise).filter(WritingExercise.id == exercise_id)
+    exercise_result = await db.execute(exercise_query)
+    exercise = exercise_result.scalar_one_or_none()
     if not exercise:
         raise NotFoundException("Writing exercise not found")
     
@@ -237,22 +266,29 @@ async def get_user_quiz_attempts(
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get user's quiz attempts (own attempts or admin view)"""
+    from sqlalchemy import func
+    
     # Check if user can view these attempts
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own quiz attempts")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_query = select(User).filter(User.username == username)
+    user_result = await db.execute(user_query)
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     offset = compute_offset(page, items_per_page)
     
-    attempts_query = db.query(UserQuizAttempt).filter(
+    attempts_query = select(UserQuizAttempt).filter(
         UserQuizAttempt.user_id == user.id
     ).order_by(UserQuizAttempt.started_at.desc())
     
-    attempts = attempts_query.offset(offset).limit(items_per_page).all()
-    total = attempts_query.count()
+    attempts_result = await db.execute(attempts_query.offset(offset).limit(items_per_page))
+    attempts = attempts_result.scalars().all()
+    
+    total_result = await db.execute(select(func.count()).select_from(UserQuizAttempt).filter(UserQuizAttempt.user_id == user.id))
+    total = total_result.scalar()
     
     attempts_data = []
     for attempt in attempts:
@@ -313,7 +349,9 @@ async def create_question(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Create a new question for a quiz (Admin only)"""
-    quiz = db.query(Quiz).filter(Quiz.id == quiz_id).first()
+    quiz_query = select(Quiz).filter(Quiz.id == quiz_id)
+    quiz_result = await db.execute(quiz_query)
+    quiz = quiz_result.scalar_one_or_none()
     if not quiz:
         raise NotFoundException("Quiz not found")
     
