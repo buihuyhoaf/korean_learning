@@ -4,7 +4,9 @@ from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
@@ -26,8 +28,6 @@ async def get_quiz(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Get quiz details with questions and options"""
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
     
     # Get quiz with questions and options
     quiz_query = select(Quiz).options(
@@ -87,7 +87,6 @@ async def submit_quiz_attempt(
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
     """Submit quiz answers and get results"""
-    from sqlalchemy import select
     
     quiz_query = select(Quiz).filter(Quiz.id == quiz_id)
     quiz_result = await db.execute(quiz_query)
@@ -266,7 +265,6 @@ async def get_user_quiz_attempts(
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get user's quiz attempts (own attempts or admin view)"""
-    from sqlalchemy import func
     
     # Check if user can view these attempts
     if current_user["username"] != username and current_user["role"] != "admin":
