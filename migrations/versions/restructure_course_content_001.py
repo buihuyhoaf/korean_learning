@@ -90,3 +90,4 @@ def downgrade():
     op.drop_column('quizzes', 'unit_id')
     op.drop_column('questions', 'question_type')
     op.drop_column('questions', 'lesson_id')
+

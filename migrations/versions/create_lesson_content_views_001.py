@@ -97,3 +97,4 @@ def downgrade():
     """Remove views."""
     op.execute("DROP VIEW IF EXISTS unit_test_quizzes")
     op.execute("DROP VIEW IF EXISTS lesson_content")
+

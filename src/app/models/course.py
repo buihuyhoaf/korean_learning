@@ -35,6 +35,7 @@ class Unit(Base):
     course = relationship("Course", back_populates="units")
     lessons = relationship("Lesson", back_populates="unit")
     user_progress = relationship("UserUnitProgress", back_populates="unit")
+    final_quiz = relationship("FinalQuiz", back_populates="unit", uselist=False)
 
 
 class Lesson(Base):
@@ -49,8 +50,11 @@ class Lesson(Base):
 
     # Relationships
     unit = relationship("Unit", back_populates="lessons")
-    quizzes = relationship("Quiz", back_populates="lesson")
-    listening_exercises = relationship("ListeningExercise", back_populates="lesson")
-    speaking_exercises = relationship("SpeakingExercise", back_populates="lesson")
-    writing_exercises = relationship("WritingExercise", back_populates="lesson")
+    # Updated: old exercise relationships removed since tables were dropped
+    # listening_exercises = relationship("ListeningExercise", back_populates="lesson")  # REMOVED
+    # speaking_exercises = relationship("SpeakingExercise", back_populates="lesson")    # REMOVED
+    # writing_exercises = relationship("WritingExercise", back_populates="lesson")       # REMOVED
     user_progress = relationship("UserLessonProgress", back_populates="lesson")
+    # New relationships
+    questions = relationship("Question", back_populates="lesson")
+    exercises = relationship("Exercise", back_populates="lesson")

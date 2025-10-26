@@ -57,7 +57,7 @@ class UserQuizAttempt(Base):
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id"), nullable=False)
+    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("final_quizzes.id"), nullable=False)  # Updated FK
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     score: Mapped[float] = mapped_column(Float, default=0.0)
     exp_earned: Mapped[int] = mapped_column(Integer, default=0)
@@ -65,7 +65,7 @@ class UserQuizAttempt(Base):
 
     # Relationships
     user = relationship("User", back_populates="quiz_attempts")
-    quiz = relationship("Quiz", back_populates="user_attempts")
+    quiz = relationship("FinalQuiz", back_populates="user_attempts")  # Updated to FinalQuiz
     question_attempts = relationship("UserQuestionAttempt", back_populates="quiz_attempt")
 
 

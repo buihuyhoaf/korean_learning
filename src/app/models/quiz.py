@@ -6,21 +6,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.db.database import Base
 
 
-class Quiz(Base):
-    __tablename__ = "quizzes"
-
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=False)
-    title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text)
-    type: Mapped[str] = mapped_column(String(50))  # vocabulary, listening, speaking, writing
-    order_index: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-
-    # Relationships
-    lesson = relationship("Lesson", back_populates="quizzes")
-    questions = relationship("Question", back_populates="quiz")
-    user_attempts = relationship("UserQuizAttempt", back_populates="quiz")
+# OLD Quiz model - DEPRECATED after manual schema changes
+# Use FinalQuiz model instead
+# class Quiz(Base):
+#     __tablename__ = "quizzes"
+#     # ... old implementation removed
 
 
 class QuestionType(Base):
@@ -38,7 +28,11 @@ class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("quizzes.id"), nullable=False)
+    # New fields added by manual schema changes
+    lesson_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=True)
+    question_type: Mapped[str] = mapped_column(String(50), default="practice")
+    # Keep quiz_id for backward compatibility
+    quiz_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("final_quizzes.id"), nullable=True)
     question_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("question_types.id"), nullable=False)
     content: Mapped[str] = mapped_column(Text)
     audio_url: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -49,7 +43,8 @@ class Question(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
     # Relationships
-    quiz = relationship("Quiz", back_populates="questions")
+    lesson = relationship("Lesson", back_populates="questions")
+    quiz = relationship("FinalQuiz", back_populates="questions")  # Updated to FinalQuiz
     question_type = relationship("QuestionType", back_populates="questions")
     options = relationship("QuestionOption", back_populates="question")
     user_attempts = relationship("UserQuestionAttempt", back_populates="question")
