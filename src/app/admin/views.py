@@ -8,8 +8,9 @@ from ..core.security import get_password_hash
 from ..models.tier import Tier
 from ..models.user import User
 from ..models.course import Course, Unit, Lesson
-from ..models.quiz import Quiz, QuestionType, Question, QuestionOption
-from ..models.exercise import ListeningExercise, SpeakingExercise, WritingExercise
+from ..models.quiz import QuestionType, Question, QuestionOption
+from ..models.final_quiz import FinalQuiz
+from ..models.exercise import Exercise
 from ..models.progress import (
     UserCourseProgress, 
     UserUnitProgress, 
@@ -42,8 +43,10 @@ from ..models.entry_test import (
 from ..schemas.user import UserCreate, UserCreateInternal, UserUpdate
 from ..schemas.course import CourseCreate, CourseUpdate
 from ..schemas.lesson import LessonCreate, LessonUpdate
-from ..schemas.quiz import QuizCreate, QuizUpdate
+from ..schemas.final_quiz import FinalQuizCreate, FinalQuizUpdate
 from ..schemas.unit import UnitCreate, UnitUpdate
+from ..schemas.exercise import ExerciseCreate, ExerciseUpdate
+from ..schemas.question import QuestionCreate, QuestionUpdate, QuestionOptionCreate, QuestionOptionResponse, QuestionTypeCreate, QuestionTypeUpdate
 from ..schemas.progress import ProgressCreate, ProgressUpdate
 from ..schemas.ai_chat_history import AIChatHistoryCreate, AIChatHistoryUpdate
 from ..schemas.entry_test import (
@@ -109,11 +112,43 @@ def register_admin_views(admin: CRUDAdmin) -> None:
         allowed_actions={"view", "create", "update", "delete"},
     )
 
-    # Quiz Management
+    # Final Quiz Management
     admin.add_view(
-        model=Quiz,
-        create_schema=QuizCreate,
-        update_schema=QuizUpdate,
+        model=FinalQuiz,
+        create_schema=FinalQuizCreate,
+        update_schema=FinalQuizUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Exercise Management
+    admin.add_view(
+        model=Exercise,
+        create_schema=ExerciseCreate,
+        update_schema=ExerciseUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Management
+    admin.add_view(
+        model=Question,
+        create_schema=QuestionCreate,
+        update_schema=QuestionUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Option Management
+    admin.add_view(
+        model=QuestionOption,
+        create_schema=QuestionOptionCreate,
+        update_schema=QuestionOptionResponse,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Type Management
+    admin.add_view(
+        model=QuestionType,
+        create_schema=QuestionTypeCreate,
+        update_schema=QuestionTypeUpdate,
         allowed_actions={"view", "create", "update", "delete"},
     )
 

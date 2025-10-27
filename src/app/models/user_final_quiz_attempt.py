@@ -21,7 +21,7 @@ class UserFinalQuizAttempt(Base):
 
     # Relationships
     user = relationship("User", back_populates="final_quiz_attempts")
-    final_quiz = relationship("FinalQuiz", back_populates="user_attempts")
+    final_quiz = relationship("FinalQuiz", back_populates="final_quiz_attempts")
 
     # Indexes for better performance
     __table_args__ = (

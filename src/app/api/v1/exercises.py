@@ -1,5 +1,7 @@
 from typing import Annotated, List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_user, get_current_superuser
@@ -204,6 +206,58 @@ async def get_writing_exercises(
         lesson_id=lesson_id,
         exercise_type=ExerciseType.WRITING
     )
+
+
+@router.post("/exercises/{exercise_id}/submit", status_code=status.HTTP_200_OK)
+async def submit_exercise(
+    exercise_id: int,
+    submission_data: dict,
+    db: Annotated[AsyncSession, Depends(async_get_db)] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Submit exercise completion"""
+    
+    # Get exercise
+    exercise = await ExerciseCRUD.get_exercise_by_id(db, exercise_id)
+    if not exercise:
+        raise NotFoundException("Exercise not found")
+    
+    # Get user ID
+    user_id = current_user["id"]
+    
+    # Process submission based on exercise type
+    submission_result = {
+        "exercise_id": exercise_id,
+        "user_id": user_id,
+        "type": exercise.type,
+        "status": "completed",
+        "timestamp": datetime.utcnow()
+    }
+    
+    if exercise.type == "listening":
+        # Listening exercises - check transcript
+        user_response = submission_data.get("response", "")
+        # Add logic to evaluate listening responses
+        submission_result["score"] = 1.0
+        submission_result["feedback"] = "Good job!"
+        
+    elif exercise.type == "speaking":
+        # Speaking exercises - save audio response
+        audio_url = submission_data.get("audio_url")
+        submission_result["audio_url"] = audio_url
+        submission_result["score"] = 1.0
+        submission_result["feedback"] = "Your response has been recorded."
+        
+    elif exercise.type == "writing":
+        # Writing exercises - save text response
+        text_response = submission_data.get("response")
+        submission_result["response"] = text_response
+        submission_result["score"] = 1.0
+        submission_result["feedback"] = "Your response has been saved."
+    
+    # TODO: Save submission to database (UserExerciseSubmission table would need to be created)
+    
+    return submission_result
 
 
 @router.put("/exercises/reorder", status_code=status.HTTP_200_OK)

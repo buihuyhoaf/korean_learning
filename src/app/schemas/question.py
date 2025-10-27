@@ -3,6 +3,30 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class QuestionTypeBase(BaseModel):
+    """Base schema for QuestionType"""
+    name: str = Field(..., min_length=1, max_length=100, description="Question type name")
+    description: str = Field(..., min_length=1, description="Question type description")
+
+
+class QuestionTypeCreate(QuestionTypeBase):
+    """Schema for creating a new question type"""
+    model_config = ConfigDict(extra="forbid")
+
+
+class QuestionTypeUpdate(BaseModel):
+    """Schema for updating a question type"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Question type name")
+    description: Optional[str] = Field(None, min_length=1, description="Question type description")
+    model_config = ConfigDict(extra="forbid")
+
+
+class QuestionTypeResponse(QuestionTypeBase):
+    """Schema for reading question type data"""
+    id: int = Field(..., description="Question type ID")
+    model_config = ConfigDict(from_attributes=True)
+
+
 class QuestionOptionBase(BaseModel):
     option_text: str
     is_correct: bool = False

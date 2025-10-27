@@ -11,8 +11,9 @@ from sqlalchemy.orm import selectinload
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
-from ...models.quiz import Quiz, Question, QuestionOption, QuestionType
-from ...models.exercise import ListeningExercise, SpeakingExercise, WritingExercise
+from ...models.final_quiz import FinalQuiz
+from ...models.quiz import Question, QuestionOption, QuestionType
+from ...models.exercise import Exercise
 from ...models.user import User
 from ...models.progress import UserQuizAttempt, UserQuestionAttempt, UserQuestionError
 
@@ -30,10 +31,10 @@ async def get_quiz(
     """Get quiz details with questions and options"""
     
     # Get quiz with questions and options
-    quiz_query = select(Quiz).options(
-        selectinload(Quiz.questions).selectinload(Question.options),
-        selectinload(Quiz.questions).selectinload(Question.question_type)
-    ).filter(Quiz.id == quiz_id)
+    quiz_query = select(FinalQuiz).options(
+        selectinload(FinalQuiz.questions).selectinload(Question.options),
+        selectinload(FinalQuiz.questions).selectinload(Question.question_type)
+    ).filter(FinalQuiz.id == quiz_id)
     quiz_result = await db.execute(quiz_query)
     quiz = quiz_result.scalar_one_or_none()
     
@@ -88,7 +89,7 @@ async def submit_quiz_attempt(
 ) -> dict:
     """Submit quiz answers and get results"""
     
-    quiz_query = select(Quiz).filter(Quiz.id == quiz_id)
+    quiz_query = select(FinalQuiz).filter(FinalQuiz.id == quiz_id)
     quiz_result = await db.execute(quiz_query)
     quiz = quiz_result.scalar_one_or_none()
     
@@ -317,7 +318,7 @@ async def create_quiz(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Create a new quiz (Admin only)"""
-    quiz = Quiz(
+    quiz = FinalQuiz(
         lesson_id=quiz_data["lesson_id"],
         title=quiz_data["title"],
         description=quiz_data["description"],
@@ -347,7 +348,7 @@ async def create_question(
     db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> dict:
     """Create a new question for a quiz (Admin only)"""
-    quiz_query = select(Quiz).filter(Quiz.id == quiz_id)
+    quiz_query = select(FinalQuiz).filter(FinalQuiz.id == quiz_id)
     quiz_result = await db.execute(quiz_query)
     quiz = quiz_result.scalar_one_or_none()
     if not quiz:

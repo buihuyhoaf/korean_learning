@@ -38,9 +38,8 @@ class UserFinalQuizAttemptComplete(BaseModel):
 class UserFinalQuizAttemptRead(UserFinalQuizAttemptBase):
     """Schema for reading final quiz attempt data"""
     id: int = Field(..., description="Attempt ID")
-    started_at: datetime = Field(..., description="When the attempt was started")
-    completed_at: Optional[datetime] = Field(None, description="When the attempt was completed")
-    is_completed: bool = Field(..., description="Whether the attempt is completed")
+    started_at: datetime = Field(..., description="Start timestamp")
+    completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,22 +57,14 @@ class UserFinalQuizAttemptListResponse(BaseModel):
     attempts: list[UserFinalQuizAttemptWithDetails] = Field(..., description="List of attempts")
     total: int = Field(..., description="Total number of attempts")
     user_id: int = Field(..., description="User ID")
-    completed_count: int = Field(..., description="Number of completed attempts")
-    average_score: Optional[float] = Field(None, description="Average score across completed attempts")
 
 
-class FinalQuizAttemptStartResponse(BaseModel):
-    """Response schema for starting a final quiz attempt"""
-    attempt_id: int = Field(..., description="ID of the created attempt")
-    final_quiz_id: int = Field(..., description="ID of the final quiz")
-    started_at: datetime = Field(..., description="When the attempt was started")
-    message: str = Field(..., description="Success message")
-
-
-class FinalQuizAttemptCompleteResponse(BaseModel):
-    """Response schema for completing a final quiz attempt"""
-    attempt_id: int = Field(..., description="ID of the completed attempt")
-    score: float = Field(..., description="Final score achieved")
-    exp_earned: int = Field(..., description="Experience points earned")
-    completed_at: datetime = Field(..., description="When the attempt was completed")
-    message: str = Field(..., description="Success message")
+class UserFinalQuizAttemptStatsResponse(BaseModel):
+    """Response schema for final quiz attempt statistics"""
+    user_id: int = Field(..., description="User ID")
+    total_attempts: int = Field(..., description="Total number of attempts")
+    completed_attempts: int = Field(..., description="Number of completed attempts")
+    average_score: Optional[float] = Field(None, description="Average score across all attempts")
+    total_exp_earned: int = Field(..., description="Total experience points earned")
+    best_score: Optional[float] = Field(None, description="Best score achieved")
+    latest_attempt: Optional[datetime] = Field(None, description="Latest attempt timestamp")

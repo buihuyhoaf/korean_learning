@@ -5,13 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..models.user_final_quiz_attempt import UserFinalQuizAttempt
+from ..models.user import User
 from ..models.final_quiz import FinalQuiz
 from ..models.course import Unit, Course
 from ..schemas.user_final_quiz_attempt import (
     UserFinalQuizAttemptCreate, 
     UserFinalQuizAttemptUpdate,
-    UserFinalQuizAttemptWithDetails,
-    UserFinalQuizAttemptListResponse
+    UserFinalQuizAttemptComplete,
+    UserFinalQuizAttemptStatsResponse
 )
 
 
@@ -26,13 +27,21 @@ class UserFinalQuizAttemptCRUD:
     ) -> UserFinalQuizAttempt:
         """Create a new final quiz attempt"""
         
-        # Check if user already has an incomplete attempt for this quiz
-        existing_attempt = await UserFinalQuizAttemptCRUD.get_incomplete_attempt(
-            db, user_id, final_quiz_id
-        )
-        if existing_attempt:
-            return existing_attempt
+        # Check if user exists
+        user_query = select(User).where(User.id == user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise ValueError(f"User with ID {user_id} not found")
         
+        # Check if final quiz exists
+        quiz_query = select(FinalQuiz).where(FinalQuiz.id == final_quiz_id)
+        quiz_result = await db.execute(quiz_query)
+        quiz = quiz_result.scalar_one_or_none()
+        if not quiz:
+            raise ValueError(f"Final quiz with ID {final_quiz_id} not found")
+        
+        # Create attempt
         attempt = UserFinalQuizAttempt(
             user_id=user_id,
             final_quiz_id=final_quiz_id,
@@ -51,7 +60,7 @@ class UserFinalQuizAttemptCRUD:
         score: float,
         exp_earned: int
     ) -> Optional[UserFinalQuizAttempt]:
-        """Update attempt with final score and mark as completed"""
+        """Update attempt with final score and experience"""
         
         attempt = await UserFinalQuizAttemptCRUD.get_attempt_by_id(db, attempt_id)
         if not attempt:
@@ -66,27 +75,39 @@ class UserFinalQuizAttemptCRUD:
         return attempt
     
     @staticmethod
+    async def complete_attempt(
+        db: AsyncSession,
+        attempt_id: int,
+        completion_data: UserFinalQuizAttemptComplete
+    ) -> Optional[UserFinalQuizAttempt]:
+        """Complete a final quiz attempt"""
+        
+        return await UserFinalQuizAttemptCRUD.update_attempt_score(
+            db, attempt_id, completion_data.score, completion_data.exp_earned
+        )
+    
+    @staticmethod
     async def get_attempts_by_user(
         db: AsyncSession,
         user_id: int,
         skip: int = 0,
         limit: int = 100,
-        include_completed_only: bool = False
+        include_details: bool = True
     ) -> List[UserFinalQuizAttempt]:
         """Get all final quiz attempts for a user"""
         
         query = (
             select(UserFinalQuizAttempt)
-            .options(
-                selectinload(UserFinalQuizAttempt.final_quiz).selectinload(FinalQuiz.unit).selectinload(Unit.course)
-            )
             .where(UserFinalQuizAttempt.user_id == user_id)
+            .order_by(desc(UserFinalQuizAttempt.started_at))
+            .offset(skip)
+            .limit(limit)
         )
         
-        if include_completed_only:
-            query = query.where(UserFinalQuizAttempt.completed_at.isnot(None))
-        
-        query = query.order_by(desc(UserFinalQuizAttempt.started_at)).offset(skip).limit(limit)
+        if include_details:
+            query = query.options(
+                selectinload(UserFinalQuizAttempt.final_quiz).selectinload(FinalQuiz.unit).selectinload(Unit.course)
+            )
         
         result = await db.execute(query)
         return result.scalars().all()
@@ -118,40 +139,17 @@ class UserFinalQuizAttemptCRUD:
         db: AsyncSession,
         attempt_id: int
     ) -> Optional[UserFinalQuizAttempt]:
-        """Get attempt by ID"""
+        """Get a specific attempt by ID"""
         
         query = select(UserFinalQuizAttempt).where(UserFinalQuizAttempt.id == attempt_id)
         result = await db.execute(query)
         return result.scalar_one_or_none()
     
     @staticmethod
-    async def get_incomplete_attempt(
-        db: AsyncSession,
-        user_id: int,
-        final_quiz_id: int
-    ) -> Optional[UserFinalQuizAttempt]:
-        """Get user's incomplete attempt for a specific final quiz"""
-        
-        query = (
-            select(UserFinalQuizAttempt)
-            .where(
-                and_(
-                    UserFinalQuizAttempt.user_id == user_id,
-                    UserFinalQuizAttempt.final_quiz_id == final_quiz_id,
-                    UserFinalQuizAttempt.completed_at.is_(None)
-                )
-            )
-            .order_by(desc(UserFinalQuizAttempt.started_at))
-        )
-        
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
-    
-    @staticmethod
-    async def get_attempt_stats_by_user(
+    async def get_user_attempt_stats(
         db: AsyncSession,
         user_id: int
-    ) -> dict:
+    ) -> UserFinalQuizAttemptStatsResponse:
         """Get final quiz attempt statistics for a user"""
         
         # Total attempts
@@ -188,57 +186,55 @@ class UserFinalQuizAttemptCRUD:
         total_exp_result = await db.execute(total_exp_query)
         total_exp_earned = total_exp_result.scalar() or 0
         
-        return {
-            "total_attempts": total_attempts,
-            "completed_attempts": completed_attempts,
-            "incomplete_attempts": total_attempts - completed_attempts,
-            "average_score": float(average_score) if average_score else None,
-            "total_exp_earned": total_exp_earned,
-            "completion_rate": (completed_attempts / total_attempts * 100) if total_attempts > 0 else 0
-        }
+        # Best score
+        best_score_query = select(func.max(UserFinalQuizAttempt.score)).where(
+            and_(
+                UserFinalQuizAttempt.user_id == user_id,
+                UserFinalQuizAttempt.completed_at.isnot(None)
+            )
+        )
+        best_score_result = await db.execute(best_score_query)
+        best_score = best_score_result.scalar()
+        
+        # Latest attempt
+        latest_query = select(func.max(UserFinalQuizAttempt.started_at)).where(
+            UserFinalQuizAttempt.user_id == user_id
+        )
+        latest_result = await db.execute(latest_query)
+        latest_attempt = latest_result.scalar()
+        
+        return UserFinalQuizAttemptStatsResponse(
+            user_id=user_id,
+            total_attempts=total_attempts,
+            completed_attempts=completed_attempts,
+            average_score=average_score,
+            total_exp_earned=total_exp_earned,
+            best_score=best_score,
+            latest_attempt=latest_attempt
+        )
     
     @staticmethod
-    async def get_attempts_with_details(
+    async def get_active_attempt(
         db: AsyncSession,
         user_id: int,
-        skip: int = 0,
-        limit: int = 100
-    ) -> UserFinalQuizAttemptListResponse:
-        """Get attempts with detailed information"""
+        final_quiz_id: int
+    ) -> Optional[UserFinalQuizAttempt]:
+        """Get user's active (incomplete) attempt for a final quiz"""
         
-        attempts = await UserFinalQuizAttemptCRUD.get_attempts_by_user(
-            db, user_id, skip, limit
-        )
-        
-        # Get statistics
-        stats = await UserFinalQuizAttemptCRUD.get_attempt_stats_by_user(db, user_id)
-        
-        # Format attempts with details
-        attempts_with_details = []
-        for attempt in attempts:
-            attempt_detail = UserFinalQuizAttemptWithDetails(
-                id=attempt.id,
-                user_id=attempt.user_id,
-                final_quiz_id=attempt.final_quiz_id,
-                score=attempt.score,
-                exp_earned=attempt.exp_earned,
-                started_at=attempt.started_at,
-                completed_at=attempt.completed_at,
-                is_completed=attempt.completed_at is not None,
-                final_quiz_title=attempt.final_quiz.title if attempt.final_quiz else None,
-                final_quiz_description=attempt.final_quiz.description if attempt.final_quiz else None,
-                unit_title=attempt.final_quiz.unit.title if attempt.final_quiz and attempt.final_quiz.unit else None,
-                course_title=attempt.final_quiz.unit.course.title if attempt.final_quiz and attempt.final_quiz.unit and attempt.final_quiz.unit.course else None
+        query = (
+            select(UserFinalQuizAttempt)
+            .where(
+                and_(
+                    UserFinalQuizAttempt.user_id == user_id,
+                    UserFinalQuizAttempt.final_quiz_id == final_quiz_id,
+                    UserFinalQuizAttempt.completed_at.is_(None)
+                )
             )
-            attempts_with_details.append(attempt_detail)
-        
-        return UserFinalQuizAttemptListResponse(
-            attempts=attempts_with_details,
-            total=stats["total_attempts"],
-            user_id=user_id,
-            completed_count=stats["completed_attempts"],
-            average_score=stats["average_score"]
+            .order_by(desc(UserFinalQuizAttempt.started_at))
         )
+        
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
     
     @staticmethod
     async def delete_attempt(

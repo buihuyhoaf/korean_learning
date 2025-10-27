@@ -1,8 +1,10 @@
 # src/app/api/v1/course_management.py
-from typing import Annotated, Any, cast
+from typing import Annotated, List, Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -11,12 +13,18 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.course import Course, Lesson, Unit
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
-from ...models.quiz import Quiz, Question
+from ...models.final_quiz import FinalQuiz
+from ...models.exercise import Exercise
+from ...crud.progress_tracking import ProgressTrackingCRUD
 
-router = APIRouter(tags=["courses"])
+router = APIRouter(tags=["courses-units-lessons"])
 
 
-def _convert_user_course_progress_to_dict(progress: UserCourseProgress) -> dict:
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def _convert_user_course_progress_to_dict(progress: Optional[UserCourseProgress]) -> Optional[dict]:
     """Convert UserCourseProgress ORM object to dictionary."""
     if not progress:
         return None
@@ -31,7 +39,7 @@ def _convert_user_course_progress_to_dict(progress: UserCourseProgress) -> dict:
     }
 
 
-def _convert_user_unit_progress_to_dict(progress: UserUnitProgress) -> dict:
+def _convert_user_unit_progress_to_dict(progress: Optional[UserUnitProgress]) -> Optional[dict]:
     """Convert UserUnitProgress ORM object to dictionary."""
     if not progress:
         return None
@@ -46,7 +54,7 @@ def _convert_user_unit_progress_to_dict(progress: UserUnitProgress) -> dict:
     }
 
 
-def _convert_user_lesson_progress_to_dict(progress: UserLessonProgress) -> dict:
+def _convert_user_lesson_progress_to_dict(progress: Optional[UserLessonProgress]) -> Optional[dict]:
     """Convert UserLessonProgress ORM object to dictionary."""
     if not progress:
         return None
@@ -61,7 +69,10 @@ def _convert_user_lesson_progress_to_dict(progress: UserLessonProgress) -> dict:
     }
 
 
-# UC2: View Courses/Units/Lessons
+# ============================================================================
+# 1. COURSE LEVEL APIs
+# ============================================================================
+
 @router.get("/courses", response_model=PaginatedListResponse[dict])
 async def get_courses(
     request: Request,
@@ -74,8 +85,9 @@ async def get_courses(
     offset = compute_offset(page, items_per_page)
     
     # Get courses
-    from sqlalchemy import select, func
-    courses_query = select(Course).options(selectinload(Course.units)).order_by(Course.order_index)
+    courses_query = select(Course).options(
+        selectinload(Course.units)
+    ).order_by(Course.order_index)
     result = await db.execute(courses_query.offset(offset).limit(items_per_page))
     courses = result.scalars().all()
     total_result = await db.execute(select(func.count()).select_from(Course))
@@ -100,7 +112,7 @@ async def get_courses(
             "order_index": course.order_index,
             "created_at": course.created_at,
             "units_count": len(course.units),
-            "progress": _convert_user_course_progress_to_dict(user_progress.get(course.id)) if course.id in user_progress else None
+            "progress": _convert_user_course_progress_to_dict(user_progress.get(course.id))
         }
         courses_data.append(course_dict)
     
@@ -119,12 +131,11 @@ async def get_course(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Get a specific course with units and user progress"""
-    from sqlalchemy import select
-    
-    # Get course with units and their lessons
+    """Get a specific course with units list"""
+    # Get course with units
     course_query = select(Course).options(
-        selectinload(Course.units).selectinload(Unit.lessons)
+        selectinload(Course.units).selectinload(Unit.lessons),
+        selectinload(Course.units).selectinload(Unit.final_quiz)
     ).filter(Course.id == course_id)
     course_result = await db.execute(course_query)
     course = course_result.scalar_one_or_none()
@@ -142,7 +153,7 @@ async def get_course(
         progress_result = await db.execute(progress_query)
         user_progress = progress_result.scalar_one_or_none()
     
-    # Get units with progress
+    # Format response
     units_data = []
     for unit in course.units:
         unit_dict = {
@@ -151,9 +162,11 @@ async def get_course(
             "description": unit.description,
             "order_index": unit.order_index,
             "created_at": unit.created_at,
-            "lessons_count": len(unit.lessons)
+            "lessons_count": len(unit.lessons),
+            "has_final_quiz": unit.final_quiz is not None
         }
         
+        # Get user progress for unit
         if current_user:
             unit_progress_query = select(UserUnitProgress).filter(
                 UserUnitProgress.user_id == current_user["id"],
@@ -176,6 +189,10 @@ async def get_course(
     }
 
 
+# ============================================================================
+# 2. UNIT LEVEL APIs
+# ============================================================================
+
 @router.get("/units/{unit_id}", response_model=dict)
 async def get_unit(
     request: Request,
@@ -183,15 +200,12 @@ async def get_unit(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Get a specific unit with lessons and user progress"""
-    from sqlalchemy import select
-    
-    # Get unit with lessons and their related data
+    """Get a specific unit with lessons list + final quiz info"""
+    # Get unit with lessons and final quiz
     unit_query = select(Unit).options(
-        selectinload(Unit.lessons).selectinload(Lesson.quizzes),
-        selectinload(Unit.lessons).selectinload(Lesson.listening_exercises),
-        selectinload(Unit.lessons).selectinload(Lesson.speaking_exercises),
-        selectinload(Unit.lessons).selectinload(Lesson.writing_exercises)
+        selectinload(Unit.lessons).selectinload(Lesson.questions),
+        selectinload(Unit.lessons).selectinload(Lesson.exercises),
+        selectinload(Unit.final_quiz)
     ).filter(Unit.id == unit_id)
     unit_result = await db.execute(unit_query)
     unit = unit_result.scalar_one_or_none()
@@ -218,8 +232,8 @@ async def get_unit(
             "description": lesson.description,
             "order_index": lesson.order_index,
             "created_at": lesson.created_at,
-            "quizzes_count": len(lesson.quizzes),
-            "exercises_count": len(lesson.listening_exercises) + len(lesson.speaking_exercises) + len(lesson.writing_exercises)
+            "questions_count": len(lesson.questions) if lesson.questions else 0,
+            "exercises_count": len(lesson.exercises) if lesson.exercises else 0
         }
         
         if current_user:
@@ -233,6 +247,17 @@ async def get_unit(
         
         lessons_data.append(lesson_dict)
     
+    # Format final quiz info
+    final_quiz_info = None
+    if unit.final_quiz:
+        final_quiz_info = {
+            "id": unit.final_quiz.id,
+            "title": unit.final_quiz.title,
+            "description": unit.final_quiz.description,
+            "type": unit.final_quiz.type,
+            "order_index": unit.final_quiz.order_index
+        }
+    
     return {
         "id": unit.id,
         "course_id": unit.course_id,
@@ -241,9 +266,82 @@ async def get_unit(
         "order_index": unit.order_index,
         "created_at": unit.created_at,
         "lessons": lessons_data,
+        "final_quiz": final_quiz_info,
         "progress": _convert_user_unit_progress_to_dict(user_progress)
     }
 
+
+@router.get("/units/{unit_id}/final-quiz", response_model=dict)
+async def get_unit_final_quiz(
+    request: Request,
+    unit_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Get final quiz for a unit with questions"""
+    # Get unit with final quiz and questions
+    unit_query = select(Unit).options(
+        selectinload(Unit.final_quiz).selectinload(FinalQuiz.questions).selectinload(
+            # Note: FinalQuiz.questions relationship should exist
+        )
+    ).filter(Unit.id == unit_id)
+    unit_result = await db.execute(unit_query)
+    unit = unit_result.scalar_one_or_none()
+    
+    if not unit:
+        raise NotFoundException("Unit not found")
+    
+    if not unit.final_quiz:
+        raise NotFoundException("Final quiz not found for this unit")
+    
+    # Get questions for this final quiz
+    from ...models.quiz import Question, QuestionOption
+    questions_query = select(Question).options(
+        selectinload(Question.options),
+        selectinload(Question.question_type)
+    ).filter(
+        Question.quiz_id == unit.final_quiz.id
+    ).order_by(Question.order_index)
+    questions_result = await db.execute(questions_query)
+    questions = questions_result.scalars().all()
+    
+    # Format questions
+    questions_data = []
+    for question in questions:
+        question_dict = {
+            "id": question.id,
+            "content": question.content,
+            "audio_url": question.audio_url,
+            "image_url": question.image_url,
+            "explanation": question.explanation,
+            "order_index": question.order_index,
+            "options": [
+                {
+                    "id": opt.id,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct,
+                    "order_index": opt.order_index
+                }
+                for opt in question.options
+            ]
+        }
+        questions_data.append(question_dict)
+    
+    return {
+        "id": unit.final_quiz.id,
+        "unit_id": unit_id,
+        "title": unit.final_quiz.title,
+        "description": unit.final_quiz.description,
+        "type": unit.final_quiz.type,
+        "order_index": unit.final_quiz.order_index,
+        "created_at": unit.final_quiz.created_at,
+        "questions": questions_data
+    }
+
+
+# ============================================================================
+# 3. LESSON LEVEL APIs
+# ============================================================================
 
 @router.get("/lessons/{lesson_id}", response_model=dict)
 async def get_lesson(
@@ -252,15 +350,13 @@ async def get_lesson(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Get a specific lesson with quizzes, exercises and user progress"""
-    from sqlalchemy import select
-    
-    # Get lesson with all related data
+    """Get a specific lesson with questions + exercises"""
+    # Get lesson with questions and exercises
     lesson_query = select(Lesson).options(
-        selectinload(Lesson.quizzes).selectinload(Quiz.questions),
-        selectinload(Lesson.listening_exercises),
-        selectinload(Lesson.speaking_exercises),
-        selectinload(Lesson.writing_exercises)
+        selectinload(Lesson.questions).selectinload(
+            # Need to add selectinload for question options
+        ),
+        selectinload(Lesson.exercises)
     ).filter(Lesson.id == lesson_id)
     lesson_result = await db.execute(lesson_query)
     lesson = lesson_result.scalar_one_or_none()
@@ -278,184 +374,285 @@ async def get_lesson(
         progress_result = await db.execute(progress_query)
         user_progress = progress_result.scalar_one_or_none()
     
-    # Get quizzes
-    quizzes_data = []
-    for quiz in lesson.quizzes:
-        quiz_dict = {
-            "id": quiz.id,
-            "title": quiz.title,
-            "description": quiz.description,
-            "type": quiz.type,
-            "order_index": quiz.order_index,
-            "created_at": quiz.created_at,
-            "questions_count": len(quiz.questions)
-        }
-        quizzes_data.append(quiz_dict)
+    # Format questions
+    questions_data = []
+    from ...models.quiz import Question, QuestionOption
+    if lesson.questions:
+        for question in lesson.questions:
+            # Get options for this question
+            options_query = select(QuestionOption).filter(
+                QuestionOption.question_id == question.id
+            )
+            options_result = await db.execute(options_query)
+            options = options_result.scalars().all()
+            
+            question_dict = {
+                "id": question.id,
+                "content": question.content,
+                "audio_url": question.audio_url,
+                "image_url": question.image_url,
+                "explanation": question.explanation,
+                "order_index": question.order_index,
+                "question_type": question.question_type,
+                "options": [
+                    {
+                        "id": opt.id,
+                        "option_text": opt.option_text,
+                        "is_correct": opt.is_correct,
+                        "order_index": opt.order_index
+                    }
+                    for opt in options
+                ]
+            }
+            questions_data.append(question_dict)
     
-    # Get exercises
-    exercises_data = {
-        "listening": [{"id": ex.id, "description": ex.description, "created_at": ex.created_at} for ex in lesson.listening_exercises],
-        "speaking": [{"id": ex.id, "prompt": ex.prompt, "created_at": ex.created_at} for ex in lesson.speaking_exercises],
-        "writing": [{"id": ex.id, "prompt": ex.prompt, "created_at": ex.created_at} for ex in lesson.writing_exercises]
-    }
+    # Format exercises
+    exercises_data = []
+    if lesson.exercises:
+        for exercise in lesson.exercises:
+            exercise_dict = {
+                "id": exercise.id,
+                "type": exercise.type,
+                "title": exercise.title,
+                "content": exercise.content,
+                "audio_url": exercise.audio_url,
+                "transcript": exercise.transcript,
+                "prompt": exercise.prompt,
+                "sample_answer": exercise.sample_answer,
+                "order_index": exercise.order_index,
+                "created_at": exercise.created_at
+            }
+            exercises_data.append(exercise_dict)
     
-    return {
+        return {
         "id": lesson.id,
         "unit_id": lesson.unit_id,
         "title": lesson.title,
         "description": lesson.description,
         "order_index": lesson.order_index,
         "created_at": lesson.created_at,
-        "quizzes": quizzes_data,
+        "questions": questions_data,
         "exercises": exercises_data,
         "progress": _convert_user_lesson_progress_to_dict(user_progress)
     }
 
 
-# Admin endpoints for UC15: Manage Courses/Units/Lessons/Quizzes
-@router.post("/courses", status_code=201)  # dependencies=[Depends(get_current_superuser)],
-async def create_course(
+@router.get("/lessons/{lesson_id}/questions", response_model=dict)
+async def get_lesson_questions(
     request: Request,
-    course_data: dict,
-    db: Annotated[AsyncSession, Depends(async_get_db)]
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Create a new course (Admin only)"""
-    course = Course(
-        title=course_data["title"],
-        description=course_data["description"],
-        order_index=course_data.get("order_index", 0)
-    )
-    db.add(course)
-    await db.commit()
-    await db.refresh(course)
+    """Get all practice questions in lesson"""
+    from ...models.quiz import Question, QuestionOption
+    
+    # Get lesson
+    lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
+    lesson_result = await db.execute(lesson_query)
+    lesson = lesson_result.scalar_one_or_none()
+    
+    if not lesson:
+        raise NotFoundException("Lesson not found")
+    
+    # Get questions for this lesson
+    questions_query = select(Question).options(
+        selectinload(Question.options)
+    ).filter(
+        Question.lesson_id == lesson_id
+    ).order_by(Question.order_index)
+    questions_result = await db.execute(questions_query)
+    questions = questions_result.scalars().all()
+    
+    # Format questions
+    questions_data = []
+    for question in questions:
+        question_dict = {
+            "id": question.id,
+            "content": question.content,
+            "audio_url": question.audio_url,
+            "image_url": question.image_url,
+            "explanation": question.explanation,
+            "order_index": question.order_index,
+            "question_type": question.question_type,
+            "options": [
+                {
+                    "id": opt.id,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct,
+                    "order_index": opt.order_index
+                }
+                for opt in question.options
+            ]
+        }
+        questions_data.append(question_dict)
     
     return {
-        "id": course.id,
-        "title": course.title,
-        "description": course.description,
-        "order_index": course.order_index,
-        "created_at": course.created_at
+        "lesson_id": lesson_id,
+        "questions": questions_data,
+        "total": len(questions_data)
     }
 
 
-@router.put("/courses/{course_id}")  # dependencies=[Depends(get_current_superuser)]
-async def update_course(
+@router.get("/lessons/{lesson_id}/exercises", response_model=dict)
+async def get_lesson_exercises(
     request: Request,
-    course_id: int,
-    course_data: dict,
-    db: Annotated[AsyncSession, Depends(async_get_db)]
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Update a course (Admin only)"""
-    from sqlalchemy import select
+    """Get all exercises (listening, speaking, writing) for a lesson"""
+    # Get lesson
+    lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
+    lesson_result = await db.execute(lesson_query)
+    lesson = lesson_result.scalar_one_or_none()
     
-    course_query = select(Course).filter(Course.id == course_id)
-    course_result = await db.execute(course_query)
-    course = course_result.scalar_one_or_none()
+    if not lesson:
+        raise NotFoundException("Lesson not found")
     
-    if not course:
-        raise NotFoundException("Course not found")
+    # Get exercises for this lesson
+    exercises_query = select(Exercise).filter(
+        Exercise.lesson_id == lesson_id
+    ).order_by(Exercise.order_index)
+    exercises_result = await db.execute(exercises_query)
+    exercises = exercises_result.scalars().all()
     
-    course.title = course_data.get("title", course.title)
-    course.description = course_data.get("description", course.description)
-    course.order_index = course_data.get("order_index", course.order_index)
+    # Format exercises by type
+    exercises_data = {
+        "listening": [],
+        "speaking": [],
+        "writing": []
+    }
     
-    await db.commit()
-    await db.refresh(course)
-    
-    return {"message": "Course updated successfully"}
-
-
-@router.delete("/courses/{course_id}")  # dependencies=[Depends(get_current_superuser)]
-async def delete_course(
-    request: Request,
-    course_id: int,
-    db: Annotated[AsyncSession, Depends(async_get_db)]
-) -> dict:
-    """Delete a course (Admin only)"""
-    from sqlalchemy import select
-    
-    course_query = select(Course).filter(Course.id == course_id)
-    course_result = await db.execute(course_query)
-    course = course_result.scalar_one_or_none()
-    
-    if not course:
-        raise NotFoundException("Course not found")
-    
-    db.delete(course)
-    await db.commit()
-    
-    return {"message": "Course deleted successfully"}
-
-
-@router.post("/courses/{course_id}/units", status_code=201)  # dependencies=[Depends(get_current_superuser)]
-async def create_unit(
-    request: Request,
-    course_id: int,
-    unit_data: dict,
-    db: Annotated[AsyncSession, Depends(async_get_db)]
-) -> dict:
-    """Create a new unit (Admin only)"""
-    from sqlalchemy import select
-    
-    course_query = select(Course).filter(Course.id == course_id)
-    course_result = await db.execute(course_query)
-    course = course_result.scalar_one_or_none()
-    
-    if not course:
-        raise NotFoundException("Course not found")
-    
-    unit = Unit(
-        course_id=course_id,
-        title=unit_data["title"],
-        description=unit_data["description"],
-        order_index=unit_data.get("order_index", 0)
-    )
-    db.add(unit)
-    await db.commit()
-    await db.refresh(unit)
+    for exercise in exercises:
+        exercise_dict = {
+            "id": exercise.id,
+            "type": exercise.type,
+            "title": exercise.title,
+            "content": exercise.content,
+            "audio_url": exercise.audio_url,
+            "transcript": exercise.transcript,
+            "prompt": exercise.prompt,
+            "sample_answer": exercise.sample_answer,
+            "order_index": exercise.order_index,
+            "created_at": exercise.created_at
+        }
+        
+        exercises_data[exercise.type].append(exercise_dict)
     
     return {
-        "id": unit.id,
-        "course_id": unit.course_id,
-        "title": unit.title,
-        "description": unit.description,
-        "order_index": unit.order_index,
-        "created_at": unit.created_at
+        "lesson_id": lesson_id,
+        "exercises": exercises_data,
+        "total": len(exercises)
     }
 
 
-@router.post("/units/{unit_id}/lessons", status_code=201)  # dependencies=[Depends(get_current_superuser)]
-async def create_lesson(
-    request: Request,
+# ============================================================================
+# PROGRESS TRACKING ENDPOINTS
+# ============================================================================
+
+@router.post("/lessons/{lesson_id}/progress/update", response_model=dict)
+async def update_lesson_progress_endpoint(
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Update progress for lesson, unit, and course after lesson activity"""
+    
+    user_id = current_user["id"]
+    
+    # Update all progress (lesson -> unit -> course)
+    result = await ProgressTrackingCRUD.update_all_progress(
+        db, user_id, lesson_id
+    )
+    
+    return {
+        "message": "Progress updated successfully",
+        "lesson_progress": result.get("lesson_progress"),
+        "unit_progress": result.get("unit_progress"),
+        "course_progress": result.get("course_progress")
+    }
+
+
+@router.get("/lessons/{lesson_id}/progress", response_model=dict)
+async def get_lesson_progress(
+    lesson_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Get progress for a lesson"""
+    
+    user_id = current_user["id"]
+    
+    # Calculate current progress
+    progress_percent = await ProgressTrackingCRUD.calculate_lesson_progress(
+        db, user_id, lesson_id
+    )
+    
+    # Get or create progress record
+    progress = await ProgressTrackingCRUD.update_lesson_progress(
+        db, user_id, lesson_id, progress_percent
+    )
+    
+    return {
+        "lesson_id": lesson_id,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed,
+        "completed_at": progress.completed_at
+    }
+
+
+@router.get("/units/{unit_id}/progress", response_model=dict)
+async def get_unit_progress(
     unit_id: int,
-    lesson_data: dict,
-    db: Annotated[AsyncSession, Depends(async_get_db)]
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Create a new lesson (Admin only)"""
-    from sqlalchemy import select
+    """Get progress for a unit"""
     
-    unit_query = select(Unit).filter(Unit.id == unit_id)
-    unit_result = await db.execute(unit_query)
-    unit = unit_result.scalar_one_or_none()
+    user_id = current_user["id"]
     
-    if not unit:
-        raise NotFoundException("Unit not found")
-    
-    lesson = Lesson(
-        unit_id=unit_id,
-        title=lesson_data["title"],
-        description=lesson_data["description"],
-        order_index=lesson_data.get("order_index", 0)
+    # Calculate current progress
+    progress_percent = await ProgressTrackingCRUD.calculate_unit_progress(
+        db, user_id, unit_id
     )
-    db.add(lesson)
-    await db.commit()
-    await db.refresh(lesson)
+    
+    # Get or create progress record
+    progress = await ProgressTrackingCRUD.update_unit_progress(
+        db, user_id, unit_id, progress_percent
+    )
     
     return {
-        "id": lesson.id,
-        "unit_id": lesson.unit_id,
-        "title": lesson.title,
-        "description": lesson.description,
-        "order_index": lesson.order_index,
-        "created_at": lesson.created_at
+        "unit_id": unit_id,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed,
+        "completed_at": progress.completed_at
+    }
+
+
+@router.get("/courses/{course_id}/progress", response_model=dict)
+async def get_course_progress(
+    course_id: int,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Get progress for a course"""
+    
+    user_id = current_user["id"]
+    
+    # Calculate current progress
+    progress_percent = await ProgressTrackingCRUD.calculate_course_progress(
+        db, user_id, course_id
+    )
+    
+    # Get or create progress record
+    progress = await ProgressTrackingCRUD.update_course_progress(
+        db, user_id, course_id, progress_percent
+    )
+    
+    return {
+        "course_id": course_id,
+        "progress_percent": progress.progress_percent,
+        "is_completed": progress.is_completed,
+        "completed_at": progress.completed_at
     }

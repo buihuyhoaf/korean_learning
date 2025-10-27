@@ -11,7 +11,8 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
 from ...models.progress import UserQuestionError, UserQuestionAttempt, UserQuizAttempt
-from ...models.quiz import Question, Quiz
+from ...models.quiz import Question
+from ...models.final_quiz import FinalQuiz
 
 router = APIRouter(tags=["mistakes"])
 
@@ -61,7 +62,7 @@ async def get_user_mistakes(
             continue
         
         # Get quiz details
-        quiz = db.query(Quiz).filter(Quiz.id == question.quiz_id).first()
+        quiz = db.query(FinalQuiz).filter(FinalQuiz.id == question.quiz_id).first()
         
         mistake_dict = {
             "id": mistake.id,
@@ -125,7 +126,7 @@ async def get_mistake_details(
         raise NotFoundException("Question not found")
     
     # Get quiz details
-    quiz = db.query(Quiz).filter(Quiz.id == question.quiz_id).first()
+    quiz = db.query(FinalQuiz).filter(FinalQuiz.id == question.quiz_id).first()
     
     # Get all attempts for this question
     attempts = db.query(UserQuestionAttempt).join(UserQuizAttempt).filter(
