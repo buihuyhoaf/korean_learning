@@ -352,10 +352,9 @@ async def get_lesson(
 ) -> dict:
     """Get a specific lesson with questions + exercises"""
     # Get lesson with questions and exercises
+    from ...models.quiz import Question, QuestionOption
     lesson_query = select(Lesson).options(
-        selectinload(Lesson.questions).selectinload(
-            # Need to add selectinload for question options
-        ),
+        selectinload(Lesson.questions).selectinload(Question.options),
         selectinload(Lesson.exercises)
     ).filter(Lesson.id == lesson_id)
     lesson_result = await db.execute(lesson_query)
@@ -376,16 +375,9 @@ async def get_lesson(
     
     # Format questions
     questions_data = []
-    from ...models.quiz import Question, QuestionOption
     if lesson.questions:
         for question in lesson.questions:
-            # Get options for this question
-            options_query = select(QuestionOption).filter(
-                QuestionOption.question_id == question.id
-            )
-            options_result = await db.execute(options_query)
-            options = options_result.scalars().all()
-            
+            # Use options already loaded by selectinload
             question_dict = {
                 "id": question.id,
                 "content": question.content,
@@ -401,7 +393,7 @@ async def get_lesson(
                         "is_correct": opt.is_correct,
                         "order_index": opt.order_index
                     }
-                    for opt in options
+                    for opt in question.options  # Use pre-loaded options
                 ]
             }
             questions_data.append(question_dict)
@@ -424,7 +416,7 @@ async def get_lesson(
             }
             exercises_data.append(exercise_dict)
     
-        return {
+    return {
         "id": lesson.id,
         "unit_id": lesson.unit_id,
         "title": lesson.title,
