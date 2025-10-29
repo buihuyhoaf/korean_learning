@@ -11,7 +11,7 @@ from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
-from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress, UserQuizAttempt
+from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
 from src.app.models import UserExpLog
 from ...models.gamification import DailyGoal
 
@@ -51,11 +51,6 @@ async def get_user_progress(
         UserLessonProgress.user_id == user.id
     ).all()
     
-    # Get quiz attempts
-    quiz_attempts = db.query(UserQuizAttempt).filter(
-        UserQuizAttempt.user_id == user.id
-    ).all()
-    
     # Get EXP logs
     exp_logs = db.query(UserExpLog).filter(
         UserExpLog.user_id == user.id
@@ -71,8 +66,9 @@ async def get_user_progress(
     total_lessons = len(lesson_progress)
     completed_lessons = len([lp for lp in lesson_progress if lp.is_completed])
     
-    total_quizzes = len(quiz_attempts)
-    avg_quiz_score = sum([qa.score for qa in quiz_attempts]) / total_quizzes if total_quizzes > 0 else 0
+    # Note: UserQuizAttempt has been removed
+    total_quizzes = 0
+    avg_quiz_score = 0.0
     
     # Calculate streak
     streak_days = user.streak_days

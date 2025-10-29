@@ -28,7 +28,7 @@ class QuestionCRUD:
             select(Question)
             .options(
                 selectinload(Question.options),
-                selectinload(Question.question_type)
+                selectinload(Question.question_type_relation)
             )
             .filter(Question.lesson_id == lesson_id)
             .order_by(Question.order_index)
@@ -64,7 +64,7 @@ class QuestionCRUD:
             select(Question)
             .options(
                 selectinload(Question.options),
-                selectinload(Question.question_type)
+                selectinload(Question.question_type_relation)
             )
             .filter(Question.quiz_id == quiz_id)
             .order_by(Question.order_index)
@@ -161,7 +161,7 @@ class QuestionCRUD:
             select(Question)
             .options(
                 selectinload(Question.options),
-                selectinload(Question.question_type)
+                selectinload(Question.question_type_relation)
             )
             .filter(Question.id == question_id)
         )
@@ -197,7 +197,7 @@ class FinalQuizCRUD:
             select(Question)
             .options(
                 selectinload(Question.options),
-                selectinload(Question.question_type)
+                selectinload(Question.question_type_relation)
             )
             .filter(Question.quiz_id == quiz.id)
             .order_by(Question.order_index)

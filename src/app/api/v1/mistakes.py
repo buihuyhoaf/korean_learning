@@ -10,7 +10,7 @@ from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
-from ...models.progress import UserQuestionError, UserQuestionAttempt, UserQuizAttempt
+from ...models.progress import UserQuestionError
 from ...models.quiz import Question
 from ...models.final_quiz import FinalQuiz
 
@@ -79,9 +79,9 @@ async def get_user_mistakes(
                 "type": quiz.type if quiz else None
             },
             "question_type": {
-                "id": question.question_type.id,
-                "name": question.question_type.name,
-                "description": question.question_type.description
+                "id": question.question_type_relation.id if question.question_type_relation else None,
+                "name": question.question_type_relation.name if question.question_type_relation else question.question_type,
+                "description": question.question_type_relation.description if question.question_type_relation else None
             }
         }
         mistakes_data.append(mistake_dict)
@@ -128,11 +128,8 @@ async def get_mistake_details(
     # Get quiz details
     quiz = db.query(FinalQuiz).filter(FinalQuiz.id == question.quiz_id).first()
     
-    # Get all attempts for this question
-    attempts = db.query(UserQuestionAttempt).join(UserQuizAttempt).filter(
-        UserQuizAttempt.user_id == user.id,
-        UserQuestionAttempt.question_id == mistake.question_id
-    ).order_by(UserQuestionAttempt.answered_at.desc()).all()
+    # Note: UserQuestionAttempt has been removed, so we return empty attempt history
+    attempts = []
     
     return {
         "id": mistake.id,
@@ -144,9 +141,9 @@ async def get_mistake_details(
             "correct_answer": question.correct_answer,
             "explanation": question.explanation,
             "question_type": {
-                "id": question.question_type.id,
-                "name": question.question_type.name,
-                "description": question.question_type.description
+                "id": question.question_type_relation.id if question.question_type_relation else None,
+                "name": question.question_type_relation.name if question.question_type_relation else question.question_type,
+                "description": question.question_type_relation.description if question.question_type_relation else None
             },
             "options": [
                 {
@@ -167,14 +164,7 @@ async def get_mistake_details(
             "last_wrong_at": mistake.last_wrong_at,
             "error_count": mistake.error_count
         },
-        "attempt_history": [
-            {
-                "user_answer": attempt.user_answer,
-                "is_correct": attempt.is_correct,
-                "answered_at": attempt.answered_at
-            }
-            for attempt in attempts
-        ]
+        "attempt_history": []  # Empty since UserQuestionAttempt is removed
     }
 
 
@@ -208,7 +198,7 @@ async def get_mistakes_summary(
         if not question:
             continue
         
-        question_type = question.question_type.name
+        question_type = question.question_type_relation.name if question.question_type_relation else question.question_type
         if question_type not in mistakes_by_type:
             mistakes_by_type[question_type] = {
                 "count": 0,
@@ -371,7 +361,7 @@ async def get_mistakes_stats(
     for mistake in mistakes_query:
         question = db.query(Question).filter(Question.id == mistake.question_id).first()
         if question:
-            question_type = question.question_type.name
+            question_type = question.question_type_relation.name if question.question_type_relation else question.question_type
             if question_type not in mistakes_by_type:
                 mistakes_by_type[question_type] = 0
             mistakes_by_type[question_type] += mistake.error_count
@@ -389,7 +379,7 @@ async def get_mistakes_stats(
                 "question_id": question.id,
                 "question_content": question.content[:100] + "..." if len(question.content) > 100 else question.content,
                 "error_count": mistake.error_count,
-                "question_type": question.question_type.name
+                "question_type": question.question_type_relation.name if question.question_type_relation else question.question_type
             })
     
     return {

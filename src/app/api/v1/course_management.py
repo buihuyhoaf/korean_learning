@@ -32,8 +32,8 @@ def _convert_user_course_progress_to_dict(progress: Optional[UserCourseProgress]
         "id": progress.id,
         "user_id": progress.user_id,
         "course_id": progress.course_id,
-        "started_at": progress.started_at,
-        "completed_at": progress.completed_at,
+        "started_at": progress.started_at.isoformat() if progress.started_at else None,
+        "completed_at": progress.completed_at.isoformat() if progress.completed_at else None,
         "progress_percent": progress.progress_percent,
         "is_completed": progress.is_completed
     }
@@ -47,8 +47,7 @@ def _convert_user_unit_progress_to_dict(progress: Optional[UserUnitProgress]) ->
         "id": progress.id,
         "user_id": progress.user_id,
         "unit_id": progress.unit_id,
-        "started_at": progress.started_at,
-        "completed_at": progress.completed_at,
+        "completed_at": progress.completed_at.isoformat() if progress.completed_at else None,
         "progress_percent": progress.progress_percent,
         "is_completed": progress.is_completed
     }
@@ -62,8 +61,7 @@ def _convert_user_lesson_progress_to_dict(progress: Optional[UserLessonProgress]
         "id": progress.id,
         "user_id": progress.user_id,
         "lesson_id": progress.lesson_id,
-        "started_at": progress.started_at,
-        "completed_at": progress.completed_at,
+        "completed_at": progress.completed_at.isoformat() if progress.completed_at else None,
         "progress_percent": progress.progress_percent,
         "is_completed": progress.is_completed
     }
@@ -298,7 +296,7 @@ async def get_unit_final_quiz(
     from ...models.quiz import Question, QuestionOption
     questions_query = select(Question).options(
         selectinload(Question.options),
-        selectinload(Question.question_type)
+        selectinload(Question.question_type_relation)
     ).filter(
         Question.quiz_id == unit.final_quiz.id
     ).order_by(Question.order_index)
@@ -378,6 +376,8 @@ async def get_lesson(
     if lesson.questions:
         for question in lesson.questions:
             # Use options already loaded by selectinload
+            # Note: question.question_type now refers to the column (string value)
+            #       use question.question_type_relation for the relationship object
             question_dict = {
                 "id": question.id,
                 "content": question.content,
@@ -385,13 +385,12 @@ async def get_lesson(
                 "image_url": question.image_url,
                 "explanation": question.explanation,
                 "order_index": question.order_index,
-                "question_type": question.question_type,
+                "question_type": question.question_type,  # Column value (string)
                 "options": [
                     {
                         "id": opt.id,
                         "option_text": opt.option_text,
-                        "is_correct": opt.is_correct,
-                        "order_index": opt.order_index
+                        "is_correct": opt.is_correct
                     }
                     for opt in question.options  # Use pre-loaded options
                 ]
@@ -543,6 +542,69 @@ async def get_lesson_exercises(
 # PROGRESS TRACKING ENDPOINTS
 # ============================================================================
 
+@router.post("/lessons/{lesson_id}/practice-questions/{question_id}/submit", response_model=dict)
+async def submit_practice_question_answer(
+    lesson_id: int,
+    question_id: int,
+    request: dict,  # {"selected_option_id": int} or {"answer": str}
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> dict:
+    """Submit answer for a practice question in a lesson"""
+    from ...models.quiz import Question, QuestionOption
+    from datetime import UTC
+    
+    user_id = current_user["id"]
+    
+    # Get question and verify it belongs to lesson
+    question_query = select(Question).options(
+        selectinload(Question.options)
+    ).filter(
+        and_(
+            Question.id == question_id,
+            Question.lesson_id == lesson_id
+        )
+    )
+    question_result = await db.execute(question_query)
+    question = question_result.scalar_one_or_none()
+    
+    if not question:
+        raise NotFoundException("Question not found or doesn't belong to this lesson")
+    
+    # Determine if answer is correct
+    is_correct = False
+    user_answer_str = ""
+    
+    if question.question_type in ["vocabulary", "grammar", "reading", "practice"]:
+        # Multiple choice questions
+        selected_option_id = request.get("selected_option_id")
+        if selected_option_id:
+            selected_option = next((opt for opt in question.options if opt.id == selected_option_id), None)
+            if selected_option:
+                is_correct = selected_option.is_correct
+                user_answer_str = selected_option.option_text
+    elif question.correct_answer:
+        # Text-based questions
+        user_answer_str = str(request.get("answer", "")).strip()
+        is_correct = user_answer_str.lower() == question.correct_answer.lower().strip()
+    
+    # Note: UserQuestionAttempt and UserQuizAttempt have been removed
+    # We just update progress directly without tracking individual question attempts
+    
+    # Update lesson progress immediately
+    progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
+    
+    return {
+        "is_correct": is_correct,
+        "correct_answer": question.correct_answer,
+        "explanation": question.explanation,
+        "message": "Answer submitted successfully",
+        "lesson_progress": {
+            "progress_percent": progress_result.get("lesson_progress").progress_percent if progress_result.get("lesson_progress") else 0.0
+        }
+    }
+
+
 @router.post("/lessons/{lesson_id}/progress/update", response_model=dict)
 async def update_lesson_progress_endpoint(
     lesson_id: int,
@@ -558,11 +620,16 @@ async def update_lesson_progress_endpoint(
         db, user_id, lesson_id
     )
     
+    # Convert ORM objects to dictionaries
+    lesson_progress = result.get("lesson_progress")
+    unit_progress = result.get("unit_progress")
+    course_progress = result.get("course_progress")
+    
     return {
         "message": "Progress updated successfully",
-        "lesson_progress": result.get("lesson_progress"),
-        "unit_progress": result.get("unit_progress"),
-        "course_progress": result.get("course_progress")
+        "lesson_progress": _convert_user_lesson_progress_to_dict(lesson_progress),
+        "unit_progress": _convert_user_unit_progress_to_dict(unit_progress),
+        "course_progress": _convert_user_course_progress_to_dict(course_progress)
     }
 
 

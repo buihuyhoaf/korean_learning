@@ -21,5 +21,4 @@ class FinalQuiz(Base):
     # Relationships
     unit = relationship("Unit", back_populates="final_quiz")
     questions = relationship("Question", back_populates="quiz")
-    user_attempts = relationship("UserQuizAttempt", back_populates="quiz")
     final_quiz_attempts = relationship("UserFinalQuizAttempt", back_populates="final_quiz")  # New relationship

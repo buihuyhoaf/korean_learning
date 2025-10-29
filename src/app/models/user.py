@@ -32,7 +32,6 @@ class User(Base):
     entry_test_results = relationship("UserEntryTestResult", back_populates="user")
     unit_progress = relationship("UserUnitProgress", back_populates="user")
     lesson_progress = relationship("UserLessonProgress", back_populates="user")
-    quiz_attempts = relationship("UserQuizAttempt", back_populates="user")
     final_quiz_attempts = relationship("UserFinalQuizAttempt", back_populates="user")  # New relationship
     question_errors = relationship("UserQuestionError", back_populates="user")
     exp_logs = relationship("UserExpLog", back_populates="user")

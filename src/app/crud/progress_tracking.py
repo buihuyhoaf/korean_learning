@@ -6,7 +6,7 @@ progress percentages for lessons, units, and courses based on user activities.
 """
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -60,9 +60,30 @@ class ProgressTrackingCRUD:
         if total_items == 0:
             return 100.0  # No content, consider completed
         
-        # Count completed items (for now, we'll estimate based on progress records)
-        # TODO: Add proper tracking when user answers questions/ completes exercises
+        # Count completed questions
+        # Note: Since UserQuestionAttempt is removed, we'll use a simplified approach
+        # For now, if user has a progress record with is_completed=True, consider all questions completed
+        # Otherwise, progress is 0% for questions
+        # TODO: Implement proper tracking for practice questions when needed
         completed_questions = 0
+        
+        # Check if lesson progress exists and is completed
+        progress_check_query = select(UserLessonProgress).filter(
+            and_(
+                UserLessonProgress.user_id == user_id,
+                UserLessonProgress.lesson_id == lesson_id,
+                UserLessonProgress.is_completed == True
+            )
+        )
+        progress_check_result = await db.execute(progress_check_query)
+        existing_progress = progress_check_result.scalar_one_or_none()
+        
+        # If lesson is marked as completed, count all questions as completed
+        if existing_progress and existing_progress.is_completed:
+            completed_questions = total_questions
+        
+        # Count completed exercises (TODO: implement exercise tracking)
+        # For now, exercises are not tracked yet, so completed_exercises = 0
         completed_exercises = 0
         
         # Calculate progress
@@ -108,7 +129,7 @@ class ProgressTrackingCRUD:
             existing_progress.is_completed = is_completed
             
             if is_completed and existing_progress.completed_at is None:
-                existing_progress.completed_at = datetime.now()
+                existing_progress.completed_at = datetime.now(UTC)
             
             await db.commit()
             await db.refresh(existing_progress)
@@ -120,7 +141,7 @@ class ProgressTrackingCRUD:
                 lesson_id=lesson_id,
                 progress_percent=progress_percent,
                 is_completed=is_completed,
-                completed_at=datetime.now() if is_completed else None
+                completed_at=datetime.now(UTC) if is_completed else None
             )
             db.add(new_progress)
             await db.commit()
@@ -231,7 +252,7 @@ class ProgressTrackingCRUD:
             existing_progress.is_completed = is_completed
             
             if is_completed and existing_progress.completed_at is None:
-                existing_progress.completed_at = datetime.now()
+                existing_progress.completed_at = datetime.now(UTC)
             
             await db.commit()
             await db.refresh(existing_progress)
@@ -336,7 +357,7 @@ class ProgressTrackingCRUD:
             existing_progress.is_completed = is_completed
             
             if is_completed and existing_progress.completed_at is None:
-                existing_progress.completed_at = datetime.now()
+                existing_progress.completed_at = datetime.now(UTC)
             
             await db.commit()
             await db.refresh(existing_progress)
@@ -347,7 +368,8 @@ class ProgressTrackingCRUD:
                 user_id=user_id,
                 course_id=course_id,
                 progress_percent=progress_percent,
-                is_completed=is_completed
+                is_completed=is_completed,
+                started_at=datetime.now(UTC)
             )
             db.add(new_progress)
             await db.commit()

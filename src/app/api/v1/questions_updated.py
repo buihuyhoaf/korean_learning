@@ -150,7 +150,7 @@ async def get_quiz_legacy(
         select(Question)
         .options(
             selectinload(Question.options),
-            selectinload(Question.question_type)
+            selectinload(Question.question_type_relation)
         )
         .filter(Question.quiz_id == quiz_id)
         .order_by(Question.order_index)
@@ -177,9 +177,9 @@ async def get_quiz_legacy(
                 "explanation": q.explanation,
                 "order_index": q.order_index,
                 "question_type": {
-                    "id": q.question_type.id,
-                    "name": q.question_type.name,
-                    "description": q.question_type.description
+                    "id": q.question_type_relation.id if q.question_type_relation else None,
+                    "name": q.question_type_relation.name if q.question_type_relation else q.question_type,
+                    "description": q.question_type_relation.description if q.question_type_relation else None
                 },
                 "options": [
                     {

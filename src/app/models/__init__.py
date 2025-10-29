@@ -14,8 +14,6 @@ from .progress import (
     UserCourseProgress, 
     UserUnitProgress, 
     UserLessonProgress, 
-    UserQuizAttempt, 
-    UserQuestionAttempt, 
     UserQuestionError
 )
 from .gamification import (

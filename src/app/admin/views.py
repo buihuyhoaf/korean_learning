@@ -15,8 +15,6 @@ from ..models.progress import (
     UserCourseProgress, 
     UserUnitProgress, 
     UserLessonProgress, 
-    UserQuizAttempt, 
-    UserQuestionAttempt, 
     UserQuestionError
 )
 from ..models.gamification import (

@@ -21,33 +21,33 @@ class QuestionType(Base):
     description: Mapped[str] = mapped_column(Text)
 
     # Relationships
-    questions = relationship("Question", back_populates="question_type")
+    questions = relationship("Question", back_populates="question_type_relation")
 
 
 class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    # New fields added by manual schema changes
-    lesson_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=True)
-    question_type: Mapped[str] = mapped_column(String(50), default="practice")
-    # Keep quiz_id for backward compatibility
-    quiz_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("final_quizzes.id"), nullable=True)
-    question_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("question_types.id"), nullable=False)
+    # Required fields (no defaults, not nullable)
     content: Mapped[str] = mapped_column(Text)
-    audio_url: Mapped[str] = mapped_column(String(500), nullable=True)
-    image_url: Mapped[str] = mapped_column(String(500), nullable=True)
     correct_answer: Mapped[str] = mapped_column(Text)
     explanation: Mapped[str] = mapped_column(Text)
+    question_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("question_types.id"), nullable=False)
+    # Optional fields (nullable) - MUST come before fields with defaults
+    lesson_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=True)
+    quiz_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("final_quizzes.id"), nullable=True)
+    audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Fields with defaults - MUST come last
+    question_type: Mapped[str] = mapped_column(String(50), default="practice")
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
     # Relationships
     lesson = relationship("Lesson", back_populates="questions")
     quiz = relationship("FinalQuiz", back_populates="questions")  # Updated to FinalQuiz
-    question_type = relationship("QuestionType", back_populates="questions")
-    options = relationship("QuestionOption", back_populates="question")
-    user_attempts = relationship("UserQuestionAttempt", back_populates="question")
+    question_type_relation = relationship("QuestionType", back_populates="questions", lazy="selectin")
+    options = relationship("QuestionOption", back_populates="question", lazy="selectin")
     user_errors = relationship("UserQuestionError", back_populates="question")
 
 

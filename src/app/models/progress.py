@@ -9,7 +9,7 @@ from ..core.db.database import Base
 class UserCourseProgress(Base):
     __tablename__ = "user_course_progress"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
@@ -25,10 +25,10 @@ class UserCourseProgress(Base):
 class UserUnitProgress(Base):
     __tablename__ = "user_unit_progress"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     unit_id: Mapped[int] = mapped_column(Integer, ForeignKey("units.id"), nullable=False)
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
 
@@ -40,48 +40,16 @@ class UserUnitProgress(Base):
 class UserLessonProgress(Base):
     __tablename__ = "user_lesson_progress"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=False)
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Relationships
     user = relationship("User", back_populates="lesson_progress")
     lesson = relationship("Lesson", back_populates="user_progress")
-
-
-class UserQuizAttempt(Base):
-    __tablename__ = "user_quiz_attempts"
-
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    quiz_id: Mapped[int] = mapped_column(Integer, ForeignKey("final_quizzes.id"), nullable=False)  # Updated FK
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    score: Mapped[float] = mapped_column(Float, default=0.0)
-    exp_earned: Mapped[int] = mapped_column(Integer, default=0)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-
-    # Relationships
-    user = relationship("User", back_populates="quiz_attempts")
-    quiz = relationship("FinalQuiz", back_populates="user_attempts")  # Updated to FinalQuiz
-    question_attempts = relationship("UserQuestionAttempt", back_populates="quiz_attempt")
-
-
-class UserQuestionAttempt(Base):
-    __tablename__ = "user_question_attempts"
-
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_quiz_attempt_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_quiz_attempts.id"), nullable=False)
-    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id"), nullable=False)
-    user_answer: Mapped[str] = mapped_column(String(1000))
-    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
-    answered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-
-    # Relationships
-    quiz_attempt = relationship("UserQuizAttempt", back_populates="question_attempts")
-    question = relationship("Question", back_populates="user_attempts")
 
 
 class UserQuestionError(Base):

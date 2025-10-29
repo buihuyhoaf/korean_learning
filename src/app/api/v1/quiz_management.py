@@ -15,7 +15,7 @@ from ...models.final_quiz import FinalQuiz
 from ...models.quiz import Question, QuestionOption, QuestionType
 from ...models.exercise import Exercise
 from ...models.user import User
-from ...models.progress import UserQuizAttempt, UserQuestionAttempt, UserQuestionError
+from ...models.progress import UserQuestionError
 
 router = APIRouter(tags=["quiz_exercises"])
 
@@ -33,7 +33,7 @@ async def get_quiz(
     # Get quiz with questions and options
     quiz_query = select(FinalQuiz).options(
         selectinload(FinalQuiz.questions).selectinload(Question.options),
-        selectinload(FinalQuiz.questions).selectinload(Question.question_type)
+        selectinload(FinalQuiz.questions).selectinload(Question.question_type_relation)
     ).filter(FinalQuiz.id == quiz_id)
     quiz_result = await db.execute(quiz_query)
     quiz = quiz_result.scalar_one_or_none()
@@ -52,9 +52,9 @@ async def get_quiz(
             "explanation": question.explanation,
             "order_index": question.order_index,
             "question_type": {
-                "id": question.question_type.id,
-                "name": question.question_type.name,
-                "description": question.question_type.description
+                "id": question.question_type_relation.id if question.question_type_relation else None,
+                "name": question.question_type_relation.name if question.question_type_relation else question.question_type,
+                "description": question.question_type_relation.description if question.question_type_relation else None
             },
             "options": [
                 {
@@ -96,20 +96,10 @@ async def submit_quiz_attempt(
     if not quiz:
         raise NotFoundException("Quiz not found")
     
-    # Create quiz attempt
-    quiz_attempt = UserQuizAttempt(
-        user_id=current_user["id"],
-        quiz_id=quiz_id,
-        started_at=datetime.now(UTC)
-    )
-    db.add(quiz_attempt)
-    db.commit()
-    db.refresh(quiz_attempt)
-    
     # Process answers and calculate score
     correct_answers = 0
     total_questions = len(quiz.questions)
-    question_attempts = []
+    question_results = []
     
     for question in quiz.questions:
         user_answer = answers.get(str(question.id), "")
@@ -118,15 +108,11 @@ async def submit_quiz_attempt(
         if is_correct:
             correct_answers += 1
         
-        # Create question attempt
-        question_attempt = UserQuestionAttempt(
-            user_quiz_attempt_id=quiz_attempt.id,
-            question_id=question.id,
-            user_answer=user_answer,
-            is_correct=is_correct
-        )
-        db.add(question_attempt)
-        question_attempts.append(question_attempt)
+        question_results.append({
+            "question_id": question.id,
+            "user_answer": user_answer,
+            "is_correct": is_correct
+        })
         
         # Update or create question error record for incorrect answers
         if not is_correct:
@@ -155,11 +141,6 @@ async def submit_quiz_attempt(
     score = (correct_answers / total_questions) * 100 if total_questions > 0 else 0
     exp_earned = int(score / 10) * 10  # 10 EXP per 10% score
     
-    # Update quiz attempt
-    quiz_attempt.score = score
-    quiz_attempt.exp_earned = exp_earned
-    quiz_attempt.completed_at = datetime.now(UTC)
-    
     # Update user EXP
     user_query = select(User).filter(User.id == current_user["id"])
     user_result = await db.execute(user_query)
@@ -167,23 +148,15 @@ async def submit_quiz_attempt(
     if user:
         user.exp += exp_earned
     
-    db.commit()
+    await db.commit()
     
     return {
-        "quiz_attempt_id": quiz_attempt.id,
         "score": score,
         "correct_answers": correct_answers,
         "total_questions": total_questions,
         "exp_earned": exp_earned,
-        "completed_at": quiz_attempt.completed_at,
-        "question_results": [
-            {
-                "question_id": attempt.question_id,
-                "user_answer": attempt.user_answer,
-                "is_correct": attempt.is_correct
-            }
-            for attempt in question_attempts
-        ]
+        "completed_at": datetime.now(UTC),
+        "question_results": question_results
     }
 
 
@@ -279,28 +252,10 @@ async def get_user_quiz_attempts(
     
     offset = compute_offset(page, items_per_page)
     
-    attempts_query = select(UserQuizAttempt).filter(
-        UserQuizAttempt.user_id == user.id
-    ).order_by(UserQuizAttempt.started_at.desc())
-    
-    attempts_result = await db.execute(attempts_query.offset(offset).limit(items_per_page))
-    attempts = attempts_result.scalars().all()
-    
-    total_result = await db.execute(select(func.count()).select_from(UserQuizAttempt).filter(UserQuizAttempt.user_id == user.id))
-    total = total_result.scalar()
-    
+    # Note: UserQuizAttempt table has been removed
+    # Return empty result
     attempts_data = []
-    for attempt in attempts:
-        attempt_dict = {
-            "id": attempt.id,
-            "quiz_id": attempt.quiz_id,
-            "quiz_title": attempt.quiz.title if attempt.quiz else None,
-            "score": attempt.score,
-            "exp_earned": attempt.exp_earned,
-            "started_at": attempt.started_at,
-            "completed_at": attempt.completed_at
-        }
-        attempts_data.append(attempt_dict)
+    total = 0
     
     response = paginated_response(
         crud_data={"data": attempts_data, "total": total},
