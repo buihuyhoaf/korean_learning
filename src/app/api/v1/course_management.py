@@ -690,7 +690,7 @@ async def get_lesson_progress(
     
     return {
         "lesson_id": lesson_id,
-        "progress_percent": progress.progress_percent,
+        "progress_percent": int(progress.progress_percent),
         "is_completed": progress.is_completed,
         "completed_at": progress.completed_at
     }
@@ -718,7 +718,7 @@ async def get_unit_progress(
     
     return {
         "unit_id": unit_id,
-        "progress_percent": progress.progress_percent,
+        "progress_percent": int(progress.progress_percent),
         "is_completed": progress.is_completed,
         "completed_at": progress.completed_at
     }
@@ -746,7 +746,7 @@ async def get_course_progress(
     
     return {
         "course_id": course_id,
-        "progress_percent": progress.progress_percent,
+        "progress_percent": int(progress.progress_percent),
         "is_completed": progress.is_completed,
         "completed_at": progress.completed_at
     }
