@@ -5,13 +5,14 @@ from datetime import datetime, UTC
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, delete
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
 from ...models.progress import UserQuestionError
-from ...models.quiz import Question
+from ...models.quiz import Question, QuestionType
 from ...models.final_quiz import FinalQuiz
 
 router = APIRouter(tags=["mistakes"])
@@ -34,35 +35,38 @@ async def get_user_mistakes(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own mistakes")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     offset = compute_offset(page, items_per_page)
     
     # Build query for user question errors
-    query = db.query(UserQuestionError).filter(UserQuestionError.user_id == user.id)
+    base_stmt = select(UserQuestionError).where(UserQuestionError.user_id == user.id)
     
     # Filter by question type if specified
     if question_type:
-        query = query.join(Question).join(QuestionType).filter(
-            QuestionType.name == question_type
-        )
+        # NOTE: If QuestionType is a relationship, ensure proper join target is imported/available
+        base_stmt = base_stmt.join(Question).join(QuestionType).where(QuestionType.name == question_type)
     
-    query = query.order_by(UserQuestionError.error_count.desc(), UserQuestionError.last_wrong_at.desc())
-    
-    mistakes = query.offset(offset).limit(items_per_page).all()
-    total = query.count()
+    stmt = base_stmt.order_by(UserQuestionError.error_count.desc(), UserQuestionError.last_wrong_at.desc()).offset(offset).limit(items_per_page)
+    mistakes_result = await db.execute(stmt)
+    mistakes = mistakes_result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total = total_result.scalar() or 0
     
     mistakes_data = []
     for mistake in mistakes:
         # Get question details
-        question = db.query(Question).filter(Question.id == mistake.question_id).first()
+        question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+        question = question_result.scalar_one_or_none()
         if not question:
             continue
         
         # Get quiz details
-        quiz = db.query(FinalQuiz).filter(FinalQuiz.id == question.quiz_id).first()
+        quiz_result = await db.execute(select(FinalQuiz).where(FinalQuiz.id == question.quiz_id))
+        quiz = quiz_result.scalar_one_or_none()
         
         mistake_dict = {
             "id": mistake.id,
@@ -108,25 +112,31 @@ async def get_mistake_details(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own mistakes")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
-    mistake = db.query(UserQuestionError).filter(
-        UserQuestionError.id == mistake_id,
-        UserQuestionError.user_id == user.id
-    ).first()
+    mistake_result = await db.execute(
+        select(UserQuestionError).where(
+            UserQuestionError.id == mistake_id,
+            UserQuestionError.user_id == user.id
+        )
+    )
+    mistake = mistake_result.scalar_one_or_none()
     
     if not mistake:
         raise NotFoundException("Mistake not found")
     
     # Get question details
-    question = db.query(Question).filter(Question.id == mistake.question_id).first()
+    question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+    question = question_result.scalar_one_or_none()
     if not question:
         raise NotFoundException("Question not found")
     
     # Get quiz details
-    quiz = db.query(FinalQuiz).filter(FinalQuiz.id == question.quiz_id).first()
+    quiz_result = await db.execute(select(FinalQuiz).where(FinalQuiz.id == question.quiz_id))
+    quiz = quiz_result.scalar_one_or_none()
     
     # Note: UserQuestionAttempt has been removed, so we return empty attempt history
     attempts = []
@@ -181,7 +191,8 @@ async def get_mistakes_summary(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own mistakes")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
@@ -255,16 +266,20 @@ async def practice_mistake(
     if not user:
         raise NotFoundException("User not found")
     
-    mistake = db.query(UserQuestionError).filter(
-        UserQuestionError.id == mistake_id,
-        UserQuestionError.user_id == user.id
-    ).first()
+    mistake_result = await db.execute(
+        select(UserQuestionError).where(
+            UserQuestionError.id == mistake_id,
+            UserQuestionError.user_id == user.id
+        )
+    )
+    mistake = mistake_result.scalar_one_or_none()
     
     if not mistake:
         raise NotFoundException("Mistake not found")
     
     # Get question details
-    question = db.query(Question).filter(Question.id == mistake.question_id).first()
+    question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+    question = question_result.scalar_one_or_none()
     if not question:
         raise NotFoundException("Question not found")
     
@@ -284,7 +299,7 @@ async def practice_mistake(
         mistake.last_wrong_at = datetime.now(UTC)
         mistake.error_count += 1
     
-    db.commit()
+    await db.commit()
     
     return {
         "is_correct": is_correct,
@@ -309,21 +324,25 @@ async def clear_mistake(
     if current_user["username"] != username:
         raise ForbiddenException("You can only clear your own mistakes")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
-    mistake = db.query(UserQuestionError).filter(
-        UserQuestionError.id == mistake_id,
-        UserQuestionError.user_id == user.id
-    ).first()
+    mistake_result = await db.execute(
+        select(UserQuestionError).where(
+            UserQuestionError.id == mistake_id,
+            UserQuestionError.user_id == user.id
+        )
+    )
+    mistake = mistake_result.scalar_one_or_none()
     
     if not mistake:
         raise NotFoundException("Mistake not found")
     
     # Clear the mistake record
     db.delete(mistake)
-    db.commit()
+    await db.commit()
     
     return {"message": "Mistake cleared successfully"}
 
@@ -352,14 +371,16 @@ async def get_mistakes_stats(
     """Get overall mistake statistics (Admin only)"""
     
     # Get total mistakes
-    total_mistakes = db.query(UserQuestionError).count()
+    total_mistakes = (await db.execute(select(func.count()).select_from(UserQuestionError))).scalar() or 0
     
     # Get mistakes by question type
     mistakes_by_type = {}
-    mistakes_query = db.query(UserQuestionError).join(Question).join(QuestionType).all()
+    mistakes_query_result = await db.execute(select(UserQuestionError).join(Question).join(QuestionType))
+    mistakes_query = mistakes_query_result.scalars().all()
     
     for mistake in mistakes_query:
-        question = db.query(Question).filter(Question.id == mistake.question_id).first()
+        question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+        question = question_result.scalar_one_or_none()
         if question:
             question_type = question.question_type_relation.name if question.question_type_relation else question.question_type
             if question_type not in mistakes_by_type:
@@ -367,13 +388,15 @@ async def get_mistakes_stats(
             mistakes_by_type[question_type] += mistake.error_count
     
     # Get most problematic questions
-    most_problematic = db.query(UserQuestionError).order_by(
-        UserQuestionError.error_count.desc()
-    ).limit(10).all()
+    most_problematic_result = await db.execute(
+        select(UserQuestionError).order_by(UserQuestionError.error_count.desc()).limit(10)
+    )
+    most_problematic = most_problematic_result.scalars().all()
     
     problematic_questions = []
     for mistake in most_problematic:
-        question = db.query(Question).filter(Question.id == mistake.question_id).first()
+        question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+        question = question_result.scalar_one_or_none()
         if question:
             problematic_questions.append({
                 "question_id": question.id,

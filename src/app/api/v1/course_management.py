@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +16,7 @@ from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonP
 from ...models.final_quiz import FinalQuiz
 from ...models.exercise import Exercise
 from ...crud.progress_tracking import ProgressTrackingCRUD
+from ...models.progress import UserLessonProgress
 
 router = APIRouter(tags=["courses-units-lessons"])
 
@@ -575,23 +576,57 @@ async def submit_practice_question_answer(
     is_correct = False
     user_answer_str = ""
     
-    if question.question_type in ["vocabulary", "grammar", "reading", "practice"]:
-        # Multiple choice questions
-        selected_option_id = request.get("selected_option_id")
-        if selected_option_id:
-            selected_option = next((opt for opt in question.options if opt.id == selected_option_id), None)
-            if selected_option:
-                is_correct = selected_option.is_correct
-                user_answer_str = selected_option.option_text
-    elif question.correct_answer:
-        # Text-based questions
+    # Determine correctness based on payload
+    selected_option_id = request.get("selected_option_id")
+    if selected_option_id is not None:
+        # Multiple choice style by explicit selected_option_id
+        selected_option = next((opt for opt in question.options if opt.id == selected_option_id), None)
+        if selected_option:
+            is_correct = bool(selected_option.is_correct)
+            user_answer_str = selected_option.option_text
+    elif "answer" in request and question.correct_answer:
+        # Text-based answer
         user_answer_str = str(request.get("answer", "")).strip()
         is_correct = user_answer_str.lower() == question.correct_answer.lower().strip()
     
     # Note: UserQuestionAttempt and UserQuizAttempt have been removed
     # We just update progress directly without tracking individual question attempts
     
-    # Update lesson progress immediately
+    # If correct, increment completed_questions_count for this lesson/user (best-effort, capped to total)
+    if is_correct:
+        # Get or create progress record
+        progress_query = select(UserLessonProgress).filter(
+            and_(
+                UserLessonProgress.user_id == user_id,
+                UserLessonProgress.lesson_id == lesson_id
+            )
+        )
+        progress_result_obj = await db.execute(progress_query)
+        user_progress = progress_result_obj.scalar_one_or_none()
+        
+        # Count total questions for cap
+        total_q_result = await db.execute(select(func.count()).select_from(Question).where(Question.lesson_id == lesson_id))
+        total_questions = total_q_result.scalar() or 0
+        
+        if user_progress:
+            # Increment but do not exceed total
+            if not user_progress.is_completed:
+                user_progress.completed_questions_count = min(
+                    (user_progress.completed_questions_count or 0) + 1,
+                    total_questions
+                )
+        else:
+            # Create with 1 completed question
+            new_progress = UserLessonProgress(
+                user_id=user_id,
+                lesson_id=lesson_id,
+                completed_questions_count=1
+            )
+            db.add(new_progress)
+        
+        await db.commit()
+    
+    # Update lesson/unit/course progress after potential increment
     progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
     
     return {

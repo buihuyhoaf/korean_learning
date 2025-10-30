@@ -46,6 +46,7 @@ class UserLessonProgress(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    completed_questions_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
     user = relationship("User", back_populates="lesson_progress")

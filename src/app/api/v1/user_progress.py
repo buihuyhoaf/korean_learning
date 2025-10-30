@@ -5,7 +5,7 @@ from datetime import datetime, UTC, date, timedelta
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
@@ -14,6 +14,7 @@ from ...models.user import User
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
 from src.app.models import UserExpLog
 from ...models.gamification import DailyGoal
+from ...models.course import Course
 
 router = APIRouter(tags=["progress"])
 
@@ -32,29 +33,37 @@ async def get_user_progress(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own progress")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     # Get course progress
-    course_progress = db.query(UserCourseProgress).filter(
-        UserCourseProgress.user_id == user.id
-    ).all()
+    course_result = await db.execute(
+        select(UserCourseProgress).where(UserCourseProgress.user_id == user.id)
+    )
+    course_progress = course_result.scalars().all()
     
     # Get unit progress
-    unit_progress = db.query(UserUnitProgress).filter(
-        UserUnitProgress.user_id == user.id
-    ).all()
+    unit_result = await db.execute(
+        select(UserUnitProgress).where(UserUnitProgress.user_id == user.id)
+    )
+    unit_progress = unit_result.scalars().all()
     
     # Get lesson progress
-    lesson_progress = db.query(UserLessonProgress).filter(
-        UserLessonProgress.user_id == user.id
-    ).all()
+    lesson_result = await db.execute(
+        select(UserLessonProgress).where(UserLessonProgress.user_id == user.id)
+    )
+    lesson_progress = lesson_result.scalars().all()
     
     # Get EXP logs
-    exp_logs = db.query(UserExpLog).filter(
-        UserExpLog.user_id == user.id
-    ).order_by(UserExpLog.created_at.desc()).limit(10).all()
+    exp_logs_result = await db.execute(
+        select(UserExpLog)
+        .where(UserExpLog.user_id == user.id)
+        .order_by(UserExpLog.created_at.desc())
+        .limit(10)
+    )
+    exp_logs = exp_logs_result.scalars().all()
     
     # Calculate statistics
     total_courses = len(course_progress)
@@ -126,24 +135,29 @@ async def get_user_course_progress(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own progress")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     offset = compute_offset(page, items_per_page)
     
     # Get course progress with course details
-    progress_query = db.query(UserCourseProgress).filter(
-        UserCourseProgress.user_id == user.id
-    ).order_by(UserCourseProgress.created_at.desc())
-    
-    progress_records = progress_query.offset(offset).limit(items_per_page).all()
-    total = progress_query.count()
+    base_stmt = (
+        select(UserCourseProgress)
+        .where(UserCourseProgress.user_id == user.id)
+        .order_by(UserCourseProgress.created_at.desc())
+    )
+    progress_records_result = await db.execute(base_stmt.offset(offset).limit(items_per_page))
+    progress_records = progress_records_result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total = total_result.scalar() or 0
     
     progress_data = []
     for progress in progress_records:
         # Get course details
-        course = db.query(Course).filter(Course.id == progress.course_id).first()
+        course_result = await db.execute(select(Course).where(Course.id == progress.course_id))
+        course = course_result.scalar_one_or_none()
         
         progress_dict = {
             "id": progress.id,
@@ -179,18 +193,22 @@ async def get_user_exp_history(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own EXP history")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     offset = compute_offset(page, items_per_page)
     
-    exp_query = db.query(UserExpLog).filter(
-        UserExpLog.user_id == user.id
-    ).order_by(UserExpLog.created_at.desc())
-    
-    exp_logs = exp_query.offset(offset).limit(items_per_page).all()
-    total = exp_query.count()
+    base_stmt = (
+        select(UserExpLog)
+        .where(UserExpLog.user_id == user.id)
+        .order_by(UserExpLog.created_at.desc())
+    )
+    exp_logs_result = await db.execute(base_stmt.offset(offset).limit(items_per_page))
+    exp_logs = exp_logs_result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total = total_result.scalar() or 0
     
     exp_data = []
     for log in exp_logs:
@@ -223,16 +241,21 @@ async def update_user_streak(
     if current_user["username"] != username:
         raise ForbiddenException("You can only update your own streak")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     # Check if user has completed activities today
     today = date.today()
-    today_exp_logs = db.query(UserExpLog).filter(
-        UserExpLog.user_id == user.id,
-        UserExpLog.created_at >= today
-    ).count()
+    today_exp_logs = (
+        await db.execute(
+            select(func.count()).select_from(UserExpLog).where(
+                UserExpLog.user_id == user.id,
+                UserExpLog.created_at >= today
+            )
+        )
+    ).scalar() or 0
     
     if today_exp_logs > 0:
         # User has activity today, increment streak
@@ -251,7 +274,7 @@ async def update_user_streak(
             )
             db.add(exp_log)
         
-        db.commit()
+        await db.commit()
         
         return {
             "message": "Streak updated successfully",
@@ -278,29 +301,41 @@ async def get_user_daily_goals(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own daily goals")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     today = date.today()
     
     # Get today's goal
-    today_goal = db.query(DailyGoal).filter(
-        DailyGoal.user_id == user.id,
-        DailyGoal.created_at == today
-    ).first()
+    today_goal_result = await db.execute(
+        select(DailyGoal).where(
+            DailyGoal.user_id == user.id,
+            DailyGoal.created_at == today
+        )
+    )
+    today_goal = today_goal_result.scalar_one_or_none()
     
     # Get today's EXP earned
-    today_exp = db.query(UserExpLog).filter(
-        UserExpLog.user_id == user.id,
-        UserExpLog.created_at >= today
-    ).with_entities(func.sum(UserExpLog.amount)).scalar() or 0
+    today_exp = (
+        await db.execute(
+            select(func.sum(UserExpLog.amount)).where(
+                UserExpLog.user_id == user.id,
+                UserExpLog.created_at >= today
+            )
+        )
+    ).scalar() or 0
     
     # Get today's lessons completed
-    today_lessons = db.query(UserLessonProgress).filter(
-        UserLessonProgress.user_id == user.id,
-        UserLessonProgress.completed_at >= today
-    ).count()
+    today_lessons = (
+        await db.execute(
+            select(func.count()).select_from(UserLessonProgress).where(
+                UserLessonProgress.user_id == user.id,
+                UserLessonProgress.completed_at >= today
+            )
+        )
+    ).scalar() or 0
     
     if not today_goal:
         # Create default goal for today
@@ -311,8 +346,8 @@ async def get_user_daily_goals(
             created_at=today
         )
         db.add(today_goal)
-        db.commit()
-        db.refresh(today_goal)
+        await db.commit()
+        await db.refresh(today_goal)
     
     # Check if goals are completed
     exp_completed = today_exp >= today_goal.target_exp
@@ -321,7 +356,7 @@ async def get_user_daily_goals(
     # Update goal completion status
     if exp_completed and lessons_completed and not today_goal.is_completed:
         today_goal.is_completed = True
-        db.commit()
+        await db.commit()
     
     return {
         "date": today.isoformat(),
@@ -350,17 +385,21 @@ async def update_user_daily_goals(
     if current_user["username"] != username:
         raise ForbiddenException("You can only update your own daily goals")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
     today = date.today()
     
     # Get or create today's goal
-    today_goal = db.query(DailyGoal).filter(
-        DailyGoal.user_id == user.id,
-        DailyGoal.created_at == today
-    ).first()
+    today_goal_result = await db.execute(
+        select(DailyGoal).where(
+            DailyGoal.user_id == user.id,
+            DailyGoal.created_at == today
+        )
+    )
+    today_goal = today_goal_result.scalar_one_or_none()
     
     if not today_goal:
         today_goal = DailyGoal(
@@ -374,7 +413,7 @@ async def update_user_daily_goals(
         today_goal.target_exp = goal_data.get("target_exp", today_goal.target_exp)
         today_goal.target_lessons = goal_data.get("target_lessons", today_goal.target_lessons)
     
-    db.commit()
+    await db.commit()
     
     return {
         "message": "Daily goals updated successfully",
@@ -392,30 +431,38 @@ async def get_progress_stats(
     """Get overall progress statistics (Admin only)"""
     
     # Get total users
-    total_users = db.query(User).count()
+    total_users = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
     
     # Get active users (users with activity in last 7 days)
     week_ago = datetime.now(UTC) - timedelta(days=7)
-    active_users = db.query(User).join(UserExpLog).filter(
-        UserExpLog.created_at >= week_ago
-    ).distinct().count()
+    active_users = (
+        await db.execute(
+            select(func.count()).select_from(User).join(UserExpLog).where(
+                UserExpLog.created_at >= week_ago
+            ).distinct()
+        )
+    ).scalar() or 0
     
     # Get average EXP
-    avg_exp = db.query(func.avg(User.exp)).scalar() or 0
+    avg_exp = (await db.execute(select(func.avg(User.exp)))).scalar() or 0
     
     # Get average streak
-    avg_streak = db.query(func.avg(User.streak_days)).scalar() or 0
+    avg_streak = (await db.execute(select(func.avg(User.streak_days)))).scalar() or 0
     
     # Get completion rates
-    total_course_progress = db.query(UserCourseProgress).count()
-    completed_courses = db.query(UserCourseProgress).filter(
-        UserCourseProgress.is_completed == True
-    ).count()
+    total_course_progress = (await db.execute(select(func.count()).select_from(UserCourseProgress))).scalar() or 0
+    completed_courses = (
+        await db.execute(
+            select(func.count()).select_from(UserCourseProgress).where(UserCourseProgress.is_completed == True)
+        )
+    ).scalar() or 0
     
-    total_lesson_progress = db.query(UserLessonProgress).count()
-    completed_lessons = db.query(UserLessonProgress).filter(
-        UserLessonProgress.is_completed == True
-    ).count()
+    total_lesson_progress = (await db.execute(select(func.count()).select_from(UserLessonProgress))).scalar() or 0
+    completed_lessons = (
+        await db.execute(
+            select(func.count()).select_from(UserLessonProgress).where(UserLessonProgress.is_completed == True)
+        )
+    ).scalar() or 0
     
     return {
         "total_users": total_users,

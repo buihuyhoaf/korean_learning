@@ -5,7 +5,7 @@ from datetime import datetime, UTC, date
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func
+from sqlalchemy import func, select, delete
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
@@ -32,27 +32,28 @@ async def get_challenges(
     today = date.today()
     
     # Build query based on status filter
-    query = db.query(Challenge)
+    base_stmt = select(Challenge)
     
     if status == "active":
-        query = query.filter(Challenge.start_date <= today, Challenge.end_date >= today)
+        base_stmt = base_stmt.where(Challenge.start_date <= today, Challenge.end_date >= today)
     elif status == "upcoming":
-        query = query.filter(Challenge.start_date > today)
+        base_stmt = base_stmt.where(Challenge.start_date > today)
     elif status == "expired":
-        query = query.filter(Challenge.end_date < today)
+        base_stmt = base_stmt.where(Challenge.end_date < today)
     elif status == "completed":
         # Only show completed challenges if user is authenticated
         if not current_user:
             return {"data": [], "total": 0, "page": page, "items_per_page": items_per_page, "total_pages": 0}
-        query = query.join(UserChallenge).filter(
+        base_stmt = base_stmt.join(UserChallenge).where(
             UserChallenge.user_id == current_user["id"],
             UserChallenge.is_completed == True
         )
     
-    query = query.order_by(Challenge.start_date.desc())
-    
-    challenges = query.offset(offset).limit(items_per_page).all()
-    total = query.count()
+    stmt = base_stmt.order_by(Challenge.start_date.desc()).offset(offset).limit(items_per_page)
+    challenges_result = await db.execute(stmt)
+    challenges = challenges_result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total = total_result.scalar() or 0
     
     challenges_data = []
     for challenge in challenges:
@@ -64,16 +65,23 @@ async def get_challenges(
             "end_date": challenge.end_date,
             "exp_reward": challenge.exp_reward,
             "status": get_challenge_status(challenge, today),
-            "participants_count": db.query(UserChallenge).filter(UserChallenge.challenge_id == challenge.id).count(),
+            "participants_count": (
+                (await db.execute(
+                    select(func.count()).select_from(UserChallenge).where(UserChallenge.challenge_id == challenge.id)
+                )).scalar() or 0
+            ),
             "user_participation": None
         }
         
         # Get user's participation if authenticated
         if current_user:
-            user_challenge = db.query(UserChallenge).filter(
-                UserChallenge.user_id == current_user["id"],
-                UserChallenge.challenge_id == challenge.id
-            ).first()
+            uc_result = await db.execute(
+                select(UserChallenge).where(
+                    UserChallenge.user_id == current_user["id"],
+                    UserChallenge.challenge_id == challenge.id
+                )
+            )
+            user_challenge = uc_result.scalar_one_or_none()
             
             if user_challenge:
                 challenge_dict["user_participation"] = {
@@ -109,23 +117,28 @@ async def get_challenge_details(
 ) -> dict:
     """Get detailed information about a specific challenge"""
     
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = challenge_result.scalar_one_or_none()
     if not challenge:
         raise NotFoundException("Challenge not found")
     
     today = date.today()
     
     # Get participants
-    participants = db.query(UserChallenge).filter(UserChallenge.challenge_id == challenge_id).all()
+    participants_result = await db.execute(select(UserChallenge).where(UserChallenge.challenge_id == challenge_id))
+    participants = participants_result.scalars().all()
     participants_count = len(participants)
     
     # Get user's participation
     user_participation = None
     if current_user:
-        user_challenge = db.query(UserChallenge).filter(
-            UserChallenge.user_id == current_user["id"],
-            UserChallenge.challenge_id == challenge_id
-        ).first()
+        uc_result = await db.execute(
+            select(UserChallenge).where(
+                UserChallenge.user_id == current_user["id"],
+                UserChallenge.challenge_id == challenge_id
+            )
+        )
+        user_challenge = uc_result.scalar_one_or_none()
         
         if user_challenge:
             user_participation = {
@@ -164,7 +177,8 @@ async def join_challenge(
 ) -> dict:
     """Join a challenge"""
     
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = challenge_result.scalar_one_or_none()
     if not challenge:
         raise NotFoundException("Challenge not found")
     
@@ -178,10 +192,13 @@ async def join_challenge(
         raise BadRequestException("Challenge has already ended")
     
     # Check if user already joined
-    existing_participation = db.query(UserChallenge).filter(
-        UserChallenge.user_id == current_user["id"],
-        UserChallenge.challenge_id == challenge_id
-    ).first()
+    existing_participation_result = await db.execute(
+        select(UserChallenge).where(
+            UserChallenge.user_id == current_user["id"],
+            UserChallenge.challenge_id == challenge_id
+        )
+    )
+    existing_participation = existing_participation_result.scalar_one_or_none()
     
     if existing_participation:
         raise DuplicateValueException("You have already joined this challenge")
@@ -194,7 +211,7 @@ async def join_challenge(
         is_completed=False
     )
     db.add(user_challenge)
-    db.commit()
+    await db.commit()
     
     return {
         "message": f"Successfully joined the '{challenge.title}' challenge!",
@@ -224,7 +241,8 @@ async def get_user_challenges(
     if current_user["username"] != username and current_user["role"] != "admin":
         raise ForbiddenException("You can only view your own challenges")
     
-    user = db.query(User).filter(User.username == username).first()
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
     if not user:
         raise NotFoundException("User not found")
     
@@ -232,30 +250,32 @@ async def get_user_challenges(
     today = date.today()
     
     # Build query
-    query = db.query(UserChallenge).filter(UserChallenge.user_id == user.id)
+    base_stmt = select(UserChallenge).where(UserChallenge.user_id == user.id)
     
     if status == "active":
-        query = query.join(Challenge).filter(
+        base_stmt = base_stmt.join(Challenge).where(
             Challenge.start_date <= today,
             Challenge.end_date >= today,
             UserChallenge.is_completed == False
         )
     elif status == "completed":
-        query = query.filter(UserChallenge.is_completed == True)
+        base_stmt = base_stmt.where(UserChallenge.is_completed == True)
     elif status == "expired":
-        query = query.join(Challenge).filter(
+        base_stmt = base_stmt.join(Challenge).where(
             Challenge.end_date < today,
             UserChallenge.is_completed == False
         )
     
-    query = query.order_by(UserChallenge.created_at.desc())
-    
-    user_challenges = query.offset(offset).limit(items_per_page).all()
-    total = query.count()
+    stmt = base_stmt.order_by(UserChallenge.created_at.desc()).offset(offset).limit(items_per_page)
+    user_challenges_result = await db.execute(stmt)
+    user_challenges = user_challenges_result.scalars().all()
+    total_result = await db.execute(select(func.count()).select_from(base_stmt.subquery()))
+    total = total_result.scalar() or 0
     
     challenges_data = []
     for user_challenge in user_challenges:
-        challenge = db.query(Challenge).filter(Challenge.id == user_challenge.challenge_id).first()
+        challenge_result = await db.execute(select(Challenge).where(Challenge.id == user_challenge.challenge_id))
+        challenge = challenge_result.scalar_one_or_none()
         if challenge:
             challenge_dict = {
                 "id": challenge.id,
@@ -291,14 +311,18 @@ async def update_challenge_progress(
 ) -> dict:
     """Update user's progress in a challenge"""
     
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = challenge_result.scalar_one_or_none()
     if not challenge:
         raise NotFoundException("Challenge not found")
     
-    user_challenge = db.query(UserChallenge).filter(
-        UserChallenge.user_id == current_user["id"],
-        UserChallenge.challenge_id == challenge_id
-    ).first()
+    uc_result = await db.execute(
+        select(UserChallenge).where(
+            UserChallenge.user_id == current_user["id"],
+            UserChallenge.challenge_id == challenge_id
+        )
+    )
+    user_challenge = uc_result.scalar_one_or_none()
     
     if not user_challenge:
         raise NotFoundException("You are not participating in this challenge")
@@ -313,8 +337,10 @@ async def update_challenge_progress(
         user_challenge.completed_at = datetime.now(UTC)
         
         # Award EXP
-        user = db.query(User).filter(User.id == current_user["id"]).first()
-        user.exp += challenge.exp_reward
+        user_result = await db.execute(select(User).where(User.id == current_user["id"]))
+        user = user_result.scalar_one_or_none()
+        if user:
+            user.exp += challenge.exp_reward
         
         # Log EXP gain
         exp_log = UserExpLog(
@@ -324,7 +350,7 @@ async def update_challenge_progress(
         )
         db.add(exp_log)
     
-    db.commit()
+    await db.commit()
     
     return {
         "message": "Challenge progress updated successfully",
@@ -383,7 +409,8 @@ async def update_challenge(
 ) -> dict:
     """Update a challenge (Admin only)"""
     
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = challenge_result.scalar_one_or_none()
     if not challenge:
         raise NotFoundException("Challenge not found")
     
@@ -393,7 +420,7 @@ async def update_challenge(
     challenge.end_date = challenge_data.get("end_date", challenge.end_date)
     challenge.exp_reward = challenge_data.get("exp_reward", challenge.exp_reward)
     
-    db.commit()
+    await db.commit()
     
     return {"message": "Challenge updated successfully"}
 
@@ -406,16 +433,17 @@ async def delete_challenge(
 ) -> dict:
     """Delete a challenge (Admin only)"""
     
-    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+    challenge = challenge_result.scalar_one_or_none()
     if not challenge:
         raise NotFoundException("Challenge not found")
     
     # Delete all user challenges first
-    db.query(UserChallenge).filter(UserChallenge.challenge_id == challenge_id).delete()
+    await db.execute(delete(UserChallenge).where(UserChallenge.challenge_id == challenge_id))
     
     # Delete the challenge
     db.delete(challenge)
-    db.commit()
+    await db.commit()
     
     return {"message": "Challenge deleted successfully"}
 
@@ -430,36 +458,48 @@ async def get_challenges_stats(
     today = date.today()
     
     # Get total challenges
-    total_challenges = db.query(Challenge).count()
+    total_challenges = (await db.execute(select(func.count()).select_from(Challenge))).scalar() or 0
     
     # Get active challenges
-    active_challenges = db.query(Challenge).filter(
-        Challenge.start_date <= today,
-        Challenge.end_date >= today
-    ).count()
+    active_challenges = (await db.execute(
+        select(func.count()).select_from(Challenge).where(
+            Challenge.start_date <= today,
+            Challenge.end_date >= today
+        )
+    )).scalar() or 0
     
     # Get upcoming challenges
-    upcoming_challenges = db.query(Challenge).filter(Challenge.start_date > today).count()
+    upcoming_challenges = (await db.execute(
+        select(func.count()).select_from(Challenge).where(Challenge.start_date > today)
+    )).scalar() or 0
     
     # Get expired challenges
-    expired_challenges = db.query(Challenge).filter(Challenge.end_date < today).count()
+    expired_challenges = (await db.execute(
+        select(func.count()).select_from(Challenge).where(Challenge.end_date < today)
+    )).scalar() or 0
     
     # Get total participants
-    total_participants = db.query(UserChallenge).count()
+    total_participants = (await db.execute(select(func.count()).select_from(UserChallenge))).scalar() or 0
     
     # Get completed challenges
-    completed_participations = db.query(UserChallenge).filter(
-        UserChallenge.is_completed == True
-    ).count()
+    completed_participations = (await db.execute(
+        select(func.count()).select_from(UserChallenge).where(UserChallenge.is_completed == True)
+    )).scalar() or 0
     
     # Get most popular challenges
-    popular_challenges = db.query(UserChallenge.challenge_id, func.count(UserChallenge.id).label('count')).group_by(
-        UserChallenge.challenge_id
-    ).order_by(func.count(UserChallenge.id).desc()).limit(5).all()
+    popular_stmt = (
+        select(UserChallenge.challenge_id, func.count(UserChallenge.id).label('count'))
+        .group_by(UserChallenge.challenge_id)
+        .order_by(func.count(UserChallenge.id).desc())
+        .limit(5)
+    )
+    popular_result = await db.execute(popular_stmt)
+    popular_challenges = popular_result.all()
     
     popular_challenges_data = []
     for challenge_id, count in popular_challenges:
-        challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+        challenge_result = await db.execute(select(Challenge).where(Challenge.id == challenge_id))
+        challenge = challenge_result.scalar_one_or_none()
         if challenge:
             popular_challenges_data.append({
                 "id": challenge.id,

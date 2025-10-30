@@ -60,27 +60,20 @@ class ProgressTrackingCRUD:
         if total_items == 0:
             return 100.0  # No content, consider completed
         
-        # Count completed questions
-        # Note: Since UserQuestionAttempt is removed, we'll use a simplified approach
-        # For now, if user has a progress record with is_completed=True, consider all questions completed
-        # Otherwise, progress is 0% for questions
-        # TODO: Implement proper tracking for practice questions when needed
-        completed_questions = 0
-        
-        # Check if lesson progress exists and is completed
+        # Count completed questions using stored counter on progress record
         progress_check_query = select(UserLessonProgress).filter(
             and_(
                 UserLessonProgress.user_id == user_id,
-                UserLessonProgress.lesson_id == lesson_id,
-                UserLessonProgress.is_completed == True
+                UserLessonProgress.lesson_id == lesson_id
             )
         )
         progress_check_result = await db.execute(progress_check_query)
         existing_progress = progress_check_result.scalar_one_or_none()
-        
-        # If lesson is marked as completed, count all questions as completed
-        if existing_progress and existing_progress.is_completed:
-            completed_questions = total_questions
+
+        if existing_progress:
+            completed_questions = max(0, min(existing_progress.completed_questions_count, total_questions))
+        else:
+            completed_questions = 0
         
         # Count completed exercises (TODO: implement exercise tracking)
         # For now, exercises are not tracked yet, so completed_exercises = 0
@@ -165,7 +158,8 @@ class ProgressTrackingCRUD:
         
         # Get unit
         unit_query = select(Unit).options(
-            selectinload(Unit.lessons)
+            selectinload(Unit.lessons),
+            selectinload(Unit.final_quiz)
         ).filter(Unit.id == unit_id)
         unit_result = await db.execute(unit_query)
         unit = unit_result.scalar_one_or_none()
