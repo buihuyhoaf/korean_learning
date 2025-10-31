@@ -251,8 +251,8 @@ async def update_user_streak(
     today_exp_logs = (
         await db.execute(
             select(func.count()).select_from(UserExpLog).where(
-                UserExpLog.user_id == user.id,
-                UserExpLog.created_at >= today
+        UserExpLog.user_id == user.id,
+        UserExpLog.created_at >= today
             )
         )
     ).scalar() or 0
@@ -311,8 +311,8 @@ async def get_user_daily_goals(
     # Get today's goal
     today_goal_result = await db.execute(
         select(DailyGoal).where(
-            DailyGoal.user_id == user.id,
-            DailyGoal.created_at == today
+        DailyGoal.user_id == user.id,
+        DailyGoal.created_at == today
         )
     )
     today_goal = today_goal_result.scalar_one_or_none()
@@ -321,8 +321,8 @@ async def get_user_daily_goals(
     today_exp = (
         await db.execute(
             select(func.sum(UserExpLog.amount)).where(
-                UserExpLog.user_id == user.id,
-                UserExpLog.created_at >= today
+        UserExpLog.user_id == user.id,
+        UserExpLog.created_at >= today
             )
         )
     ).scalar() or 0
@@ -331,8 +331,8 @@ async def get_user_daily_goals(
     today_lessons = (
         await db.execute(
             select(func.count()).select_from(UserLessonProgress).where(
-                UserLessonProgress.user_id == user.id,
-                UserLessonProgress.completed_at >= today
+        UserLessonProgress.user_id == user.id,
+        UserLessonProgress.completed_at >= today
             )
         )
     ).scalar() or 0
@@ -395,8 +395,8 @@ async def update_user_daily_goals(
     # Get or create today's goal
     today_goal_result = await db.execute(
         select(DailyGoal).where(
-            DailyGoal.user_id == user.id,
-            DailyGoal.created_at == today
+        DailyGoal.user_id == user.id,
+        DailyGoal.created_at == today
         )
     )
     today_goal = today_goal_result.scalar_one_or_none()
@@ -438,7 +438,7 @@ async def get_progress_stats(
     active_users = (
         await db.execute(
             select(func.count()).select_from(User).join(UserExpLog).where(
-                UserExpLog.created_at >= week_ago
+        UserExpLog.created_at >= week_ago
             ).distinct()
         )
     ).scalar() or 0

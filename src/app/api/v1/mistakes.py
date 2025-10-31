@@ -119,8 +119,8 @@ async def get_mistake_details(
     
     mistake_result = await db.execute(
         select(UserQuestionError).where(
-            UserQuestionError.id == mistake_id,
-            UserQuestionError.user_id == user.id
+        UserQuestionError.id == mistake_id,
+        UserQuestionError.user_id == user.id
         )
     )
     mistake = mistake_result.scalar_one_or_none()
@@ -268,8 +268,8 @@ async def practice_mistake(
     
     mistake_result = await db.execute(
         select(UserQuestionError).where(
-            UserQuestionError.id == mistake_id,
-            UserQuestionError.user_id == user.id
+        UserQuestionError.id == mistake_id,
+        UserQuestionError.user_id == user.id
         )
     )
     mistake = mistake_result.scalar_one_or_none()
@@ -331,8 +331,8 @@ async def clear_mistake(
     
     mistake_result = await db.execute(
         select(UserQuestionError).where(
-            UserQuestionError.id == mistake_id,
-            UserQuestionError.user_id == user.id
+        UserQuestionError.id == mistake_id,
+        UserQuestionError.user_id == user.id
         )
     )
     mistake = mistake_result.scalar_one_or_none()

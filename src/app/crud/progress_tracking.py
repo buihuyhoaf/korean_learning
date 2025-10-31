@@ -69,7 +69,7 @@ class ProgressTrackingCRUD:
         )
         progress_check_result = await db.execute(progress_check_query)
         existing_progress = progress_check_result.scalar_one_or_none()
-
+        
         if existing_progress:
             completed_questions = max(0, min(existing_progress.completed_questions_count, total_questions))
         else:

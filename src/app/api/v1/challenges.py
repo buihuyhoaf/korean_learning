@@ -77,8 +77,8 @@ async def get_challenges(
         if current_user:
             uc_result = await db.execute(
                 select(UserChallenge).where(
-                    UserChallenge.user_id == current_user["id"],
-                    UserChallenge.challenge_id == challenge.id
+                UserChallenge.user_id == current_user["id"],
+                UserChallenge.challenge_id == challenge.id
                 )
             )
             user_challenge = uc_result.scalar_one_or_none()
@@ -134,8 +134,8 @@ async def get_challenge_details(
     if current_user:
         uc_result = await db.execute(
             select(UserChallenge).where(
-                UserChallenge.user_id == current_user["id"],
-                UserChallenge.challenge_id == challenge_id
+            UserChallenge.user_id == current_user["id"],
+            UserChallenge.challenge_id == challenge_id
             )
         )
         user_challenge = uc_result.scalar_one_or_none()
@@ -194,8 +194,8 @@ async def join_challenge(
     # Check if user already joined
     existing_participation_result = await db.execute(
         select(UserChallenge).where(
-            UserChallenge.user_id == current_user["id"],
-            UserChallenge.challenge_id == challenge_id
+        UserChallenge.user_id == current_user["id"],
+        UserChallenge.challenge_id == challenge_id
         )
     )
     existing_participation = existing_participation_result.scalar_one_or_none()
@@ -318,8 +318,8 @@ async def update_challenge_progress(
     
     uc_result = await db.execute(
         select(UserChallenge).where(
-            UserChallenge.user_id == current_user["id"],
-            UserChallenge.challenge_id == challenge_id
+        UserChallenge.user_id == current_user["id"],
+        UserChallenge.challenge_id == challenge_id
         )
     )
     user_challenge = uc_result.scalar_one_or_none()
@@ -341,14 +341,14 @@ async def update_challenge_progress(
         user = user_result.scalar_one_or_none()
         if user:
             user.exp += challenge.exp_reward
-        
-        # Log EXP gain
-        exp_log = UserExpLog(
-            user_id=current_user["id"],
-            source="challenge_completed",
-            amount=challenge.exp_reward
-        )
-        db.add(exp_log)
+            
+            # Log EXP gain
+            exp_log = UserExpLog(
+                user_id=current_user["id"],
+                source="challenge_completed",
+                amount=challenge.exp_reward
+            )
+            db.add(exp_log)
     
     await db.commit()
     
@@ -463,8 +463,8 @@ async def get_challenges_stats(
     # Get active challenges
     active_challenges = (await db.execute(
         select(func.count()).select_from(Challenge).where(
-            Challenge.start_date <= today,
-            Challenge.end_date >= today
+        Challenge.start_date <= today,
+        Challenge.end_date >= today
         )
     )).scalar() or 0
     
