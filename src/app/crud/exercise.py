@@ -3,7 +3,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.exercise import Exercise, ExerciseType
+from ..models.exercise import Exercise, ExerciseType, ExerciseQuestion, ExerciseQuestionOption
 from ..schemas.exercise import ExerciseCreate, ExerciseUpdate, ExerciseStatsResponse
 
 
@@ -18,9 +18,12 @@ class ExerciseCRUD:
         skip: int = 0,
         limit: int = 100
     ) -> List[Exercise]:
-        """Get exercises by lesson ID with optional type filter"""
+        """Get exercises by lesson ID with optional type filter, including questions and options"""
         query = (
             select(Exercise)
+            .options(
+                selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)
+            )
             .where(Exercise.lesson_id == lesson_id)
             .order_by(Exercise.order_index, Exercise.created_at)
         )
@@ -35,20 +38,28 @@ class ExerciseCRUD:
     
     @staticmethod
     async def get_exercise_by_id(db: AsyncSession, exercise_id: int) -> Optional[Exercise]:
-        """Get a single exercise by ID"""
-        query = select(Exercise).where(Exercise.id == exercise_id)
+        """Get a single exercise by ID with questions and options"""
+        query = (
+            select(Exercise)
+            .options(
+                selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)
+            )
+            .where(Exercise.id == exercise_id)
+        )
         result = await db.execute(query)
         return result.scalar_one_or_none()
     
     @staticmethod
     async def create_exercise(db: AsyncSession, exercise_data: ExerciseCreate) -> Exercise:
-        """Create a new exercise"""
+        """Create a new exercise with questions and options"""
+        # Create exercise
         exercise = Exercise(
             lesson_id=exercise_data.lesson_id,
             type=exercise_data.type,
             title=exercise_data.title,
             content=exercise_data.content,
             audio_url=exercise_data.audio_url,
+            text_to_speak=exercise_data.text_to_speak,
             transcript=exercise_data.transcript,
             prompt=exercise_data.prompt,
             sample_answer=exercise_data.sample_answer,
@@ -56,8 +67,33 @@ class ExerciseCRUD:
         )
         
         db.add(exercise)
+        await db.flush()  # Get exercise ID
+        
+        # Create questions and options
+        for question_data in exercise_data.questions:
+            question = ExerciseQuestion(
+                exercise_id=exercise.id,
+                question_text=question_data.question_text,
+                explanation=question_data.explanation,
+                order_index=question_data.order_index
+            )
+            db.add(question)
+            await db.flush()  # Get question ID
+            
+            # Create options for this question
+            for option_data in question_data.options:
+                option = ExerciseQuestionOption(
+                    question_id=question.id,
+                    option_text=option_data.option_text,
+                    is_correct=option_data.is_correct,
+                    order_index=option_data.order_index
+                )
+                db.add(option)
+        
         await db.commit()
-        await db.refresh(exercise)
+        
+        # Reload with relationships
+        await db.refresh(exercise, ["questions", "questions.options"])
         return exercise
     
     @staticmethod
@@ -66,18 +102,48 @@ class ExerciseCRUD:
         exercise_id: int, 
         exercise_data: ExerciseUpdate
     ) -> Optional[Exercise]:
-        """Update an existing exercise"""
+        """Update an existing exercise with questions and options"""
         exercise = await ExerciseCRUD.get_exercise_by_id(db, exercise_id)
         if not exercise:
             return None
         
-        # Update only provided fields
-        update_data = exercise_data.model_dump(exclude_unset=True)
+        # Update exercise fields (exclude questions)
+        update_data = exercise_data.model_dump(exclude_unset=True, exclude={"questions"})
         for field, value in update_data.items():
             setattr(exercise, field, value)
         
+        # Update questions if provided (full replace)
+        if "questions" in exercise_data.model_dump(exclude_unset=True):
+            # Delete existing questions (cascade will delete options)
+            for question in exercise.questions:
+                await db.delete(question)
+            await db.flush()
+            
+            # Create new questions
+            for question_data in exercise_data.questions:
+                question = ExerciseQuestion(
+                    exercise_id=exercise.id,
+                    question_text=question_data.question_text,
+                    explanation=question_data.explanation,
+                    order_index=question_data.order_index
+                )
+                db.add(question)
+                await db.flush()
+                
+                # Create options
+                for option_data in question_data.options:
+                    option = ExerciseQuestionOption(
+                        question_id=question.id,
+                        option_text=option_data.option_text,
+                        is_correct=option_data.is_correct,
+                        order_index=option_data.order_index
+                    )
+                    db.add(option)
+        
         await db.commit()
-        await db.refresh(exercise)
+        
+        # Reload with relationships
+        await db.refresh(exercise, ["questions", "questions.options"])
         return exercise
     
     @staticmethod

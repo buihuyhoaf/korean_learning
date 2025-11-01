@@ -11,7 +11,7 @@ class UserExpLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    source: Mapped[str] = mapped_column(String(100))  # quiz, daily_goal, challenge, etc.
+    source: Mapped[str] = mapped_column(String(100))  # quiz, daily_goal, etc.
     amount: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
@@ -60,32 +60,3 @@ class DailyGoal(Base):
 
     # Relationships
     user = relationship("User", back_populates="daily_goals")
-
-
-class Challenge(Base):
-    __tablename__ = "challenges"
-
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text)
-    start_date: Mapped[date] = mapped_column(Date)
-    end_date: Mapped[date] = mapped_column(Date)
-    exp_reward: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Relationships
-    users = relationship("UserChallenge", back_populates="challenge")
-
-
-class UserChallenge(Base):
-    __tablename__ = "user_challenges"
-
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    challenge_id: Mapped[int] = mapped_column(Integer, ForeignKey("challenges.id"), nullable=False)
-    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
-    progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
-    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    # Relationships
-    user = relationship("User", back_populates="challenges")
-    challenge = relationship("Challenge", back_populates="users")

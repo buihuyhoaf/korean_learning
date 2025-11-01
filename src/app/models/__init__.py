@@ -20,9 +20,7 @@ from .gamification import (
     UserExpLog, 
     Badge, 
     UserBadge, 
-    DailyGoal, 
-    Challenge, 
-    UserChallenge
+    DailyGoal
 )
 from .social import Friend, Leaderboard
 from .ai_log import AiLog

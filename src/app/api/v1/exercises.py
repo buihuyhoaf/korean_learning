@@ -14,6 +14,7 @@ from ...schemas.exercise import (
     ExerciseListResponse, ExerciseStatsResponse
 )
 from ...crud.exercise import ExerciseCRUD
+from ...crud.progress_tracking import ProgressTrackingCRUD
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
@@ -234,12 +235,15 @@ async def submit_exercise(
         "timestamp": datetime.utcnow()
     }
     
+    exp_earned = 0
+    
     if exercise.type == "listening":
         # Listening exercises - check transcript
         user_response = submission_data.get("response", "")
         # Add logic to evaluate listening responses
         submission_result["score"] = 1.0
         submission_result["feedback"] = "Good job!"
+        exp_earned = 20  # EXP for completing listening exercise
         
     elif exercise.type == "speaking":
         # Speaking exercises - save audio response
@@ -247,6 +251,7 @@ async def submit_exercise(
         submission_result["audio_url"] = audio_url
         submission_result["score"] = 1.0
         submission_result["feedback"] = "Your response has been recorded."
+        exp_earned = 20  # EXP for completing speaking exercise
         
     elif exercise.type == "writing":
         # Writing exercises - save text response
@@ -254,8 +259,48 @@ async def submit_exercise(
         submission_result["response"] = text_response
         submission_result["score"] = 1.0
         submission_result["feedback"] = "Your response has been saved."
+        exp_earned = 20  # EXP for completing writing exercise
     
-    # TODO: Save submission to database (UserExerciseSubmission table would need to be created)
+    # Update user EXP and log activity
+    if exp_earned > 0:
+        from ...models.user import User
+        from ...models.gamification import UserExpLog
+        from sqlalchemy import select
+        
+        user_query = select(User).filter(User.id == user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
+        
+        if user:
+            user.exp += exp_earned
+            
+            # Log EXP gain from exercise
+            exp_log = UserExpLog(
+                user_id=user_id,
+                source="exercise_completed",
+                amount=exp_earned
+            )
+            db.add(exp_log)
+            await db.commit()
+            
+            submission_result["exp_earned"] = exp_earned
+    
+    # Update lesson progress - increment exercise completion counter
+    # Import here to avoid circular dependency
+    from ...api.v1 import course_management
+    
+    lesson_id = exercise.lesson_id
+    await course_management._increment_exercise_completion(db, user_id, lesson_id)
+    
+    # Update all progress (lesson -> unit -> course)
+    progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
+    lesson_progress_obj = progress_result.get("lesson_progress")
+    
+    if lesson_progress_obj:
+        submission_result["lesson_progress"] = {
+            "progress_percent": int(lesson_progress_obj.progress_percent) if lesson_progress_obj.progress_percent else 0,
+            "is_completed": lesson_progress_obj.is_completed
+        }
     
     return submission_result
 

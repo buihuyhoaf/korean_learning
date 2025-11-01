@@ -147,6 +147,15 @@ async def submit_quiz_attempt(
     user = user_result.scalar_one_or_none()
     if user:
         user.exp += exp_earned
+        
+        # Log EXP gain from quiz
+        from ...models.gamification import UserExpLog
+        exp_log = UserExpLog(
+            user_id=current_user["id"],
+            source="quiz_completed",
+            amount=exp_earned
+        )
+        db.add(exp_log)
     
     await db.commit()
     

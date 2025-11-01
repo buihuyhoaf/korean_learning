@@ -37,7 +37,6 @@ class User(Base):
     exp_logs = relationship("UserExpLog", back_populates="user")
     badges = relationship("UserBadge", back_populates="user")
     daily_goals = relationship("DailyGoal", back_populates="user")
-    challenges = relationship("UserChallenge", back_populates="user")
     friends = relationship("Friend", back_populates="user", foreign_keys="Friend.user_id")
     friend_of = relationship("Friend", back_populates="friend", foreign_keys="Friend.friend_user_id")
     leaderboard = relationship("Leaderboard", back_populates="user")

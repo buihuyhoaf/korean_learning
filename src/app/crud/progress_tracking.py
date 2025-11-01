@@ -72,11 +72,9 @@ class ProgressTrackingCRUD:
         
         if existing_progress:
             completed_questions = max(0, min(existing_progress.completed_questions_count, total_questions))
+            completed_exercises = max(0, min(existing_progress.completed_exercises_count, total_exercises))
         else:
             completed_questions = 0
-        
-        # Count completed exercises (TODO: implement exercise tracking)
-        # For now, exercises are not tracked yet, so completed_exercises = 0
         completed_exercises = 0
         
         # Calculate progress
@@ -115,6 +113,7 @@ class ProgressTrackingCRUD:
         
         # Check if lesson is completed (>= 80%)
         is_completed = progress_percent >= 80.0
+        was_completed = existing_progress.is_completed if existing_progress else False
         
         if existing_progress:
             # Update existing progress
@@ -123,6 +122,25 @@ class ProgressTrackingCRUD:
             
             if is_completed and existing_progress.completed_at is None:
                 existing_progress.completed_at = datetime.now(UTC)
+                
+                # Log EXP gain when lesson is newly completed
+                if not was_completed:
+                    from ..models.gamification import UserExpLog
+                    from ..models.user import User
+                    lesson_exp_reward = 50  # EXP reward for completing a lesson
+                    exp_log = UserExpLog(
+                        user_id=user_id,
+                        source="lesson_completed",
+                        amount=lesson_exp_reward
+                    )
+                    db.add(exp_log)
+                    
+                    # Update user EXP
+                    user_query = select(User).filter(User.id == user_id)
+                    user_result = await db.execute(user_query)
+                    user = user_result.scalar_one_or_none()
+                    if user:
+                        user.exp += lesson_exp_reward
             
             await db.commit()
             await db.refresh(existing_progress)
@@ -137,6 +155,26 @@ class ProgressTrackingCRUD:
                 completed_at=datetime.now(UTC) if is_completed else None
             )
             db.add(new_progress)
+            
+            # Log EXP gain when lesson is completed
+            if is_completed:
+                from ..models.gamification import UserExpLog
+                from ..models.user import User
+                lesson_exp_reward = 50  # EXP reward for completing a lesson
+                exp_log = UserExpLog(
+                    user_id=user_id,
+                    source="lesson_completed",
+                    amount=lesson_exp_reward
+                )
+                db.add(exp_log)
+                
+                # Update user EXP
+                user_query = select(User).filter(User.id == user_id)
+                user_result = await db.execute(user_query)
+                user = user_result.scalar_one_or_none()
+                if user:
+                    user.exp += lesson_exp_reward
+            
             await db.commit()
             await db.refresh(new_progress)
             return new_progress

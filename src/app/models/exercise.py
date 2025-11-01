@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, String, Integer, Text, ForeignKey, Index
+from sqlalchemy import DateTime, String, Integer, Text, ForeignKey, Index, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -25,6 +25,7 @@ class Exercise(Base):
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     audio_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    text_to_speak: Mapped[str | None] = mapped_column(Text, nullable=True)
     transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     sample_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -33,6 +34,7 @@ class Exercise(Base):
 
     # Relationships
     lesson = relationship("Lesson", back_populates="exercises")
+    questions = relationship("ExerciseQuestion", back_populates="exercise", cascade="all, delete-orphan", lazy="selectin")
 
     # Indexes for better performance
     __table_args__ = (
@@ -85,3 +87,46 @@ class Exercise(Base):
 # 
 #     # Relationships
 #     lesson = relationship("Lesson", back_populates="writing_exercises")
+
+
+class ExerciseQuestion(Base):
+    """Questions belonging to an exercise"""
+    __tablename__ = "exercise_questions"
+    
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercises.id"), nullable=False)
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    
+    # Relationships
+    exercise = relationship("Exercise", back_populates="questions")
+    options = relationship("ExerciseQuestionOption", back_populates="question", cascade="all, delete-orphan", lazy="selectin")
+    
+    # Indexes
+    __table_args__ = (
+        Index('ix_exercise_questions_exercise_id', 'exercise_id'),
+        Index('ix_exercise_questions_order', 'exercise_id', 'order_index'),
+    )
+
+
+class ExerciseQuestionOption(Base):
+    """Options for exercise questions"""
+    __tablename__ = "exercise_question_options"
+    
+    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercise_questions.id"), nullable=False)
+    option_text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    
+    # Relationships
+    question = relationship("ExerciseQuestion", back_populates="options")
+    
+    # Indexes
+    __table_args__ = (
+        Index('ix_exercise_question_options_question_id', 'question_id'),
+        Index('ix_exercise_question_options_order', 'question_id', 'order_index'),
+    )

@@ -21,9 +21,7 @@ from ..models.gamification import (
     UserExpLog, 
     Badge, 
     UserBadge, 
-    DailyGoal, 
-    Challenge, 
-    UserChallenge
+    DailyGoal
 )
 from ..models.social import Friend, Leaderboard
 from ..models.ai_log import AiLog

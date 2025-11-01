@@ -47,6 +47,7 @@ class UserLessonProgress(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress_percent: Mapped[float] = mapped_column(Float, default=0.0)
     completed_questions_count: Mapped[int] = mapped_column(Integer, default=0)
+    completed_exercises_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
     user = relationship("User", back_populates="lesson_progress")

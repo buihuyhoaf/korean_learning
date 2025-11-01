@@ -14,7 +14,7 @@ from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.course import Course, Lesson, Unit
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
 from ...models.final_quiz import FinalQuiz
-from ...models.exercise import Exercise
+from ...models.exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption
 from ...models.quiz import Question, QuestionOption
 from ...crud.progress_tracking import ProgressTrackingCRUD
 
@@ -349,7 +349,7 @@ async def get_lesson(
     """Get a specific lesson with questions + exercises"""
     lesson_query = select(Lesson).options(
         selectinload(Lesson.questions).selectinload(Question.options),
-        selectinload(Lesson.exercises)
+        selectinload(Lesson.exercises).selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)
     ).filter(Lesson.id == lesson_id)
     lesson_result = await db.execute(lesson_query)
     lesson = lesson_result.scalar_one_or_none()
@@ -400,11 +400,34 @@ async def get_lesson(
                 "title": exercise.title,
                 "content": exercise.content,
                 "audio_url": exercise.audio_url,
+                "text_to_speak": exercise.text_to_speak,
                 "transcript": exercise.transcript,
                 "prompt": exercise.prompt,
                 "sample_answer": exercise.sample_answer,
                 "order_index": exercise.order_index,
-                "created_at": exercise.created_at
+                "created_at": exercise.created_at.isoformat() if exercise.created_at else None,
+                "questions": [
+                    {
+                        "id": q.id,
+                        "exercise_id": q.exercise_id,
+                        "question_text": q.question_text,
+                        "explanation": q.explanation,
+                        "order_index": q.order_index,
+                        "created_at": q.created_at.isoformat() if q.created_at else None,
+                        "options": [
+                            {
+                                "id": opt.id,
+                                "question_id": opt.question_id,
+                                "option_text": opt.option_text,
+                                "is_correct": opt.is_correct,
+                                "order_index": opt.order_index,
+                                "created_at": opt.created_at.isoformat() if opt.created_at else None
+                            }
+                            for opt in q.options
+                        ]
+                    }
+                    for q in exercise.questions
+                ]
             }
             exercises_data.append(exercise_dict)
     
@@ -568,6 +591,47 @@ async def _increment_lesson_progress(
             user_id=user_id,
             lesson_id=lesson_id,
             completed_questions_count=1
+        )
+        db.add(new_progress)
+    
+    await db.commit()
+
+
+async def _increment_exercise_completion(
+    db: AsyncSession,
+    user_id: int,
+    lesson_id: int
+) -> None:
+    """Helper function to increment completed_exercises_count for a lesson."""
+    # Get or create progress record
+    progress_query = select(UserLessonProgress).filter(
+        and_(
+            UserLessonProgress.user_id == user_id,
+            UserLessonProgress.lesson_id == lesson_id
+        )
+    )
+    progress_result = await db.execute(progress_query)
+    user_progress = progress_result.scalar_one_or_none()
+    
+    # Count total exercises for cap
+    total_e_result = await db.execute(
+        select(func.count()).select_from(Exercise).where(Exercise.lesson_id == lesson_id)
+    )
+    total_exercises = total_e_result.scalar() or 0
+    
+    if user_progress:
+        # Increment but do not exceed total
+        if not user_progress.is_completed:
+            user_progress.completed_exercises_count = min(
+                (user_progress.completed_exercises_count or 0) + 1,
+                total_exercises
+            )
+    else:
+        # Create with 1 completed exercise
+        new_progress = UserLessonProgress(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            completed_exercises_count=1
         )
         db.add(new_progress)
     

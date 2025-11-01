@@ -18,7 +18,6 @@ from .user_progress import router as user_progress_router
 from .mistakes import router as mistakes_router
 from .badges import router as badges_router
 from .daily_goals import router as daily_goals_router
-from .challenges import router as challenges_router
 from .friends import router as friends_router
 from .leaderboard import router as leaderboard_router
 from .entry_test import router as entry_test_router
@@ -29,9 +28,6 @@ router = APIRouter(prefix="/v1")
 router.include_router(login_router)
 router.include_router(logout_router)
 router.include_router(google_auth_router)
-# router.include_router(google_auth_simple_router)
-# router.include_router(google_auth_working_router)
-# router.include_router(google_auth_new_router)
 router.include_router(users_router)
 router.include_router(tasks_router)
 router.include_router(tiers_router)
@@ -44,7 +40,6 @@ router.include_router(user_progress_router)
 router.include_router(mistakes_router)
 router.include_router(badges_router)
 router.include_router(daily_goals_router)
-router.include_router(challenges_router)
 router.include_router(friends_router)
 router.include_router(leaderboard_router)
 router.include_router(entry_test_router)
