@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -7,7 +8,7 @@ class UserRefreshTokenCreate(BaseModel):
     """Pydantic model for creating UserRefreshToken"""
     model_config = ConfigDict(from_attributes=True)
     
-    user_id: int
+    user_id: UUID
     token: str
     expires_at: datetime
 
@@ -16,7 +17,7 @@ class UserRefreshTokenUpdate(BaseModel):
     """Pydantic model for updating UserRefreshToken"""
     model_config = ConfigDict(from_attributes=True)
     
-    user_id: Optional[int] = None
+    user_id: Optional[UUID] = None
     token: Optional[str] = None
     expires_at: Optional[datetime] = None
 
@@ -37,8 +38,8 @@ class UserRefreshTokenRead(BaseModel):
     """Pydantic model for reading UserRefreshToken"""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     token: str
     expires_at: datetime
     created_at: datetime

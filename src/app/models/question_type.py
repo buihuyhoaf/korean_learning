@@ -5,8 +5,10 @@ Defines the different types of questions supported in the Korean learning app.
 Each question type has a unique code, name, and description.
 """
 from datetime import UTC, datetime
+import uuid
 
 from sqlalchemy import DateTime, String, Integer, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,7 +28,7 @@ class QuestionType(Base):
     """
     __tablename__ = "question_types"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

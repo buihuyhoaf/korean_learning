@@ -4,9 +4,11 @@ User Answer Model
 Stores user answers to questions with flexible JSONB storage for different answer types.
 """
 from datetime import UTC, datetime
+import uuid
 from typing import Any
 
 from sqlalchemy import DateTime, Integer, ForeignKey, Boolean, Float
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,9 +37,9 @@ class UserAnswer(Base):
     """
     __tablename__ = "user_answers"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
     answer: Mapped[Any] = mapped_column(JSONB, nullable=False)  # Flexible JSON data
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     score: Mapped[float | None] = mapped_column(Float, nullable=True)

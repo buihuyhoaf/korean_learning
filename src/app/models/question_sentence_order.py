@@ -4,8 +4,10 @@ Question Sentence Order Model
 Stores the correct sequence of sentences/words for sentence ordering questions.
 """
 from typing import Any
+import uuid
 
 from sqlalchemy import Integer, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,9 +26,9 @@ class QuestionSentenceOrder(Base):
     """
     __tablename__ = "question_sentence_order"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    question_id: Mapped[int] = mapped_column(
-        Integer, 
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), 
         ForeignKey("questions.id", ondelete="CASCADE"), 
         nullable=False, 
         unique=True,

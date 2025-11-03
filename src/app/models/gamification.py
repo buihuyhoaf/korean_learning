@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, date
+import uuid
 
 from sqlalchemy import DateTime, String, Integer, Text, Float, Boolean, Date, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -9,8 +11,8 @@ from ..core.db.database import Base
 class UserExpLog(Base):
     __tablename__ = "user_exp_log"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     source: Mapped[str] = mapped_column(String(100))  # quiz, daily_goal, etc.
     amount: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
@@ -22,7 +24,7 @@ class UserExpLog(Base):
 class Badge(Base):
     __tablename__ = "badges"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text)
     icon_url: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -35,9 +37,9 @@ class Badge(Base):
 class UserBadge(Base):
     __tablename__ = "user_badges"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    badge_id: Mapped[int] = mapped_column(Integer, ForeignKey("badges.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    badge_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("badges.id"), nullable=False)
     earned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
 
     # Relationships
@@ -51,8 +53,8 @@ class UserBadge(Base):
 class DailyGoal(Base):
     __tablename__ = "daily_goals"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     target_exp: Mapped[int] = mapped_column(Integer, default=100)
     target_lessons: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[date] = mapped_column(Date, default_factory=lambda: datetime.now(UTC).date())

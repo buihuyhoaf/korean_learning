@@ -5,9 +5,11 @@ Core question model that supports multiple question types through polymorphic re
 Uses JSONB for flexible media and metadata storage.
 """
 from datetime import UTC, datetime
+import uuid
 from typing import Any
 
 from sqlalchemy import DateTime, String, Integer, Text, ForeignKey, SmallInteger, func, select, event
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 
@@ -31,9 +33,9 @@ class Question(Base):
     """
     __tablename__ = "questions"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    question_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("question_types.id"), nullable=False, index=True)
-    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_type_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("question_types.id"), nullable=False, index=True)
+    lesson_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("lessons.id"), nullable=False, index=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     media: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)  # {"image": "...", "audio": "...", "video": "..."}
     question_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)  # Type-specific settings, difficulty, hints

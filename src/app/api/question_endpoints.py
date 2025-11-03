@@ -4,6 +4,7 @@ API Endpoints for Questions
 Provides REST API endpoints for managing questions with support for all 9 question types.
 """
 from typing import Annotated, Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +30,7 @@ lesson_questions_router = APIRouter(tags=["lessons"])
 
 @lesson_questions_router.get("/lessons/{lesson_id}/questions", response_model=QuestionsListResponse)
 async def get_lesson_questions(
-    lesson_id: int,
+    lesson_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Annotated[AsyncSession, Depends(async_get_db)],
@@ -60,7 +61,7 @@ async def get_question_types(
 
 @router.get("/{question_id}", response_model=QuestionResponse)
 async def get_question(
-    question_id: int,
+    question_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> QuestionResponse:
@@ -101,7 +102,7 @@ async def create_question(
 
 @router.put("/{question_id}", response_model=QuestionResponse)
 async def update_question(
-    question_id: int,
+    question_id: UUID,
     question_data: QuestionUpdate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)]
@@ -120,7 +121,7 @@ async def update_question(
 
 @router.delete("/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_question(
-    question_id: int,
+    question_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_superuser)]
 ):
@@ -136,7 +137,7 @@ async def delete_question(
 
 @router.post("/{question_id}/answers", response_model=AnswerSubmitResponse)
 async def submit_answer(
-    question_id: int,
+    question_id: UUID,
     answer_data: AnswerSubmitRequest,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]

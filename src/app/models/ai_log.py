@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
+import uuid
 
 from sqlalchemy import DateTime, String, Integer, Text, Float, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -9,8 +11,8 @@ from ..core.db.database import Base
 class AiLog(Base):
     __tablename__ = "ai_logs"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     exercise_type: Mapped[str] = mapped_column(String(50))  # writing, speaking
     input_url: Mapped[str] = mapped_column(String(500))
     recognized_text: Mapped[str] = mapped_column(Text)

@@ -1,5 +1,6 @@
 # src/app/api/v1/course_management.py
 from typing import Annotated, Optional
+from uuid import UUID
 from datetime import datetime, UTC
 import random
 from collections import defaultdict
@@ -110,6 +111,7 @@ async def get_courses(
             "id": course.id,
             "title": course.title,
             "description": course.description,
+            "image_url": course.image_url,
             "order_index": course.order_index,
             "created_at": course.created_at,
             "units_count": len(course.units),
@@ -128,7 +130,7 @@ async def get_courses(
 @router.get("/courses/{course_id}", response_model=dict)
 async def get_course(
     request: Request,
-    course_id: int,
+    course_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -181,6 +183,7 @@ async def get_course(
         "id": course.id,
         "title": course.title,
         "description": course.description,
+        "image_url": course.image_url,
         "order_index": course.order_index,
         "created_at": course.created_at,
         "units": units_data,
@@ -195,7 +198,7 @@ async def get_course(
 @router.get("/units/{unit_id}", response_model=dict)
 async def get_unit(
     request: Request,
-    unit_id: int,
+    unit_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -264,7 +267,7 @@ async def get_unit(
 @router.get("/lessons/{lesson_id}", response_model=dict)
 async def get_lesson(
     request: Request,
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -433,7 +436,7 @@ async def get_lesson(
 @router.get("/lessons/{lesson_id}/questions", response_model=dict)
 async def get_lesson_questions(
     request: Request,
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -488,7 +491,7 @@ async def get_lesson_questions(
 @router.get("/lessons/{lesson_id}/exercises", response_model=dict)
 async def get_lesson_exercises(
     request: Request,
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -544,8 +547,8 @@ async def get_lesson_exercises(
 
 async def _increment_lesson_progress(
     db: AsyncSession,
-    user_id: int,
-    lesson_id: int
+    user_id: UUID,
+    lesson_id: UUID
 ) -> None:
     """Helper function to increment completed_questions_count for a lesson."""
     # Get or create progress record
@@ -585,8 +588,8 @@ async def _increment_lesson_progress(
 
 async def _increment_exercise_completion(
     db: AsyncSession,
-    user_id: int,
-    lesson_id: int
+    user_id: UUID,
+    lesson_id: UUID
 ) -> None:
     """Helper function to increment completed_exercises_count for a lesson."""
     # Get or create progress record
@@ -652,8 +655,8 @@ def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, 
 
 @router.post("/lessons/{lesson_id}/practice-questions/{question_id}/submit", response_model=dict)
 async def submit_practice_question_answer(
-    lesson_id: int,
-    question_id: int,
+    lesson_id: UUID,
+    question_id: UUID,
     request: dict,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None

@@ -5,8 +5,10 @@ Stores options/choices for multiple choice questions.
 Supports text and media (image, audio) for each option.
 """
 from typing import Any
+import uuid
 
 from sqlalchemy import Integer, Text, ForeignKey, Boolean, SmallInteger
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,8 +29,8 @@ class QuestionOption(Base):
     """
     __tablename__ = "question_options"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
     option_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     option_media: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)  # {"image": "...", "audio": "..."}
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)

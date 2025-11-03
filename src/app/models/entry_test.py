@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
+import uuid
 
 from sqlalchemy import DateTime, String, Integer, Text, ForeignKey, Boolean, Float
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -9,10 +11,10 @@ from ..core.db.database import Base
 class EntryTest(Base):
     __tablename__ = "entry_tests"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
-    related_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    related_course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
 
@@ -26,8 +28,8 @@ class EntryTest(Base):
 class EntryTestQuestion(Base):
     __tablename__ = "entry_test_questions"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    entry_test_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entry_tests.id"), nullable=False)
     content: Mapped[str] = mapped_column(Text)
     audio_url: Mapped[str] = mapped_column(String(500), nullable=True)
     image_url: Mapped[str] = mapped_column(String(500), nullable=True)
@@ -44,8 +46,8 @@ class EntryTestQuestion(Base):
 class EntryTestQuestionOption(Base):
     __tablename__ = "entry_test_question_options"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_test_questions.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entry_test_questions.id"), nullable=False)
     option_text: Mapped[str] = mapped_column(Text)
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
@@ -57,11 +59,11 @@ class EntryTestQuestionOption(Base):
 class UserEntryTestResult(Base):
     __tablename__ = "user_entry_test_results"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    entry_test_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entry_tests.id"), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
-    recommended_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    recommended_course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
@@ -74,11 +76,11 @@ class EntryTestResult(Base):
     """Maps score ranges to recommended courses"""
     __tablename__ = "entry_test_results"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    entry_test_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entry_tests.id"), nullable=False)
     min_score: Mapped[float] = mapped_column(Float, nullable=False)
     max_score: Mapped[float] = mapped_column(Float, nullable=False)
-    course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
@@ -90,11 +92,11 @@ class UserEntryTestHistory(Base):
     """Read-only history of user entry test attempts"""
     __tablename__ = "user_entry_test_history"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    entry_test_id: Mapped[int] = mapped_column(Integer, ForeignKey("entry_tests.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    entry_test_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("entry_tests.id"), nullable=False)
     score: Mapped[float] = mapped_column(Float, nullable=False)
-    recommended_course_id: Mapped[int] = mapped_column(Integer, ForeignKey("courses.id"), nullable=False)
+    recommended_course_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False)
     taken_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships

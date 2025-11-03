@@ -4,6 +4,7 @@ API Endpoints for User Answers
 Provides REST API endpoints for retrieving user answer history.
 """
 from typing import Annotated, Optional
+from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,7 @@ router = APIRouter(tags=["answers"], prefix="/answers")
 
 @router.get("/question/{question_id}", response_model=Optional[AnswerResponse])
 async def get_my_answer_for_question(
-    question_id: int,
+    question_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> Optional[AnswerResponse]:
@@ -32,7 +33,7 @@ async def get_my_answer_for_question(
 
 @router.get("/history", response_model=list[AnswerResponse])
 async def get_my_answer_history(
-    question_id: Optional[int] = Query(None, description="Filter by question ID"),
+    question_id: Optional[UUID] = Query(None, description="Filter by question ID"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records"),
     db: Annotated[AsyncSession, Depends(async_get_db)],

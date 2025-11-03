@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
+import uuid
 from enum import Enum
 
 from sqlalchemy import DateTime, String, Integer, Text, ForeignKey, Index, Boolean
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -19,8 +21,8 @@ class Exercise(Base):
     """Unified exercises table for listening, speaking, writing"""
     __tablename__ = "exercises"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    lesson_id: Mapped[int] = mapped_column(Integer, ForeignKey("lessons.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    lesson_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("lessons.id"), nullable=False)
     type: Mapped[ExerciseType] = mapped_column(String(50), nullable=False)
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -93,8 +95,8 @@ class ExerciseQuestion(Base):
     """Questions belonging to an exercise"""
     __tablename__ = "exercise_questions"
     
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    exercise_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercises.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    exercise_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("exercises.id"), nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
@@ -115,8 +117,8 @@ class ExerciseQuestionOption(Base):
     """Options for exercise questions"""
     __tablename__ = "exercise_question_options"
     
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True)
-    question_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercise_questions.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("exercise_questions.id"), nullable=False)
     option_text: Mapped[str] = mapped_column(Text, nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0)

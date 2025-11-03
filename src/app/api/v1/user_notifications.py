@@ -1,5 +1,6 @@
 # src/app/api/v1/user_notifications.py
 from typing import Annotated, Any, cast
+from uuid import UUID
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, Request
@@ -106,7 +107,7 @@ async def get_unread_notifications_count(
 async def mark_notification_read(
     request: Request,
     username: str,
-    notification_id: int,
+    notification_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -169,7 +170,7 @@ async def mark_all_notifications_read(
 async def delete_notification(
     request: Request,
     username: str,
-    notification_id: int,
+    notification_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -269,7 +270,7 @@ async def create_notification(
 
 
 # System notification functions
-def create_achievement_notification(db: AsyncSession, user_id: int, achievement_type: str, details: str) -> None:
+def create_achievement_notification(db: AsyncSession, user_id: UUID, achievement_type: str, details: str) -> None:
     """Create an achievement notification"""
     notification = Notification(
         user_id=user_id,
@@ -281,7 +282,7 @@ def create_achievement_notification(db: AsyncSession, user_id: int, achievement_
     db.add(notification)
 
 
-def create_friend_request_notification(db: AsyncSession, user_id: int, requester_username: str) -> None:
+def create_friend_request_notification(db: AsyncSession, user_id: UUID, requester_username: str) -> None:
     """Create a friend request notification"""
     notification = Notification(
         user_id=user_id,
@@ -293,7 +294,7 @@ def create_friend_request_notification(db: AsyncSession, user_id: int, requester
     db.add(notification)
 
 
-def create_challenge_notification(db: AsyncSession, user_id: int, challenge_title: str, message: str) -> None:
+def create_challenge_notification(db: AsyncSession, user_id: UUID, challenge_title: str, message: str) -> None:
     """Create a challenge notification"""
     notification = Notification(
         user_id=user_id,
@@ -305,7 +306,7 @@ def create_challenge_notification(db: AsyncSession, user_id: int, challenge_titl
     db.add(notification)
 
 
-def create_reminder_notification(db: AsyncSession, user_id: int, message: str) -> None:
+def create_reminder_notification(db: AsyncSession, user_id: UUID, message: str) -> None:
     """Create a reminder notification"""
     notification = Notification(
         user_id=user_id,
@@ -317,7 +318,7 @@ def create_reminder_notification(db: AsyncSession, user_id: int, message: str) -
     db.add(notification)
 
 
-def create_system_notification(db: AsyncSession, user_id: int, title: str, message: str) -> None:
+def create_system_notification(db: AsyncSession, user_id: UUID, title: str, message: str) -> None:
     """Create a system notification"""
     notification = Notification(
         user_id=user_id,

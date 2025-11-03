@@ -1,6 +1,7 @@
 # src/app/api/v1/friends.py
 from typing import Annotated, Any, cast
 from datetime import datetime, UTC
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
@@ -216,7 +217,7 @@ async def send_friend_request(
 async def accept_friend_request(
     request: Request,
     username: str,
-    friend_request_id: int,
+    friend_request_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -262,7 +263,7 @@ async def accept_friend_request(
 async def reject_friend_request(
     request: Request,
     username: str,
-    friend_request_id: int,
+    friend_request_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -296,7 +297,7 @@ async def reject_friend_request(
 async def block_friend(
     request: Request,
     username: str,
-    friendship_id: int,
+    friendship_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -329,7 +330,7 @@ async def block_friend(
 async def remove_friend(
     request: Request,
     username: str,
-    friendship_id: int,
+    friendship_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:

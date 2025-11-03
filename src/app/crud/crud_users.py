@@ -16,7 +16,9 @@ async def create_user_safe(db: AsyncSession, user_data: UserCreateInternal):
         user_dict.pop('created_at', None)
         
         print(f"[DEBUG] User dict before creation: {user_dict}")
-        created_user = await crud_users.create(db=db, object=user_dict)
+        # Reconstruct schema instance so FastCRUD receives a Pydantic model, not a plain dict
+        user_schema = UserCreateInternal(**user_dict)
+        created_user = await crud_users.create(db=db, object=user_schema)
         return created_user
     except Exception as e:
         print(f"[ERROR] Failed to create user: {e}")

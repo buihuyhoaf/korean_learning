@@ -1,4 +1,5 @@
 from typing import Annotated, List, Optional
+from uuid import UUID
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/exercises", tags=["exercises"])
 
 @router.get("/lessons/{lesson_id}/exercises", response_model=ExerciseListResponse)
 async def get_lesson_exercises(
-    lesson_id: int,
+    lesson_id: UUID,
     exercise_type: Optional[ExerciseType] = Query(None, description="Filter by exercise type"),
     skip: int = Query(0, ge=0, description="Number of exercises to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Number of exercises to return"),
@@ -56,7 +57,7 @@ async def get_lesson_exercises(
 
 @router.get("/lessons/{lesson_id}/exercises/stats", response_model=ExerciseStatsResponse)
 async def get_lesson_exercise_stats(
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> ExerciseStatsResponse:
@@ -75,7 +76,7 @@ async def get_lesson_exercise_stats(
 
 @router.get("/exercises/{exercise_id}", response_model=ExerciseRead)
 async def get_exercise(
-    exercise_id: int,
+    exercise_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> ExerciseRead:
@@ -110,7 +111,7 @@ async def create_exercise(
 
 @router.put("/exercises/{exercise_id}", response_model=ExerciseRead)
 async def update_exercise(
-    exercise_id: int,
+    exercise_id: UUID,
     exercise_data: ExerciseUpdate,
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_superuser)] = None
@@ -126,7 +127,7 @@ async def update_exercise(
 
 @router.delete("/exercises/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_exercise(
-    exercise_id: int,
+    exercise_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_superuser)] = None
 ) -> None:
@@ -139,7 +140,7 @@ async def delete_exercise(
 
 @router.get("/lessons/{lesson_id}/exercises/listening", response_model=ExerciseListResponse)
 async def get_listening_exercises(
-    lesson_id: int,
+    lesson_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
@@ -163,7 +164,7 @@ async def get_listening_exercises(
 
 @router.get("/lessons/{lesson_id}/exercises/speaking", response_model=ExerciseListResponse)
 async def get_speaking_exercises(
-    lesson_id: int,
+    lesson_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
@@ -187,7 +188,7 @@ async def get_speaking_exercises(
 
 @router.get("/lessons/{lesson_id}/exercises/writing", response_model=ExerciseListResponse)
 async def get_writing_exercises(
-    lesson_id: int,
+    lesson_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
@@ -211,7 +212,7 @@ async def get_writing_exercises(
 
 @router.post("/exercises/{exercise_id}/submit", status_code=status.HTTP_200_OK)
 async def submit_exercise(
-    exercise_id: int,
+    exercise_id: UUID,
     submission_data: dict,
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_user)] = None
@@ -307,8 +308,8 @@ async def submit_exercise(
 
 @router.put("/exercises/reorder", status_code=status.HTTP_200_OK)
 async def reorder_exercises(
-    lesson_id: int,
-    exercise_ids: List[int],
+    lesson_id: UUID,
+    exercise_ids: List[UUID],
     db: Annotated[AsyncSession, Depends(async_get_db)] = None,
     current_user: Annotated[dict, Depends(get_current_superuser)] = None
 ) -> dict:

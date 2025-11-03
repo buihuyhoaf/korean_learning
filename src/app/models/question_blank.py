@@ -3,7 +3,9 @@ Question Blank Model
 
 Stores fill-in-the-blank question data including correct answer and case sensitivity setting.
 """
+import uuid
 from sqlalchemy import Integer, Text, ForeignKey, Boolean
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -21,9 +23,9 @@ class QuestionBlank(Base):
     """
     __tablename__ = "question_blanks"
 
-    id: Mapped[int] = mapped_column(Integer, autoincrement=True, primary_key=True, init=False)
-    question_id: Mapped[int] = mapped_column(
-        Integer,
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    question_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("questions.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,

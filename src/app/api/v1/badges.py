@@ -1,5 +1,6 @@
 # src/app/api/v1/badges.py
 from typing import Annotated, Any, cast
+from uuid import UUID
 from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, Request
@@ -176,7 +177,7 @@ async def get_user_badges_summary(
 async def earn_badge(
     request: Request,
     username: str,
-    badge_id: int,
+    badge_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)]
 ) -> dict:
@@ -242,7 +243,7 @@ async def earn_badge(
 @router.get("/badges/{badge_id}", response_model=dict)
 async def get_badge_details(
     request: Request,
-    badge_id: int,
+    badge_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
@@ -279,7 +280,7 @@ async def get_badge_details(
     }
 
 
-def get_next_available_badges(user_id: int, db: AsyncSession) -> list:
+def get_next_available_badges(user_id: UUID, db: AsyncSession) -> list:
     """Get badges that user hasn't earned yet"""
     # Get all badges
     all_badges = db.query(Badge).all()
