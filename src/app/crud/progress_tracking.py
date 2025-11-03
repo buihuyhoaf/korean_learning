@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..models.progress import UserLessonProgress, UserUnitProgress, UserCourseProgress
-from ..models.quiz import Question, QuestionOption
+from ..models.question import Question
+from ..models.question_option import QuestionOption
 from ..models.exercise import Exercise
 from ..models.course import Lesson, Unit, Course
 
@@ -189,15 +190,11 @@ class ProgressTrackingCRUD:
         user_id: int,
         unit_id: int
     ) -> float:
-        """Calculate unit progress percentage based on:
-        - Lessons completed
-        - Final quiz passed (if applicable)
-        """
+        """Calculate unit progress percentage based on lessons completed."""
         
         # Get unit
         unit_query = select(Unit).options(
-            selectinload(Unit.lessons),
-            selectinload(Unit.final_quiz)
+            selectinload(Unit.lessons)
         ).filter(Unit.id == unit_id)
         unit_result = await db.execute(unit_query)
         unit = unit_result.scalar_one_or_none()
@@ -232,21 +229,8 @@ class ProgressTrackingCRUD:
         else:
             average_lesson_progress = 0.0
         
-        # Check if final quiz exists and is completed
-        has_final_quiz = unit.final_quiz is not None
-        final_quiz_completed = False
-        
-        if has_final_quiz:
-            # TODO: Check if user has passed final quiz
-            # For now, we'll skip this check
-            pass
-        
-        # Progress = average lesson progress * 100%
-        # If final quiz exists and completed, unit is 100%
-        if has_final_quiz and final_quiz_completed:
-            progress = 100.0
-        else:
-            progress = average_lesson_progress
+        # Progress = average lesson progress
+        progress = average_lesson_progress
         
         return round(progress, 2)
     

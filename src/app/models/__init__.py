@@ -2,10 +2,16 @@
 from .user import User
 from .user_refresh_token import UserRefreshToken
 from .course import Course, Unit, Lesson
-from .quiz import QuestionType, Question, QuestionOption
-from .final_quiz import FinalQuiz  # Updated: renamed from Quiz
-from .exercise import Exercise  # New unified exercise model
-from .user_final_quiz_attempt import UserFinalQuizAttempt  # New final quiz attempts model
+from .question_type import QuestionType
+from .question import Question
+from .question_option import QuestionOption
+from .question_matching_pair import QuestionMatchingPair
+from .question_sentence_order import QuestionSentenceOrder
+from .question_audio_comprehension import QuestionAudioComprehension
+from .question_pronunciation import QuestionPronunciation
+from .question_blank import QuestionBlank
+from .user_answer import UserAnswer
+from .exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption  # New unified exercise model
 from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult, EntryTestResult, UserEntryTestHistory
 
 # Import TokenBlacklist model

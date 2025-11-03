@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class CourseBase(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=200, examples=["Korean Basics"])]
     description: Annotated[str, Field(min_length=1, examples=["Learn basic Korean vocabulary and grammar"])]
+    image_url: Annotated[str | None, Field(default=None, max_length=500, examples=["https://example.com/cover.png"])]
 
 
 class Course(CourseBase):
@@ -32,6 +33,7 @@ class CourseUpdate(BaseModel):
     
     title: Annotated[str | None, Field(min_length=1, max_length=200, default=None)]
     description: Annotated[str | None, Field(min_length=1, default=None)]
+    image_url: Annotated[str | None, Field(default=None, max_length=500)]
     order_index: Annotated[int | None, Field(ge=0, default=None)]
 
 

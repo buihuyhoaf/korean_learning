@@ -1,0 +1,107 @@
+/**
+ * Image Upload Widget Styles
+ */
+
+.image-upload-widget {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--bg-primary-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--border-radius-md);
+}
+
+.dark-theme .image-upload-widget {
+    background: var(--bg-primary-dark);
+    border-color: var(--border-dark);
+}
+
+.upload-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.upload-button {
+    padding: 0.5rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-size: 0.875rem;
+}
+
+.upload-button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.upload-button:active {
+    transform: translateY(0);
+}
+
+.upload-status {
+    flex: 1;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+}
+
+.upload-status.uploading {
+    color: var(--primary-color);
+    background: rgba(0, 150, 136, 0.1);
+}
+
+.upload-status.success {
+    color: var(--success-color);
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.upload-status.error {
+    color: var(--danger-color);
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.image-preview {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.dark-theme .image-preview {
+    border-color: var(--border-dark);
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-md);
+    display: block;
+    margin: 0 auto;
+}
+
+/* Loading animation for upload status */
+.upload-status.uploading::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% {
+        content: '.';
+    }
+    40% {
+        content: '..';
+    }
+    60%, 100% {
+        content: '...';
+    }
+}
+

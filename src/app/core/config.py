@@ -104,6 +104,12 @@ class CRUDAdminSettings(BaseSettings):
     CRUD_ADMIN_ENABLED: bool = config("CRUD_ADMIN_ENABLED", default=True)
     CRUD_ADMIN_MOUNT_PATH: str = config("CRUD_ADMIN_MOUNT_PATH", default="/admin")
 
+    # Branding settings
+    CRUD_ADMIN_SITE_NAME: str = config("CRUD_ADMIN_SITE_NAME", default="한국어 학습 Admin")
+    CRUD_ADMIN_THEME_PRIMARY: str = config("CRUD_ADMIN_THEME_PRIMARY", default="#FF6B6B")
+    CRUD_ADMIN_THEME_SECONDARY: str = config("CRUD_ADMIN_THEME_SECONDARY", default="#4ECDC4")
+    CRUD_ADMIN_THEME_ACCENT: str = config("CRUD_ADMIN_THEME_ACCENT", default="#FFE66D")
+
     CRUD_ADMIN_ALLOWED_IPS_LIST: list[str] | None = None
     CRUD_ADMIN_ALLOWED_NETWORKS_LIST: list[str] | None = None
     CRUD_ADMIN_MAX_SESSIONS: int = config("CRUD_ADMIN_MAX_SESSIONS", default=10)
@@ -131,6 +137,13 @@ class EnvironmentSettings(BaseSettings):
     ENVIRONMENT: EnvironmentOption = config("ENVIRONMENT", default=EnvironmentOption.LOCAL)
 
 
+class SupabaseSettings(BaseSettings):
+    SUPABASE_URL: str = config("SUPABASE_URL", default="")
+    SUPABASE_KEY: SecretStr = config("SUPABASE_KEY", default="", cast=SecretStr)
+    # Prefer service role key when available (used server-side only)
+    SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = config("SUPABASE_SERVICE_ROLE_KEY", default=None, cast=SecretStr)
+
+
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -146,6 +159,7 @@ class Settings(
     DefaultRateLimitSettings,
     CRUDAdminSettings,
     EnvironmentSettings,
+    SupabaseSettings,
 ):
     pass
 

@@ -1,0 +1,6 @@
+2025-11-02 16:26:35,225 - asyncio - DEBUG - Using selector: EpollSelector
+2025-11-02 16:26:35,229 - httpx - INFO - HTTP Request: GET http://testserver/static/widgets/widget-upload.js "HTTP/1.1 200 OK"
+2025-11-03 06:20:29,806 - asyncio - DEBUG - Using selector: EpollSelector
+2025-11-03 06:20:29,814 - httpx - INFO - HTTP Request: GET http://testserver/admin/login "HTTP/1.1 200 OK"
+2025-11-03 06:26:52,517 - asyncio - DEBUG - Using selector: EpollSelector
+2025-11-03 06:26:52,531 - httpx - INFO - HTTP Request: GET http://testserver/admin/login "HTTP/1.1 500 Internal Server Error"

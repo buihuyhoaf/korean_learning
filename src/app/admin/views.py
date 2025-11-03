@@ -2,15 +2,22 @@ from typing import Annotated
 
 from crudadmin import CRUDAdmin
 from crudadmin.admin_interface.model_view import PasswordTransformer
-from pydantic import BaseModel, Field
 
 from ..core.security import get_password_hash
+from ..core.db.token_blacklist import TokenBlacklist
 from ..models.tier import Tier
 from ..models.user import User
+from ..models.user_refresh_token import UserRefreshToken
 from ..models.course import Course, Unit, Lesson
-from ..models.quiz import QuestionType, Question, QuestionOption
-from ..models.final_quiz import FinalQuiz
-from ..models.exercise import Exercise
+from ..models.question_type import QuestionType
+from ..models.question import Question
+from ..models.question_option import QuestionOption
+from ..models.question_matching_pair import QuestionMatchingPair
+from ..models.question_sentence_order import QuestionSentenceOrder
+from ..models.question_audio_comprehension import QuestionAudioComprehension
+from ..models.question_pronunciation import QuestionPronunciation
+from ..models.question_blank import QuestionBlank
+from ..models.exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption
 from ..models.progress import (
     UserCourseProgress, 
     UserUnitProgress, 
@@ -26,6 +33,8 @@ from ..models.gamification import (
 from ..models.social import Friend, Leaderboard
 from ..models.ai_log import AiLog
 from ..models.notification import Notification
+from ..models.rate_limit import RateLimit
+from ..models.user_answer import UserAnswer
 from ..models.entry_test import (
     EntryTest, 
     EntryTestQuestion, 
@@ -39,12 +48,61 @@ from ..models.entry_test import (
 from ..schemas.user import UserCreate, UserCreateInternal, UserUpdate
 from ..schemas.course import CourseCreate, CourseUpdate
 from ..schemas.lesson import LessonCreate, LessonUpdate
-from ..schemas.final_quiz import FinalQuizCreate, FinalQuizUpdate
 from ..schemas.unit import UnitCreate, UnitUpdate
-from ..schemas.exercise import ExerciseCreate, ExerciseUpdate
-from ..schemas.question import QuestionCreate, QuestionUpdate, QuestionOptionCreate, QuestionOptionResponse, QuestionTypeCreate, QuestionTypeUpdate
+from ..schemas.exercise import (
+    ExerciseCreate, 
+    ExerciseUpdate, 
+    ExerciseQuestionCreate, 
+    ExerciseQuestionUpdate,
+    ExerciseQuestionOptionCreate,
+    ExerciseQuestionOptionUpdate
+)
+from ..schemas.question_schemas import (
+    QuestionCreate,
+    QuestionCreateAdmin,
+    QuestionUpdate,
+    QuestionOptionCreate,
+    QuestionOptionUpdate,
+    QuestionOptionResponse,
+    QuestionTypeCreate,
+    QuestionTypeUpdate,
+    MatchingPairCreate,
+    MatchingPairResponse,
+    MatchingPairUpdate,
+    SentenceOrderCreate,
+    SentenceOrderResponse,
+    SentenceOrderUpdate,
+    AudioComprehensionCreate,
+    AudioComprehensionResponse,
+    AudioComprehensionUpdate,
+    PronunciationCreate,
+    PronunciationResponse,
+    PronunciationUpdate,
+    BlankCreate,
+    BlankResponse,
+    BlankUpdate
+)
 from ..schemas.progress import ProgressCreate, ProgressUpdate
 from ..schemas.ai_chat_history import AIChatHistoryCreate, AIChatHistoryUpdate
+from ..schemas.tier import TierCreate, TierUpdate
+from ..schemas.rate_limit import RateLimitCreate, RateLimitUpdate
+from ..schemas.user_refresh_token import UserRefreshTokenCreate, UserRefreshTokenUpdate
+from ..schemas.answer_schemas import AnswerResponse
+from ..core.schemas import TokenBlacklistCreate, TokenBlacklistUpdate
+from ..schemas.gamification_schemas import (
+    BadgeCreate,
+    BadgeUpdate,
+    UserBadgeCreate,
+    UserBadgeUpdate,
+    DailyGoalCreate,
+    DailyGoalUpdate,
+    UserExpLogCreate,
+    UserExpLogUpdate
+)
+from ..schemas.notification_schemas import (
+    NotificationCreate,
+    NotificationUpdate
+)
 from ..schemas.entry_test import (
     EntryTestCreate, 
     EntryTestUpdate,
@@ -108,13 +166,7 @@ def register_admin_views(admin: CRUDAdmin) -> None:
         allowed_actions={"view", "create", "update", "delete"},
     )
 
-    # Final Quiz Management
-    admin.add_view(
-        model=FinalQuiz,
-        create_schema=FinalQuizCreate,
-        update_schema=FinalQuizUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
-    )
+    # Final Quiz Management - REMOVED (no longer using quizzes)
 
     # Exercise Management
     admin.add_view(
@@ -136,16 +188,16 @@ def register_admin_views(admin: CRUDAdmin) -> None:
     admin.add_view(
         model=QuestionOption,
         create_schema=QuestionOptionCreate,
-        update_schema=QuestionOptionResponse,
+        update_schema=QuestionOptionUpdate,
         allowed_actions={"view", "create", "update", "delete"},
     )
 
-    # Question Type Management
+    # Question Type Management (View-only)
     admin.add_view(
         model=QuestionType,
         create_schema=QuestionTypeCreate,
         update_schema=QuestionTypeUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
+        allowed_actions={"view"},
     )
 
     # Entry Test Management
@@ -185,5 +237,245 @@ def register_admin_views(admin: CRUDAdmin) -> None:
         model=UserEntryTestHistory,
         create_schema=UserEntryTestHistoryCreate,
         update_schema=UserEntryTestHistoryUpdate,
+        allowed_actions={"view"},
+    )
+
+    # ============================================================================
+    # Authentication & Users (Additional)
+    # ============================================================================
+    
+    # User Refresh Token Management (View-only)
+    admin.add_view(
+        model=UserRefreshToken,
+        create_schema=UserRefreshTokenCreate,
+        update_schema=UserRefreshTokenUpdate,
+        allowed_actions={"view"},
+    )
+
+    # Token Blacklist Management (View-only)
+    admin.add_view(
+        model=TokenBlacklist,
+        create_schema=TokenBlacklistCreate,
+        update_schema=TokenBlacklistUpdate,
+        allowed_actions={"view"},
+    )
+
+    # ============================================================================
+    # Specialized Question Types
+    # ============================================================================
+    
+    # Question Blank Management
+    admin.add_view(
+        model=QuestionBlank,
+        create_schema=BlankCreate,
+        update_schema=BlankUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Matching Pair Management
+    admin.add_view(
+        model=QuestionMatchingPair,
+        create_schema=MatchingPairCreate,
+        update_schema=MatchingPairUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Sentence Order Management
+    admin.add_view(
+        model=QuestionSentenceOrder,
+        create_schema=SentenceOrderCreate,
+        update_schema=SentenceOrderUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Audio Comprehension Management
+    admin.add_view(
+        model=QuestionAudioComprehension,
+        create_schema=AudioComprehensionCreate,
+        update_schema=AudioComprehensionUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Question Pronunciation Management
+    admin.add_view(
+        model=QuestionPronunciation,
+        create_schema=PronunciationCreate,
+        update_schema=PronunciationUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # ============================================================================
+    # Exercises (Additional)
+    # ============================================================================
+    
+    # Exercise Question Management
+    admin.add_view(
+        model=ExerciseQuestion,
+        create_schema=ExerciseQuestionCreate,
+        update_schema=ExerciseQuestionUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Exercise Question Option Management
+    admin.add_view(
+        model=ExerciseQuestionOption,
+        create_schema=ExerciseQuestionOptionCreate,
+        update_schema=ExerciseQuestionOptionUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # ============================================================================
+    # User Progress Tracking (View-only)
+    # ============================================================================
+    
+    # User Course Progress
+    admin.add_view(
+        model=UserCourseProgress,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # User Unit Progress
+    admin.add_view(
+        model=UserUnitProgress,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # User Lesson Progress
+    admin.add_view(
+        model=UserLessonProgress,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # User Question Errors
+    admin.add_view(
+        model=UserQuestionError,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # ============================================================================
+    # User Answers
+    # ============================================================================
+    
+    # User Answers (View-only)
+    admin.add_view(
+        model=UserAnswer,
+        create_schema=AnswerResponse,
+        update_schema=AnswerResponse,
+        allowed_actions={"view"},
+    )
+
+    # ============================================================================
+    # Gamification
+    # ============================================================================
+    
+    # User Exp Log (View-only)
+    admin.add_view(
+        model=UserExpLog,
+        create_schema=UserExpLogCreate,
+        update_schema=UserExpLogUpdate,
+        allowed_actions={"view"},
+    )
+
+    # Badge Management
+    admin.add_view(
+        model=Badge,
+        create_schema=BadgeCreate,
+        update_schema=BadgeUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # User Badge (View-only)
+    admin.add_view(
+        model=UserBadge,
+        create_schema=UserBadgeCreate,
+        update_schema=UserBadgeUpdate,
+        allowed_actions={"view"},
+    )
+
+    # Daily Goal Management
+    admin.add_view(
+        model=DailyGoal,
+        create_schema=DailyGoalCreate,
+        update_schema=DailyGoalUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # ============================================================================
+    # Social Features (View-only)
+    # ============================================================================
+    
+    # Friends
+    admin.add_view(
+        model=Friend,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # Leaderboard
+    admin.add_view(
+        model=Leaderboard,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # ============================================================================
+    # System & Logs
+    # ============================================================================
+    
+    # AI Logs (View-only)
+    admin.add_view(
+        model=AiLog,
+        create_schema=ProgressCreate,
+        update_schema=ProgressUpdate,
+        allowed_actions={"view"},
+    )
+
+    # Notification Management
+    admin.add_view(
+        model=Notification,
+        create_schema=NotificationCreate,
+        update_schema=NotificationUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # ============================================================================
+    # Tier & Rate Limiting
+    # ============================================================================
+    
+    # Tier Management
+    admin.add_view(
+        model=Tier,
+        create_schema=TierCreate,
+        update_schema=TierUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # Rate Limit Management
+    admin.add_view(
+        model=RateLimit,
+        create_schema=RateLimitCreate,
+        update_schema=RateLimitUpdate,
+        allowed_actions={"view", "create", "update", "delete"},
+    )
+
+    # ============================================================================
+    # Entry Test Results (Additional)
+    # ============================================================================
+    
+    # User Entry Test Results (View-only)
+    admin.add_view(
+        model=UserEntryTestResult,
+        create_schema=EntryTestScoreRangeCreate,
+        update_schema=EntryTestScoreRangeUpdate,
         allowed_actions={"view"},
     )

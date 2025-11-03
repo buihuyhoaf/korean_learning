@@ -5,8 +5,9 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class QuestionTypeBase(BaseModel):
     """Base schema for QuestionType"""
+    code: str = Field(..., min_length=1, max_length=50, description="Unique code for question type")
     name: str = Field(..., min_length=1, max_length=100, description="Question type name")
-    description: str = Field(..., min_length=1, description="Question type description")
+    description: Optional[str] = Field(None, description="Question type description")
 
 
 class QuestionTypeCreate(QuestionTypeBase):
@@ -16,8 +17,9 @@ class QuestionTypeCreate(QuestionTypeBase):
 
 class QuestionTypeUpdate(BaseModel):
     """Schema for updating a question type"""
+    code: Optional[str] = Field(None, min_length=1, max_length=50, description="Unique code for question type")
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="Question type name")
-    description: Optional[str] = Field(None, min_length=1, description="Question type description")
+    description: Optional[str] = Field(None, description="Question type description")
     model_config = ConfigDict(extra="forbid")
 
 
@@ -28,9 +30,10 @@ class QuestionTypeResponse(QuestionTypeBase):
 
 
 class QuestionOptionBase(BaseModel):
-    option_text: str
+    option_text: Optional[str] = None
+    option_media: Optional[dict] = None
     is_correct: bool = False
-    order_index: int = 0
+    sort_order: int = 0
 
 
 class QuestionOptionCreate(QuestionOptionBase):
@@ -39,7 +42,8 @@ class QuestionOptionCreate(QuestionOptionBase):
 
 class QuestionOptionResponse(QuestionOptionBase):
     id: int
-
+    question_id: int
+    
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -53,9 +57,7 @@ class QuestionBase(BaseModel):
 
 
 class QuestionCreate(QuestionBase):
-    # Support both lesson_id and quiz_id for backward compatibility
     lesson_id: Optional[int] = None
-    quiz_id: Optional[int] = None
     question_type: str = "practice"
     question_type_id: int
     options: List[QuestionOptionCreate] = []
@@ -65,7 +67,6 @@ class QuestionCreate(QuestionBase):
 
 class QuestionUpdate(BaseModel):
     lesson_id: Optional[int] = None
-    quiz_id: Optional[int] = None
     question_type: Optional[str] = None
     content: Optional[str] = None
     audio_url: Optional[str] = None
@@ -80,7 +81,6 @@ class QuestionUpdate(BaseModel):
 class QuestionResponse(QuestionBase):
     id: int
     lesson_id: Optional[int] = None
-    quiz_id: Optional[int] = None
     question_type: str
     question_type_id: int
     created_at: datetime
@@ -111,4 +111,3 @@ class QuestionsListResponse(BaseModel):
     questions: List[QuestionResponse]
     total: int
     lesson_id: Optional[int] = None
-    quiz_id: Optional[int] = None

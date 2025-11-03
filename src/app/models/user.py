@@ -32,7 +32,6 @@ class User(Base):
     entry_test_results = relationship("UserEntryTestResult", back_populates="user")
     unit_progress = relationship("UserUnitProgress", back_populates="user")
     lesson_progress = relationship("UserLessonProgress", back_populates="user")
-    final_quiz_attempts = relationship("UserFinalQuizAttempt", back_populates="user")  # New relationship
     question_errors = relationship("UserQuestionError", back_populates="user")
     exp_logs = relationship("UserExpLog", back_populates="user")
     badges = relationship("UserBadge", back_populates="user")
@@ -43,3 +42,4 @@ class User(Base):
     ai_logs = relationship("AiLog", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     refresh_tokens = relationship("UserRefreshToken", back_populates="user", cascade="all, delete-orphan")
+    answers = relationship("UserAnswer", back_populates="user", cascade="all, delete-orphan")

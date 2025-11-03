@@ -12,8 +12,8 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
 from ...models.progress import UserQuestionError
-from ...models.quiz import Question, QuestionType
-from ...models.final_quiz import FinalQuiz
+from ...models.question import Question
+from ...models.question_type import QuestionType
 
 router = APIRouter(tags=["mistakes"])
 
@@ -64,27 +64,19 @@ async def get_user_mistakes(
         if not question:
             continue
         
-        # Get quiz details
-        quiz_result = await db.execute(select(FinalQuiz).where(FinalQuiz.id == question.quiz_id))
-        quiz = quiz_result.scalar_one_or_none()
-        
         mistake_dict = {
             "id": mistake.id,
             "question_id": mistake.question_id,
             "question_content": question.content,
-            "correct_answer": question.correct_answer,
             "explanation": question.explanation,
             "last_wrong_answer": mistake.last_wrong_answer,
             "last_wrong_at": mistake.last_wrong_at,
             "error_count": mistake.error_count,
-            "quiz": {
-                "id": quiz.id if quiz else None,
-                "title": quiz.title if quiz else None,
-                "type": quiz.type if quiz else None
-            },
+            "lesson_id": question.lesson_id,
             "question_type": {
                 "id": question.question_type_relation.id if question.question_type_relation else None,
-                "name": question.question_type_relation.name if question.question_type_relation else question.question_type,
+                "code": question.question_type_relation.code if question.question_type_relation else None,
+                "name": question.question_type_relation.name if question.question_type_relation else None,
                 "description": question.question_type_relation.description if question.question_type_relation else None
             }
         }
@@ -134,10 +126,6 @@ async def get_mistake_details(
     if not question:
         raise NotFoundException("Question not found")
     
-    # Get quiz details
-    quiz_result = await db.execute(select(FinalQuiz).where(FinalQuiz.id == question.quiz_id))
-    quiz = quiz_result.scalar_one_or_none()
-    
     # Note: UserQuestionAttempt has been removed, so we return empty attempt history
     attempts = []
     
@@ -146,13 +134,13 @@ async def get_mistake_details(
         "question": {
             "id": question.id,
             "content": question.content,
-            "audio_url": question.audio_url,
-            "image_url": question.image_url,
-            "correct_answer": question.correct_answer,
+            "media": question.media,
             "explanation": question.explanation,
+            "lesson_id": question.lesson_id,
             "question_type": {
                 "id": question.question_type_relation.id if question.question_type_relation else None,
-                "name": question.question_type_relation.name if question.question_type_relation else question.question_type,
+                "code": question.question_type_relation.code if question.question_type_relation else None,
+                "name": question.question_type_relation.name if question.question_type_relation else None,
                 "description": question.question_type_relation.description if question.question_type_relation else None
             },
             "options": [
@@ -163,11 +151,6 @@ async def get_mistake_details(
                 }
                 for option in question.options
             ]
-        },
-        "quiz": {
-            "id": quiz.id if quiz else None,
-            "title": quiz.title if quiz else None,
-            "type": quiz.type if quiz else None
         },
         "mistake_info": {
             "last_wrong_answer": mistake.last_wrong_answer,

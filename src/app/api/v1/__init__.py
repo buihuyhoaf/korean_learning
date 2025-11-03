@@ -13,7 +13,6 @@ from .google_auth import router as google_auth_router
 
 # Korean Learning App API routers
 from .course_management import router as course_management_router
-from .quiz_management import router as quiz_management_router
 from .user_progress import router as user_progress_router
 from .mistakes import router as mistakes_router
 from .badges import router as badges_router
@@ -21,6 +20,7 @@ from .daily_goals import router as daily_goals_router
 from .friends import router as friends_router
 from .leaderboard import router as leaderboard_router
 from .entry_test import router as entry_test_router
+from .upload import router as upload_router
 
 router = APIRouter(prefix="/v1")
 
@@ -35,7 +35,6 @@ router.include_router(rate_limits_router)
 
 # Korean Learning App API routers
 router.include_router(course_management_router)
-router.include_router(quiz_management_router)
 router.include_router(user_progress_router)
 router.include_router(mistakes_router)
 router.include_router(badges_router)
@@ -43,3 +42,4 @@ router.include_router(daily_goals_router)
 router.include_router(friends_router)
 router.include_router(leaderboard_router)
 router.include_router(entry_test_router)
+router.include_router(upload_router)

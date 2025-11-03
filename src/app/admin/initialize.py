@@ -1,10 +1,18 @@
 from typing import Optional
+from pathlib import Path
 
 from crudadmin import CRUDAdmin
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 from ..core.config import EnvironmentOption, settings
 from ..core.db.database import async_get_db
+import logging
 from .views import register_admin_views
+from .custom_assets import serve_custom_css, serve_custom_js
+
+logger = logging.getLogger(__name__)
 
 
 def create_admin_interface() -> Optional[CRUDAdmin]:
@@ -48,6 +56,18 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         else None,
     )
 
+    # Mount static files for widgets in admin app
+    custom_static_dir = Path(__file__).parent.parent / "static"
+    if custom_static_dir.exists():
+        admin.app.mount("/static/widgets", StaticFiles(directory=str(custom_static_dir)), name="admin_widgets_static")
+        print(f"[ADMIN_INIT] ✅ Mounted widgets static at /admin/static/widgets from {custom_static_dir}")
+    
+    # Register custom CSS and JS routes
+    admin.app.get("/custom.css")(serve_custom_css)
+    admin.app.get("/custom.js")(serve_custom_js)
+    print(f"[ADMIN_INIT] ✅ Registered custom CSS and JS routes")
+
     register_admin_views(admin)
 
     return admin
+

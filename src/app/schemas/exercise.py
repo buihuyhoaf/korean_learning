@@ -39,6 +39,14 @@ class ExerciseQuestionOptionCreate(ExerciseQuestionOptionBase):
     pass
 
 
+class ExerciseQuestionOptionUpdate(BaseModel):
+    """Schema for updating an exercise question option"""
+    option_text: Optional[str] = Field(None, description="Option text")
+    is_correct: Optional[bool] = Field(None, description="Is this option correct?")
+    order_index: Optional[int] = Field(None, ge=0, description="Order index")
+    model_config = ConfigDict(extra="forbid")
+
+
 class ExerciseQuestionOptionResponse(ExerciseQuestionOptionBase):
     """Schema for reading exercise question option data"""
     id: int = Field(..., description="Option ID")
@@ -58,6 +66,14 @@ class ExerciseQuestionBase(BaseModel):
 class ExerciseQuestionCreate(ExerciseQuestionBase):
     """Schema for creating an exercise question"""
     options: List[ExerciseQuestionOptionCreate] = Field(default_factory=list, description="Multiple choice options")
+
+
+class ExerciseQuestionUpdate(BaseModel):
+    """Schema for updating an exercise question"""
+    question_text: Optional[str] = Field(None, description="Question text")
+    explanation: Optional[str] = Field(None, description="Explanation for the answer")
+    order_index: Optional[int] = Field(None, ge=0, description="Order index")
+    model_config = ConfigDict(extra="forbid")
 
 
 class ExerciseQuestionResponse(ExerciseQuestionBase):

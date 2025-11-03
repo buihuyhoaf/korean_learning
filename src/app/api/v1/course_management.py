@@ -1,6 +1,8 @@
 # src/app/api/v1/course_management.py
 from typing import Annotated, Optional
 from datetime import datetime, UTC
+import random
+from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
@@ -13,9 +15,9 @@ from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.course import Course, Lesson, Unit
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
-from ...models.final_quiz import FinalQuiz
 from ...models.exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption
-from ...models.quiz import Question, QuestionOption
+from ...models.question import Question
+from ...models.question_option import QuestionOption
 from ...crud.progress_tracking import ProgressTrackingCRUD
 
 router = APIRouter(tags=["courses-units-lessons"])
@@ -133,8 +135,7 @@ async def get_course(
     """Get a specific course with units list"""
     # Get course with units
     course_query = select(Course).options(
-        selectinload(Course.units).selectinload(Unit.lessons),
-        selectinload(Course.units).selectinload(Unit.final_quiz)
+        selectinload(Course.units).selectinload(Unit.lessons)
     ).filter(Course.id == course_id)
     course_result = await db.execute(course_query)
     course = course_result.scalar_one_or_none()
@@ -161,8 +162,7 @@ async def get_course(
             "description": unit.description,
             "order_index": unit.order_index,
             "created_at": unit.created_at,
-            "lessons_count": len(unit.lessons),
-            "has_final_quiz": unit.final_quiz is not None
+            "lessons_count": len(unit.lessons)
         }
         
         # Get user progress for unit
@@ -199,12 +199,11 @@ async def get_unit(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Get a specific unit with lessons list + final quiz info"""
-    # Get unit with lessons and final quiz
+    """Get a specific unit with lessons list"""
+    # Get unit with lessons
     unit_query = select(Unit).options(
         selectinload(Unit.lessons).selectinload(Lesson.questions),
-        selectinload(Unit.lessons).selectinload(Lesson.exercises),
-        selectinload(Unit.final_quiz)
+        selectinload(Unit.lessons).selectinload(Lesson.exercises)
     ).filter(Unit.id == unit_id)
     unit_result = await db.execute(unit_query)
     unit = unit_result.scalar_one_or_none()
@@ -246,17 +245,6 @@ async def get_unit(
         
         lessons_data.append(lesson_dict)
     
-    # Format final quiz info
-    final_quiz_info = None
-    if unit.final_quiz:
-        final_quiz_info = {
-            "id": unit.final_quiz.id,
-            "title": unit.final_quiz.title,
-            "description": unit.final_quiz.description,
-            "type": unit.final_quiz.type,
-            "order_index": unit.final_quiz.order_index
-        }
-    
     return {
         "id": unit.id,
         "course_id": unit.course_id,
@@ -265,73 +253,7 @@ async def get_unit(
         "order_index": unit.order_index,
         "created_at": unit.created_at,
         "lessons": lessons_data,
-        "final_quiz": final_quiz_info,
         "progress": _convert_user_unit_progress_to_dict(user_progress)
-    }
-
-
-@router.get("/units/{unit_id}/final-quiz", response_model=dict)
-async def get_unit_final_quiz(
-    request: Request,
-    unit_id: int,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_user)] = None
-) -> dict:
-    """Get final quiz for a unit with questions"""
-    # Get unit with final quiz and questions
-    unit_query = select(Unit).options(
-        selectinload(Unit.final_quiz).selectinload(FinalQuiz.questions)
-    ).filter(Unit.id == unit_id)
-    unit_result = await db.execute(unit_query)
-    unit = unit_result.scalar_one_or_none()
-    
-    if not unit:
-        raise NotFoundException("Unit not found")
-    
-    if not unit.final_quiz:
-        raise NotFoundException("Final quiz not found for this unit")
-    
-    # Get questions for this final quiz
-    questions_query = select(Question).options(
-        selectinload(Question.options),
-        selectinload(Question.question_type_relation)
-    ).filter(
-        Question.quiz_id == unit.final_quiz.id
-    ).order_by(Question.order_index)
-    questions_result = await db.execute(questions_query)
-    questions = questions_result.scalars().all()
-    
-    # Format questions
-    questions_data = []
-    for question in questions:
-        question_dict = {
-            "id": question.id,
-            "content": question.content,
-            "audio_url": question.audio_url,
-            "image_url": question.image_url,
-            "explanation": question.explanation,
-            "order_index": question.order_index,
-            "options": [
-                {
-                    "id": opt.id,
-                    "option_text": opt.option_text,
-                    "is_correct": opt.is_correct,
-                    "order_index": opt.order_index
-                }
-                for opt in question.options
-            ]
-        }
-        questions_data.append(question_dict)
-    
-    return {
-        "id": unit.final_quiz.id,
-        "unit_id": unit_id,
-        "title": unit.final_quiz.title,
-        "description": unit.final_quiz.description,
-        "type": unit.final_quiz.type,
-        "order_index": unit.final_quiz.order_index,
-        "created_at": unit.final_quiz.created_at,
-        "questions": questions_data
     }
 
 
@@ -346,9 +268,8 @@ async def get_lesson(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Get a specific lesson with questions + exercises"""
+    """Get a specific lesson with 13 random questions + exercises"""
     lesson_query = select(Lesson).options(
-        selectinload(Lesson.questions).selectinload(Question.options),
         selectinload(Lesson.exercises).selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)
     ).filter(Lesson.id == lesson_id)
     lesson_result = await db.execute(lesson_query)
@@ -367,28 +288,93 @@ async def get_lesson(
         progress_result = await db.execute(progress_query)
         user_progress = progress_result.scalar_one_or_none()
     
+    # Get 13 random questions for this lesson
+    # Strategy: Get random 13, then ensure we have at least 1 from each question_type_id (1-8)
+    
+    # Step 1: Get 13 random questions
+    questions_query = select(Question).options(
+        selectinload(Question.options)
+    ).filter(
+        Question.lesson_id == lesson_id
+    ).order_by(func.random()).limit(13)
+    questions_result = await db.execute(questions_query)
+    selected_questions = list(questions_result.scalars().all())
+    
+    # Step 2: Check which question_type_ids we have
+    type_ids_present = {q.question_type_id for q in selected_questions}
+    missing_types = set(range(1, 9)) - type_ids_present
+    
+    # Step 3: If missing any types, try to get at least 1 from each missing type
+    if missing_types:
+        # Get existing question IDs to avoid duplicates
+        existing_ids = {q.id for q in selected_questions}
+        
+        for question_type_id in missing_types:
+            # Recalculate type counts from current selected_questions
+            type_counts = defaultdict(int)
+            for q in selected_questions:
+                type_counts[q.question_type_id] += 1
+            
+            # Try to get 1 question of this type
+            type_query = select(Question).options(
+                selectinload(Question.options)
+            ).filter(
+                Question.lesson_id == lesson_id,
+                Question.question_type_id == question_type_id,
+                ~Question.id.in_(existing_ids)
+            ).order_by(func.random()).limit(1)
+            
+            type_result = await db.execute(type_query)
+            question = type_result.scalar_one_or_none()
+            
+            if question:
+                # Replace one question (preferably from a type we have multiple of)
+                # Find a type that has multiple questions to remove one
+                if type_counts:
+                    # Find type with most questions (but not the one we're trying to add)
+                    type_to_replace = max(
+                        [(tid, count) for tid, count in type_counts.items() if tid != question_type_id],
+                        key=lambda x: x[1],
+                        default=None
+                    )
+                    
+                    if type_to_replace and type_to_replace[1] > 1:
+                        type_id_to_remove = type_to_replace[0]
+                        # Replace first question of this type
+                        for i, q in enumerate(selected_questions):
+                            if q.question_type_id == type_id_to_remove:
+                                existing_ids.remove(q.id)
+                                selected_questions[i] = question
+                                existing_ids.add(question.id)
+                                break
+                    # If we can't replace (all types have only 1 question), don't add to keep count at 13
+    
+    # Step 4: Shuffle for random order
+    random.shuffle(selected_questions)
+    questions = selected_questions
+    
     # Format questions
     questions_data = []
-    if lesson.questions:
-        for question in lesson.questions:
-            question_dict = {
-                "id": question.id,
-                "content": question.content,
-                "audio_url": question.audio_url,
-                "image_url": question.image_url,
-                "explanation": question.explanation,
-                "order_index": question.order_index,
-                "question_type": question.question_type,
-                "options": [
-                    {
-                        "id": opt.id,
-                        "option_text": opt.option_text,
-                        "is_correct": opt.is_correct
-                    }
-                    for opt in question.options
-                ]
-            }
-            questions_data.append(question_dict)
+    for question in questions:
+        question_dict = {
+            "id": question.id,
+            "content": question.content,
+            "audio_url": question.audio_url,
+            "image_url": question.image_url,
+            "explanation": question.explanation,
+            "order_index": question.order_index,
+            "question_type": question.question_type,
+            "question_type_id": question.question_type_id,
+            "options": [
+                {
+                    "id": opt.id,
+                    "option_text": opt.option_text,
+                    "is_correct": opt.is_correct
+                }
+                for opt in question.options
+            ]
+        }
+        questions_data.append(question_dict)
     
     # Format exercises
     exercises_data = []
