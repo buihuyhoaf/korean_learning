@@ -12,8 +12,11 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
 from ..api.dependencies import get_current_superuser
+from ..core.logger import logging
 from ..core.utils.rate_limit import rate_limiter
 from ..middleware.client_cache_middleware import ClientCacheMiddleware
+
+logger = logging.getLogger(__name__)
 from .config import (
     AppSettings,
     ClientSideCacheSettings,
@@ -97,14 +100,24 @@ def lifespan_factory(
         await set_threadpool_tokens()
 
         try:
+            # Redis initialization - gracefully handle if Redis is not available
             if isinstance(settings, RedisCacheSettings):
-                await create_redis_cache_pool()
+                try:
+                    await create_redis_cache_pool()
+                except Exception as e:
+                    logger.warning(f"Redis cache pool initialization failed (Redis may not be available): {e}")
 
             if isinstance(settings, RedisQueueSettings):
-                await create_redis_queue_pool()
+                try:
+                    await create_redis_queue_pool()
+                except Exception as e:
+                    logger.warning(f"Redis queue pool initialization failed (Redis may not be available): {e}")
 
             if isinstance(settings, RedisRateLimiterSettings):
-                await create_redis_rate_limit_pool()
+                try:
+                    await create_redis_rate_limit_pool()
+                except Exception as e:
+                    logger.warning(f"Redis rate limiter pool initialization failed (Redis may not be available): {e}")
 
             if create_tables_on_start:
                 await create_tables()

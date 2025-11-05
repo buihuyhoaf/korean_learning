@@ -78,6 +78,12 @@ async def get_current_superuser(current_user: Annotated[dict, Depends(get_curren
 async def rate_limiter_dependency(
     request: Request, db: Annotated[AsyncSession, Depends(async_get_db)], user: dict | None = Depends(get_optional_user)
 ) -> None:
+    """Rate limiter dependency - disabled if Redis is not available."""
+    # Check if rate limiter is initialized (Redis available)
+    if rate_limiter.client is None:
+        logger.debug("Rate limiter not available (Redis not initialized) - skipping rate limit check")
+        return  # Skip rate limiting if Redis is not available
+
     if hasattr(request.app.state, "initialization_complete"):
         await request.app.state.initialization_complete.wait()
 
@@ -104,6 +110,11 @@ async def rate_limiter_dependency(
         user_id = request.client.host if request.client else "unknown"
         limit, period = DEFAULT_LIMIT, DEFAULT_PERIOD
 
-    is_limited = await rate_limiter.is_rate_limited(db=db, user_id=user_id, path=path, limit=limit, period=period)
-    if is_limited:
-        raise RateLimitException("Rate limit exceeded.")
+    try:
+        is_limited = await rate_limiter.is_rate_limited(db=db, user_id=user_id, path=path, limit=limit, period=period)
+        if is_limited:
+            raise RateLimitException("Rate limit exceeded.")
+    except Exception as e:
+        # If rate limiter fails (e.g., Redis connection issue), log and allow request
+        logger.warning(f"Rate limiter check failed (Redis may not be available): {e}")
+        return  # Allow request to proceed
