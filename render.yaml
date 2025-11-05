@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: korean-learning-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter  # free plan có giới hạn, starter tốt hơn cho production
+    region: singapore  # hoặc frankfurt, oregon, etc.
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: korean-learning-db
+          property: connectionString
+      - key: REDIS_CACHE_URL
+        fromService:
+          name: korean-learning-redis
+          type: redis
+          property: connectionString
+      - key: REDIS_QUEUE_URL
+        fromService:
+          name: korean-learning-redis
+          type: redis
+          property: connectionString
+      - key: REDIS_RATE_LIMITER_URL
+        fromService:
+          name: korean-learning-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: POSTGRES_URL
+        fromDatabase:
+          name: korean-learning-db
+          property: connectionString
+    healthCheckPath: /docs
+    # Uncomment nếu muốn chạy migrations tự động khi deploy
+    # buildCommand: alembic upgrade head
+
+databases:
+  - name: korean-learning-db
+    databaseName: korean_learning
+    user: korean_user
+    plan: starter  # free hoặc starter
+
+  - name: korean-learning-redis
+    plan: starter  # free hoặc starter
+    maxmemoryPolicy: allkeys-lru

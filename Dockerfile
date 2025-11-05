@@ -35,8 +35,16 @@ RUN groupadd --gid 1000 app \
 # Copy the virtual environment from the builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
+# Copy source code from builder stage
+COPY --from=builder --chown=app:app /app/src /code/src
+COPY --from=builder --chown=app:app /app/migrations /code/migrations
+COPY --from=builder --chown=app:app /app/src/alembic.ini /code/alembic.ini
+
 # Ensure the virtual environment is in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
+
+# Set default port (can be overridden by Render/Railway)
+ENV PORT=8000
 
 # Switch to the non-root user
 USER app
@@ -44,6 +52,8 @@ USER app
 # Set the working directory
 WORKDIR /code
 
-# -------- replace with comment to run with gunicorn --------
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-# CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
+# Production command with gunicorn (Render/Railway compatible)
+CMD sh -c "gunicorn src.app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8000}"
+
+# -------- Dev command (uncomment for local development) --------
+# CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
