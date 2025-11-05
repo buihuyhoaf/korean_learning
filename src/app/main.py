@@ -2,6 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 import traceback
 from pathlib import Path
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -75,6 +76,15 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize admin interface if it exists
         if admin:
             # Initialize admin database and setup
+            # Optional: force reset CRUDAdmin store if env set (one-time)
+            if os.getenv("CRUDADMIN_RESET", "false").lower() == "true":
+                try:
+                    reset_db_path = (Path(__file__).parent.parent / "crudadmin_data" / "admin.db").resolve()
+                    if reset_db_path.exists():
+                        reset_db_path.unlink()
+                        print(f"[ADMIN_INIT] 🧹 Forced reset: removed CRUDAdmin DB at {reset_db_path}")
+                except Exception as reset_err:
+                    print(f"[ADMIN_INIT] ⚠️ Forced reset failed: {reset_err}")
             try:
                 await admin.initialize()
             except IntegrityError as e:
