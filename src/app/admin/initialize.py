@@ -35,25 +35,34 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
     # Only set initial_admin if explicitly provided via env vars (not defaults)
     # This prevents CRUDAdmin from trying to seed admin on every request
     initial_admin = None
+    import os
+    
+    # Check if we should force seed (even with defaults)
+    force_seed = os.getenv("CRUDADMIN_FORCE_SEED", "false").lower() == "true"
+    should_reset = os.getenv("CRUDADMIN_RESET", "false").lower() == "true"
+    
     if settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
         # Check if values are not the defaults (to avoid auto-seeding in production)
         default_username = "admin"
         default_password = "!Ch4ng3Th1sP4ssW0rd!"
-        # Only set initial_admin if values are explicitly different from defaults
-        # or if explicitly set via env (empty string counts as "not set")
+        
+        # Only set initial_admin if:
+        # 1. Values are explicitly different from defaults, OR
+        # 2. CRUDADMIN_FORCE_SEED=true (to force seed even with defaults), OR  
+        # 3. CRUDADMIN_RESET=true (to seed after reset)
         if (settings.ADMIN_USERNAME != default_username or 
-            settings.ADMIN_PASSWORD != default_password):
+            settings.ADMIN_PASSWORD != default_password or
+            force_seed or
+            should_reset):
             initial_admin = {
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
             }
-        # If using defaults but want to seed, set CRUDADMIN_FORCE_SEED=true
-        import os
-        if os.getenv("CRUDADMIN_FORCE_SEED", "false").lower() == "true":
-            initial_admin = {
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-            }
+            logger.info(f"[ADMIN_INIT] Initial admin will be seeded: username={settings.ADMIN_USERNAME}")
+        else:
+            logger.info(f"[ADMIN_INIT] Skipping initial admin seed (using defaults without force_seed)")
+    else:
+        logger.info(f"[ADMIN_INIT] No initial admin credentials provided, skipping seed")
 
     admin = CRUDAdmin(
         session=async_get_db,

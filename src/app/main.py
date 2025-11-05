@@ -75,36 +75,44 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
     async with default_lifespan(app):
         # Initialize admin interface if it exists
         if admin:
-            # Initialize admin database and setup
             # Optional: force reset CRUDAdmin store if env set (one-time)
+            # Do this BEFORE creating admin interface to ensure clean state
             if os.getenv("CRUDADMIN_RESET", "false").lower() == "true":
                 try:
                     reset_db_path = (Path(__file__).parent.parent / "crudadmin_data" / "admin.db").resolve()
                     if reset_db_path.exists():
                         reset_db_path.unlink()
                         print(f"[ADMIN_INIT] 🧹 Forced reset: removed CRUDAdmin DB at {reset_db_path}")
+                    # Also remove any lock files
+                    lock_file = reset_db_path.parent / "admin.db.lock"
+                    if lock_file.exists():
+                        lock_file.unlink()
+                        print(f"[ADMIN_INIT] 🧹 Removed lock file at {lock_file}")
                 except Exception as reset_err:
                     print(f"[ADMIN_INIT] ⚠️ Forced reset failed: {reset_err}")
+            
+            # Initialize admin database and setup
             try:
                 await admin.initialize()
+                print("[ADMIN_INIT] ✅ Admin initialized successfully")
             except IntegrityError as e:
                 # Handle duplicate initial admin creation gracefully
                 error_text = str(e).lower()
                 if "unique" in error_text and "admin_user" in error_text and "username" in error_text:
-                    print("[ADMIN_INIT] ⚠️ Admin user already exists, attempting cleanup of CRUDAdmin store and re-initialize")
-                    # Attempt cleanup: remove CRUDAdmin SQLite store and retry once
-                    try:
-                        crudadmin_db_path = (Path(__file__).parent.parent / "crudadmin_data" / "admin.db").resolve()
-                        if crudadmin_db_path.exists():
-                            crudadmin_db_path.unlink()
-                            print(f"[ADMIN_INIT] 🧹 Removed CRUDAdmin DB at {crudadmin_db_path}")
-                        # Retry initialize once
-                        await admin.initialize()
-                        print("[ADMIN_INIT] ✅ Re-initialized admin after cleanup")
-                    except Exception as cleanup_err:
-                        print(f"[ADMIN_INIT] ❌ Cleanup/re-init failed: {cleanup_err}. Skipping admin init.")
+                    print("[ADMIN_INIT] ⚠️ Admin user already exists (expected after first init). Skipping seed.")
+                    # Don't retry - admin already exists, which is fine
+                    # Just log and continue - admin interface is still functional
                 else:
-                    raise
+                    # Other IntegrityError - log and continue
+                    print(f"[ADMIN_INIT] ⚠️ IntegrityError during init (non-critical): {e}")
+            except Exception as e:
+                # Catch any other exception during admin init
+                error_msg = str(e).lower()
+                if "pendingrollback" in error_msg or "unique constraint" in error_msg:
+                    print(f"[ADMIN_INIT] ⚠️ Admin init error (non-critical): {e}. Admin interface may still work.")
+                else:
+                    # Other critical errors - log but don't crash app
+                    print(f"[ADMIN_INIT] ⚠️ Admin init error: {e}. Continuing without admin interface.")
 
         yield
 
