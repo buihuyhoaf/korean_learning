@@ -53,7 +53,7 @@ USER app
 WORKDIR /code
 
 # Production command with gunicorn (Render/Railway compatible)
-CMD sh -c "gunicorn src.app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8000}"
+CMD sh -c "gunicorn src.app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8000}"
 
 # -------- Dev command (uncomment for local development) --------
 # CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

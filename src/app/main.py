@@ -106,3 +106,13 @@ if admin:
     
     # Mount admin interface if enabled (after routes)
     app.mount(settings.CRUD_ADMIN_MOUNT_PATH, admin.app)
+
+# --- Health endpoints ---
+@app.get("/", include_in_schema=False)
+async def root_health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health", include_in_schema=False)
+async def health() -> dict[str, str]:
+    return {"status": "ok"}

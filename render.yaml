@@ -19,7 +19,7 @@ services:
         fromDatabase:
           name: korean-learning-db
           property: connectionString
-    healthCheckPath: /docs
+    healthCheckPath: /health
     # Uncomment nếu muốn chạy migrations tự động khi deploy
     # buildCommand: alembic upgrade head
     
