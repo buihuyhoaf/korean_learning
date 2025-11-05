@@ -35,6 +35,3 @@ databases:
     databaseName: korean_learning
     user: korean_user
     plan: free  # free hoặc starter
-
-  - name: korean-learning-redis
-    plan: free  # free hoặc starter
