@@ -17,6 +17,7 @@ from .api import router
 from .core.config import settings
 from .core.setup import create_application, lifespan_factory
 from .core import logger  # Import logger configuration
+from sqlalchemy.exc import IntegrityError
 
 admin = create_admin_interface()
 
@@ -74,7 +75,15 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize admin interface if it exists
         if admin:
             # Initialize admin database and setup
-            await admin.initialize()
+            try:
+                await admin.initialize()
+            except IntegrityError as e:
+                # Handle duplicate initial admin creation gracefully
+                error_text = str(e).lower()
+                if "unique" in error_text and "admin_user" in error_text and "username" in error_text:
+                    print("[ADMIN_INIT] ⚠️ Admin user already exists, skipping initial creation")
+                else:
+                    raise
 
         yield
 
