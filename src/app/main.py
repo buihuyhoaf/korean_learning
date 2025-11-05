@@ -81,7 +81,18 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
                 # Handle duplicate initial admin creation gracefully
                 error_text = str(e).lower()
                 if "unique" in error_text and "admin_user" in error_text and "username" in error_text:
-                    print("[ADMIN_INIT] ⚠️ Admin user already exists, skipping initial creation")
+                    print("[ADMIN_INIT] ⚠️ Admin user already exists, attempting cleanup of CRUDAdmin store and re-initialize")
+                    # Attempt cleanup: remove CRUDAdmin SQLite store and retry once
+                    try:
+                        crudadmin_db_path = (Path(__file__).parent.parent / "crudadmin_data" / "admin.db").resolve()
+                        if crudadmin_db_path.exists():
+                            crudadmin_db_path.unlink()
+                            print(f"[ADMIN_INIT] 🧹 Removed CRUDAdmin DB at {crudadmin_db_path}")
+                        # Retry initialize once
+                        await admin.initialize()
+                        print("[ADMIN_INIT] ✅ Re-initialized admin after cleanup")
+                    except Exception as cleanup_err:
+                        print(f"[ADMIN_INIT] ❌ Cleanup/re-init failed: {cleanup_err}. Skipping admin init.")
                 else:
                     raise
 
