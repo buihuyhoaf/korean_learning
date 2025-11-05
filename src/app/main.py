@@ -118,6 +118,24 @@ app.add_middleware(AdminAssetInjectorMiddleware)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler to catch all unhandled exceptions"""
+    # Handle PendingRollbackError specifically for admin routes
+    from sqlalchemy.exc import PendingRollbackError
+    if isinstance(exc, PendingRollbackError) and request.url.path.startswith(settings.CRUD_ADMIN_MOUNT_PATH):
+        print(f"[GLOBAL_EXCEPTION_HANDLER] ⚠️ PendingRollbackError in admin route: {exc}")
+        print(f"[GLOBAL_EXCEPTION_HANDLER] Original error: {exc.orig if hasattr(exc, 'orig') else 'Unknown'}")
+        # Try to rollback the session if possible
+        try:
+            # This is a workaround - CRUDAdmin should handle this internally
+            # But we can at least return a proper error response
+            error_msg = str(exc.orig) if hasattr(exc, 'orig') else str(exc)
+            if "UNIQUE constraint failed: admin_user.username" in error_msg:
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Admin user already exists. Please use existing credentials or contact administrator."}
+                )
+        except Exception as e:
+            print(f"[GLOBAL_EXCEPTION_HANDLER] Error handling PendingRollbackError: {e}")
+    
     print(f"[GLOBAL_EXCEPTION_HANDLER] Caught exception: {exc}")
     print(f"[GLOBAL_EXCEPTION_HANDLER] Exception type: {type(exc).__name__}")
     print(f"[GLOBAL_EXCEPTION_HANDLER] Full traceback:")

@@ -32,6 +32,29 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             "password": settings.CRUD_ADMIN_REDIS_PASSWORD if settings.CRUD_ADMIN_REDIS_PASSWORD != "None" else None,
         }
 
+    # Only set initial_admin if explicitly provided via env vars (not defaults)
+    # This prevents CRUDAdmin from trying to seed admin on every request
+    initial_admin = None
+    if settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
+        # Check if values are not the defaults (to avoid auto-seeding in production)
+        default_username = "admin"
+        default_password = "!Ch4ng3Th1sP4ssW0rd!"
+        # Only set initial_admin if values are explicitly different from defaults
+        # or if explicitly set via env (empty string counts as "not set")
+        if (settings.ADMIN_USERNAME != default_username or 
+            settings.ADMIN_PASSWORD != default_password):
+            initial_admin = {
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+            }
+        # If using defaults but want to seed, set CRUDADMIN_FORCE_SEED=true
+        import os
+        if os.getenv("CRUDADMIN_FORCE_SEED", "false").lower() == "true":
+            initial_admin = {
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+            }
+
     admin = CRUDAdmin(
         session=async_get_db,
         SECRET_KEY=settings.SECRET_KEY.get_secret_value(),
@@ -48,12 +71,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         enforce_https=settings.ENVIRONMENT == EnvironmentOption.PRODUCTION,
         track_events=settings.CRUD_ADMIN_TRACK_EVENTS,
         track_sessions_in_db=settings.CRUD_ADMIN_TRACK_SESSIONS,
-        initial_admin={
-            "username": settings.ADMIN_USERNAME,
-            "password": settings.ADMIN_PASSWORD,
-        }
-        if settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD
-        else None,
+        initial_admin=initial_admin,
     )
 
     # Mount static files for widgets in admin app
