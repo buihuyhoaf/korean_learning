@@ -11,21 +11,6 @@ services:
         fromDatabase:
           name: korean-learning-db
           property: connectionString
-      - key: REDIS_CACHE_URL
-        fromService:
-          name: korean-learning-redis
-          type: redis
-          property: connectionString
-      - key: REDIS_QUEUE_URL
-        fromService:
-          name: korean-learning-redis
-          type: redis
-          property: connectionString
-      - key: REDIS_RATE_LIMITER_URL
-        fromService:
-          name: korean-learning-redis
-          type: redis
-          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: ENVIRONMENT
@@ -37,13 +22,19 @@ services:
     healthCheckPath: /docs
     # Uncomment nếu muốn chạy migrations tự động khi deploy
     # buildCommand: alembic upgrade head
+    
+    # Note: Redis environment variables need to be set manually in Render dashboard:
+    # - REDIS_CACHE_URL (from Redis service's Connections tab)
+    # - REDIS_QUEUE_URL (same as REDIS_CACHE_URL or separate)
+    # - REDIS_RATE_LIMITER_URL (same as REDIS_CACHE_URL or separate)
+    # - REDIS_QUEUE_HOST (extract host from REDIS_CACHE_URL)
+    # - REDIS_QUEUE_PORT (usually 6379)
 
 databases:
   - name: korean-learning-db
     databaseName: korean_learning
     user: korean_user
-    plan: starter  # free hoặc starter
+    plan: free  # free hoặc starter
 
   - name: korean-learning-redis
-    plan: starter  # free hoặc starter
-    maxmemoryPolicy: allkeys-lru
+    plan: free  # free hoặc starter
