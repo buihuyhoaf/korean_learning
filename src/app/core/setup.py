@@ -162,9 +162,10 @@ def lifespan_factory(
             if create_tables_on_start:
                 await create_tables()
 
-            # Load ML model in background (non-blocking, with mock fallback for safety)
-            # Thread-safe lazy loading ensures no race conditions
-            await load_ml_model(background=True, allow_mock=True)
+            # ML model loading: DISABLED on startup to save memory (512MB limit on Render free tier)
+            # Model will be loaded lazily on first request via get_model() in stroke_api.py
+            # This prevents OOM errors during deployment
+            # await load_ml_model(background=True, allow_mock=True)
 
             initialization_complete.set()
 

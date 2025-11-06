@@ -144,6 +144,10 @@ class SupabaseSettings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: SecretStr | None = config("SUPABASE_SERVICE_ROLE_KEY", default=None, cast=SecretStr)
 
 
+class MLModelSettings(BaseSettings):
+    STROKE_MODEL_PATH: str | None = config("STROKE_MODEL_PATH", default=None)
+
+
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -160,6 +164,7 @@ class Settings(
     CRUDAdminSettings,
     EnvironmentSettings,
     SupabaseSettings,
+    MLModelSettings,
 ):
     pass
 

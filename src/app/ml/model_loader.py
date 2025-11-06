@@ -5,20 +5,23 @@ Loads and caches the pre-trained model for Hangul character recognition
 import os
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from threading import Lock
-import tensorflow as tf
+
+# Lazy import TensorFlow to save memory on startup (only import when needed)
+if TYPE_CHECKING:
+    import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
 # Global model cache
-_loaded_model: Optional[tf.keras.Model] = None
+_loaded_model: Optional[object] = None  # Type: tf.keras.Model (lazy import)
 _model_path: Optional[str] = None
 _loading = False
 _load_lock = Lock()  # Thread-safe lock for model loading
 
 
-def load_model(model_path: Optional[str] = None, allow_mock: bool = True) -> tf.keras.Model:
+def load_model(model_path: Optional[str] = None, allow_mock: bool = True):
     """
     Load and cache TensorFlow model for Hangul character recognition.
     Thread-safe implementation with lock to prevent race conditions.
@@ -34,6 +37,9 @@ def load_model(model_path: Optional[str] = None, allow_mock: bool = True) -> tf.
         FileNotFoundError: If model file doesn't exist and allow_mock=False
         ValueError: If model cannot be loaded and allow_mock=False
     """
+    # Lazy import TensorFlow to save memory (only import when actually needed)
+    import tensorflow as tf
+    
     global _loaded_model, _model_path, _loading
     
     # Use default path if not provided
@@ -104,33 +110,48 @@ def load_model(model_path: Optional[str] = None, allow_mock: bool = True) -> tf.
             _loading = False
 
 
-def _create_mock_model() -> tf.keras.Model:
+def _create_mock_model():
     """
     Create a minimal mock CNN model for development/testing.
     This model uses minimal memory and returns random predictions.
+    Optimized for 512MB RAM limit on Render free tier.
     
     Returns:
         Mock TensorFlow model
     """
+    # Lazy import TensorFlow to save memory
+    import tensorflow as tf
+    
     logger.info("Creating minimal mock model for development (memory-efficient)")
     
-    # Use minimal model to save memory on free tier
-    # Only create what's needed for inference
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(28, 28, 1)),
-        tf.keras.layers.Flatten(),
-        # Minimal output layer - just enough for basic prediction
-        tf.keras.layers.Dense(10, activation='softmax', name='predictions')
-    ])
-    
-    # Compile with dummy optimizer (not used for inference)
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    
-    _loaded_model = model
-    return model
+    # Ultra-minimal model to save memory on free tier
+    # Use functional API with minimal layers to reduce memory footprint
+    try:
+        # Try to create the smallest possible model
+        input_layer = tf.keras.layers.Input(shape=(28, 28, 1), name='input')
+        flatten = tf.keras.layers.Flatten(name='flatten')(input_layer)
+        # Single dense layer with minimal neurons
+        output = tf.keras.layers.Dense(10, activation='softmax', name='predictions')(flatten)
+        model = tf.keras.Model(inputs=input_layer, outputs=output, name='mock_hangul_model')
+        
+        # Compile with minimal settings (not used for inference, but required)
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy'],
+            run_eagerly=False  # Use graph mode to save memory
+        )
+        
+        logger.info("Mock model created successfully (ultra-minimal)")
+        return model
+    except Exception as e:
+        logger.error(f"Failed to create mock model: {e}")
+        # Last resort: return a dummy model that just returns zeros
+        # This should never happen, but provides a fallback
+        raise RuntimeError(f"Cannot create mock model: {e}") from e
 
 
-def get_model(allow_mock: bool = True) -> tf.keras.Model:
+def get_model(allow_mock: bool = True):
     """
     Get the currently loaded model.
     Thread-safe lazy loading with lock if model not yet loaded.
@@ -146,7 +167,7 @@ def get_model(allow_mock: bool = True) -> tf.keras.Model:
     return _loaded_model
 
 
-async def load_model_async(model_path: Optional[str] = None, allow_mock: bool = True) -> tf.keras.Model:
+async def load_model_async(model_path: Optional[str] = None, allow_mock: bool = True):
     """
     Async version of load_model for background loading.
     Uses asyncio.to_thread to run blocking TensorFlow load in thread pool.
