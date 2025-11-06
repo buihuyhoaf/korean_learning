@@ -3,8 +3,8 @@ API routes for stroke analysis
 """
 import logging
 from fastapi import APIRouter, HTTPException, status
-from app.schemas.stroke_schema import StrokeInput, StrokeResult
-from app.services.stroke_analyzer import get_stroke_analyzer
+from ...schemas.stroke_schema import StrokeInput, StrokeResult
+from ...services.stroke_analyzer import get_stroke_analyzer
 
 logger = logging.getLogger(__name__)
 
