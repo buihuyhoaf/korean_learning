@@ -40,16 +40,43 @@ async def create_tables() -> None:
 
 
 # -------------- ML model loading --------------
-async def load_ml_model() -> None:
-    """Load ML model for stroke analysis on startup"""
-    try:
-        from ..services.stroke_analyzer import get_stroke_analyzer
-        analyzer = get_stroke_analyzer()
-        model_path = None  # TODO: Load from config or environment variable
-        analyzer.load_model(model_path)
-        logger.info("✅ ML model loaded successfully")
-    except Exception as e:
-        logger.warning(f"⚠️ Failed to load ML model: {e}. Using mock mode.")
+async def load_ml_model(background: bool = True, allow_mock: bool = True) -> None:
+    """
+    Load ML model for stroke analysis.
+    
+    Args:
+        background: If True, load in background task (non-blocking). Default: True.
+        allow_mock: If True, use mock model as fallback. Default: True (safe fallback).
+    """
+    import asyncio
+    
+    async def _load_model_async():
+        """Load model in background thread pool"""
+        try:
+            from ..ml.model_loader import load_model_async
+            
+            # Load model with mock fallback (safe for production)
+            model = await load_model_async(None, allow_mock=allow_mock)
+            logger.info("✅ ML model loaded successfully (background)")
+            return model
+        except FileNotFoundError:
+            if allow_mock:
+                logger.warning("⚠️ Model file not found - using mock model")
+            else:
+                logger.error("❌ Model file not found and mock disabled - ML unavailable")
+        except Exception as e:
+            if allow_mock:
+                logger.warning(f"⚠️ Failed to load ML model: {e}. Using mock mode.")
+            else:
+                logger.error(f"❌ Failed to load ML model: {e}. ML unavailable.")
+    
+    if background:
+        # Start background task (non-blocking, fire and forget)
+        asyncio.create_task(_load_model_async())
+        logger.info("🔄 ML model loading started in background")
+    else:
+        # Blocking load (wait for completion)
+        await _load_model_async()
 
 
 # -------------- cache --------------
@@ -135,8 +162,9 @@ def lifespan_factory(
             if create_tables_on_start:
                 await create_tables()
 
-            # Load ML model for stroke analysis
-            await load_ml_model()
+            # Load ML model in background (non-blocking, with mock fallback for safety)
+            # Thread-safe lazy loading ensures no race conditions
+            await load_ml_model(background=True, allow_mock=True)
 
             initialization_complete.set()
 

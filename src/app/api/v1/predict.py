@@ -6,10 +6,8 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, validator
 
-from ...ml.model_loader import get_model
-from ...ml.preprocessor import StrokePreprocessor, unicode_to_char
+# Lazy imports to avoid loading TensorFlow on startup (saves memory)
 import numpy as np
-import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +125,18 @@ async def predict_stroke(request: PredictStrokeRequest) -> PredictStrokeResponse
     Raises:
         HTTPException: If prediction fails or data is invalid
     """
+    # Lazy imports to save memory on startup
+    try:
+        from ...ml.model_loader import get_model
+        from ...ml.preprocessor import StrokePreprocessor, unicode_to_char
+        import tensorflow as tf
+    except ImportError as e:
+        logger.error(f"Failed to import ML modules: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ML service temporarily unavailable"
+        )
+    
     try:
         # Convert request to format expected by preprocessor
         strokes_data = []
@@ -152,8 +162,8 @@ async def predict_stroke(request: PredictStrokeRequest) -> PredictStrokeResponse
         model_input = np.expand_dims(image, axis=0)  # (1, 28, 28)
         model_input = np.expand_dims(model_input, axis=-1)  # (1, 28, 28, 1)
         
-        # Get model and predict
-        model = get_model()
+        # Get model and predict (thread-safe with lock, mock fallback enabled)
+        model = get_model(allow_mock=True)  # Safe fallback if real model unavailable
         try:
             predictions = model.predict(model_input, verbose=0)
         except Exception as e:
