@@ -6,8 +6,8 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, validator
 
-from ..ml.model_loader import get_model
-from ..ml.preprocessor import StrokePreprocessor, unicode_to_char
+from ...ml.model_loader import get_model
+from ...ml.preprocessor import StrokePreprocessor, unicode_to_char
 import numpy as np
 import tensorflow as tf
 
