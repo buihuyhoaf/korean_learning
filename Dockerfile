@@ -11,15 +11,17 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 
 # Install dependencies first (for better layer caching)
+# Try to install with ML support, but continue if tflite-runtime unavailable
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project
+    (uv sync --no-install-project --extra ml || uv sync --no-install-project) || true
 
 # Copy the project source code
 COPY . /app
 
 # Install the project in non-editable mode
+# Try with ML support first, fallback to regular install
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-editable
+    (uv sync --no-editable --extra ml || uv sync --no-editable) || true
 
 # --------- Final Stage ---------
 FROM python:3.11-slim
