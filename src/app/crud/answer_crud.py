@@ -162,25 +162,103 @@ class AnswerCRUD:
             }
         
         elif type_code == "MATCHING":
-            if not isinstance(user_answer, dict):
-                return {"is_correct": False, "score": 0.0, "feedback": "Invalid answer format"}
-            
-            # Evaluate matching pairs
-            # For simplicity, we'll check if all pairs match correctly
-            # In a real implementation, you might want more sophisticated scoring
-            total_pairs = len(question.matching_pairs)
-            if total_pairs == 0:
+            if not question.matching_pairs:
                 return {"is_correct": False, "score": 0.0, "feedback": "Question data incomplete"}
-            
-            # This is a simplified evaluation - you might need to adapt based on your matching logic
-            # For now, we'll just check if the structure is valid
-            is_correct = len(user_answer) == total_pairs
-            score = 0.5 if is_correct else 0.0  # Partial credit, implement full logic as needed
-            
+
+            # Expecting payload format: {"matches": [{"left_id": "...", "right_id": "..."}, ...]}
+            if not isinstance(user_answer, dict) or "matches" not in user_answer:
+                return {"is_correct": False, "score": 0.0, "feedback": "Invalid answer format"}
+
+            matches = user_answer.get("matches")
+            if not isinstance(matches, list):
+                return {"is_correct": False, "score": 0.0, "feedback": "Invalid answer format"}
+
+            pair_lookup = {str(pair.id): pair for pair in question.matching_pairs}
+            expected_map = {pair_id: pair_id for pair_id in pair_lookup.keys()}
+
+            evaluation_details = []
+            seen_left_ids: set[str] = set()
+            correct_count = 0
+            invalid_format = False
+
+            for entry in matches:
+                if not isinstance(entry, dict):
+                    invalid_format = True
+                    break
+
+                raw_left_id = entry.get("left_id")
+                raw_right_id = entry.get("right_id")
+
+                if raw_left_id is None or raw_right_id is None:
+                    invalid_format = True
+                    break
+
+                left_id = str(raw_left_id)
+                right_id = str(raw_right_id)
+
+                expected_right_id = expected_map.get(left_id)
+                left_pair = pair_lookup.get(left_id)
+                submitted_right_pair = pair_lookup.get(right_id)
+
+                is_pair_correct = expected_right_id is not None and expected_right_id == right_id
+
+                if is_pair_correct:
+                    correct_count += 1
+
+                evaluation_details.append({
+                    "left_id": left_id,
+                    "left_text": left_pair.left_text if left_pair else None,
+                    "expected_right_id": expected_right_id,
+                    "expected_right_text": pair_lookup[expected_right_id].right_text if expected_right_id in pair_lookup else None,
+                    "submitted_right_id": right_id,
+                    "submitted_right_text": submitted_right_pair.right_text if submitted_right_pair else None,
+                    "is_correct": is_pair_correct
+                })
+
+                seen_left_ids.add(left_id)
+
+            if invalid_format:
+                return {"is_correct": False, "score": 0.0, "feedback": "Invalid answer format"}
+
+            # Mark any missing left IDs as incorrect attempts
+            missing_left_ids = set(expected_map.keys()) - seen_left_ids
+            for missing_left_id in missing_left_ids:
+                missing_pair = pair_lookup.get(missing_left_id)
+                evaluation_details.append({
+                    "left_id": missing_left_id,
+                    "left_text": missing_pair.left_text if missing_pair else None,
+                    "expected_right_id": missing_left_id,
+                    "expected_right_text": missing_pair.right_text if missing_pair else None,
+                    "submitted_right_id": None,
+                    "submitted_right_text": None,
+                    "is_correct": False
+                })
+
+            total_pairs = len(pair_lookup)
+            correct_pairs = sum(1 for detail in evaluation_details if detail["is_correct"])
+            score = correct_pairs / total_pairs if total_pairs else 0.0
+            is_correct = score == 1.0
+
+            feedback = f"Matched {correct_pairs}/{total_pairs} pairs correctly."
+
+            correct_answer_payload = {
+                "pairs": [
+                    {
+                        "left_id": pair_id,
+                        "left_text": pair.left_text,
+                        "right_id": pair_id,
+                        "right_text": pair.right_text
+                    }
+                    for pair_id, pair in pair_lookup.items()
+                ],
+                "details": evaluation_details
+            }
+
             return {
                 "is_correct": is_correct,
                 "score": score,
-                "feedback": "All pairs matched!" if is_correct else "Some pairs are incorrect."
+                "feedback": feedback,
+                "correct_answer": correct_answer_payload
             }
         
         elif type_code in ["AUDIO_COMPREHENSION", "PRONUNCIATION"]:

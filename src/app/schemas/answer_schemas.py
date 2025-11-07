@@ -17,7 +17,7 @@ class AnswerSubmitRequest(BaseModel):
     - MULTIPLE_CHOICE: [1, 2, 3] (list of selected option IDs)
     - BLANK: "answer text" (string)
     - SENTENCE_ORDER: ["word1", "word2", "word3"] (list of strings in user's order)
-    - MATCHING: {"pair1": {"left_id": 1, "right_id": 2}, ...} (dict mapping pairs)
+    - MATCHING: {"matches": [{"left_id": "uuid", "right_id": "uuid"}, ...]}
     - AUDIO_COMPREHENSION: {"answer": "transcribed text", "audio_url": "..."}
     - PRONUNCIATION: {"audio_url": "...", "transcript": "..."}
     """

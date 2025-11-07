@@ -389,7 +389,13 @@ async def get_lesson(
     
     # Step 1: Get 13 random questions
     questions_query = select(Question).options(
-        selectinload(Question.options)
+        selectinload(Question.options),
+        selectinload(Question.matching_pairs),
+        selectinload(Question.sentence_order),
+        selectinload(Question.audio_comprehension),
+        selectinload(Question.pronunciation),
+        selectinload(Question.blanks),
+        selectinload(Question.question_type_relation)
     ).filter(
         Question.lesson_id == lesson_id
     ).order_by(func.random()).limit(13)
@@ -414,7 +420,13 @@ async def get_lesson(
             # Try to get 1 question of this type
             # Fix: Only add NOT IN clause if existing_ids is not empty
             type_query = select(Question).options(
-                selectinload(Question.options)
+                selectinload(Question.options),
+                selectinload(Question.matching_pairs),
+                selectinload(Question.sentence_order),
+                selectinload(Question.audio_comprehension),
+                selectinload(Question.pronunciation),
+                selectinload(Question.blanks),
+                selectinload(Question.question_type_relation)
             ).filter(
                 Question.lesson_id == lesson_id,
                 Question.question_type_id == question_type_id
@@ -471,6 +483,7 @@ async def get_lesson(
             "audio_url": audio_url,
             "image_url": image_url,
             "explanation": question.explanation,
+            "question_metadata": question.question_metadata,
             "order_index": question.order_index,
             "question_type": question_type_value,
             "question_type_id": question.question_type_id,
@@ -481,7 +494,50 @@ async def get_lesson(
                     "is_correct": opt.is_correct
                 }
                 for opt in question.options
-            ]
+            ],
+            "matching_pairs": [
+                {
+                    "id": pair.id,
+                    "left_text": pair.left_text,
+                    "left_media": pair.left_media,
+                    "right_text": pair.right_text,
+                    "right_media": pair.right_media,
+                    "sort_order": pair.sort_order
+                }
+                for pair in question.matching_pairs or []
+            ],
+            "sentence_order": (
+                {
+                    "id": question.sentence_order.id,
+                    "correct_sequence": question.sentence_order.correct_sequence
+                }
+                if question.sentence_order else None
+            ),
+            "audio_comprehension": (
+                {
+                    "id": question.audio_comprehension.id,
+                    "transcript": question.audio_comprehension.transcript,
+                    "tts_config": question.audio_comprehension.tts_config
+                }
+                if question.audio_comprehension else None
+            ),
+            "pronunciation": (
+                {
+                    "id": question.pronunciation.id,
+                    "target_phrase": question.pronunciation.target_phrase,
+                    "reference_audio_url": question.pronunciation.reference_audio_url,
+                    "tts_config": question.pronunciation.tts_config
+                }
+                if question.pronunciation else None
+            ),
+            "blank": (
+                {
+                    "id": question.blanks.id,
+                    "correct_answer": question.blanks.correct_answer if current_user and current_user.get("is_superuser") else None,
+                    "case_sensitive": question.blanks.case_sensitive
+                }
+                if question.blanks else None
+            )
         }
         questions_data.append(question_dict)
     
@@ -573,7 +629,13 @@ async def get_lesson_questions(
     
     # Get questions for this lesson
     questions_query = select(Question).options(
-        selectinload(Question.options)
+        selectinload(Question.options),
+        selectinload(Question.matching_pairs),
+        selectinload(Question.sentence_order),
+        selectinload(Question.audio_comprehension),
+        selectinload(Question.pronunciation),
+        selectinload(Question.blanks),
+        selectinload(Question.question_type_relation)
     ).filter(
         Question.lesson_id == lesson_id
     ).order_by(Question.order_index)
