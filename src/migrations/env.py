@@ -15,10 +15,18 @@ from src.app.core.db.database import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option(
-    "sqlalchemy.url",
-    f"{settings.POSTGRES_ASYNC_PREFIX}{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}",
-)
+if settings.POSTGRES_URL:
+    raw_url = settings.POSTGRES_URL
+    if raw_url.startswith("postgres://"):
+        raw_url = raw_url.replace("postgres://", "postgresql://", 1)
+    async_url = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    async_url = (
+        f"{settings.POSTGRES_ASYNC_PREFIX}{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    )
+
+config.set_main_option("sqlalchemy.url", async_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
