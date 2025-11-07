@@ -1,26 +1,25 @@
 # src/app/api/v1/course_management.py
-from typing import Annotated, Optional, Tuple
-from uuid import UUID
-from datetime import datetime, UTC, date
 import random
 from collections import defaultdict
-
+from datetime import datetime, UTC, date
 from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from typing import Annotated, Optional, Tuple
+from uuid import UUID
 
-from ...api.dependencies import get_current_user, get_current_superuser
+from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...models.course import Course, Lesson, Unit
-from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
-from ...models.exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption
-from ...models.question import Question
-from ...models.question_option import QuestionOption
-from ...models.user import User
 from ...crud.progress_tracking import ProgressTrackingCRUD
+from ...models.course import Course, Lesson, Unit
+from ...models.exercise import Exercise, ExerciseQuestion
+from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
+from ...models.question import Question
+from ...models.question_type import QuestionType
+from ...models.user import User
 
 router = APIRouter(tags=["courses-units-lessons"])
 
@@ -360,7 +359,12 @@ async def get_lesson(
         user_progress = progress_result.scalar_one_or_none()
     
     # Get 13 random questions for this lesson
-    # Strategy: Get random 13, then ensure we have at least 1 from each question_type_id (1-8)
+    # Strategy: Get random 13, then ensure we have at least 1 from each question_type_id
+    
+    # Step 0: Get all available question type UUIDs from database
+    question_types_query = select(QuestionType.id)
+    question_types_result = await db.execute(question_types_query)
+    all_question_type_ids = {row[0] for row in question_types_result.fetchall()}
     
     # Step 1: Get 13 random questions
     questions_query = select(Question).options(
@@ -373,7 +377,7 @@ async def get_lesson(
     
     # Step 2: Check which question_type_ids we have
     type_ids_present = {q.question_type_id for q in selected_questions}
-    missing_types = set(range(1, 9)) - type_ids_present
+    missing_types = all_question_type_ids - type_ids_present
     
     # Step 3: If missing any types, try to get at least 1 from each missing type
     if missing_types:
@@ -387,13 +391,19 @@ async def get_lesson(
                 type_counts[q.question_type_id] += 1
             
             # Try to get 1 question of this type
+            # Fix: Only add NOT IN clause if existing_ids is not empty
             type_query = select(Question).options(
                 selectinload(Question.options)
             ).filter(
                 Question.lesson_id == lesson_id,
-                Question.question_type_id == question_type_id,
-                ~Question.id.in_(existing_ids)
-            ).order_by(func.random()).limit(1)
+                Question.question_type_id == question_type_id
+            )
+            
+            # Only add NOT IN filter if we have existing IDs to exclude
+            if existing_ids:
+                type_query = type_query.filter(~Question.id.in_(existing_ids))
+            
+            type_query = type_query.order_by(func.random()).limit(1)
             
             type_result = await db.execute(type_query)
             question = type_result.scalar_one_or_none()

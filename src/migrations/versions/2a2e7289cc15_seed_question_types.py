@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -19,18 +20,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = inspect(bind)
+
+    if 'question_types' not in inspector.get_table_names():
+        return
+
+    # Ensure UUID generation is available
+    op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+
     # Seed question types if table is empty
     op.execute("""
-        INSERT INTO question_types (code, name, description, created_at)
-        SELECT code, name, description, created_at
+        INSERT INTO question_types (id, code, name, description, created_at)
+        SELECT id, code, name, description, created_at
         FROM (VALUES
-            ('MULTIPLE_CHOICE', 'Multiple Choice', 'Question with multiple options, one correct answer', NOW()),
-            ('MATCHING', 'Matching', 'Match items from two lists', NOW()),
-            ('SENTENCE_ORDER', 'Sentence Order', 'Arrange sentences in correct order', NOW()),
-            ('AUDIO_COMPREHENSION', 'Audio Comprehension', 'Listen to audio and answer questions', NOW()),
-            ('PRONUNCIATION', 'Pronunciation', 'Practice pronunciation', NOW()),
-            ('BLANK', 'Fill in the Blank', 'Fill in missing words', NOW())
-        ) AS v(code, name, description, created_at)
+            (uuid_generate_v4(), 'MULTIPLE_CHOICE', 'Multiple Choice', 'Question with multiple options, one correct answer', timezone('utc', now())),
+            (uuid_generate_v4(), 'MATCHING', 'Matching', 'Match items from two lists', timezone('utc', now())),
+            (uuid_generate_v4(), 'SENTENCE_ORDER', 'Sentence Order', 'Arrange sentences in correct order', timezone('utc', now())),
+            (uuid_generate_v4(), 'AUDIO_COMPREHENSION', 'Audio Comprehension', 'Listen to audio and answer questions', timezone('utc', now())),
+            (uuid_generate_v4(), 'PRONUNCIATION', 'Pronunciation', 'Practice pronunciation', timezone('utc', now())),
+            (uuid_generate_v4(), 'BLANK', 'Fill in the Blank', 'Fill in missing words', timezone('utc', now()))
+        ) AS v(id, code, name, description, created_at)
         WHERE NOT EXISTS (SELECT 1 FROM question_types)
     """)
 
