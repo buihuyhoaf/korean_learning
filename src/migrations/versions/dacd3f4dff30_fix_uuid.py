@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -22,54 +23,71 @@ def upgrade() -> None:
     # Ensure extension for UUID
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
 
-    # Add temporary UUID column
-    op.add_column(
-        "users",
-        sa.Column("current_course_id_new", sa.dialects.postgresql.UUID(as_uuid=False), nullable=True),
-    )
+    bind = op.get_bind()
+    inspector = inspect(bind)
 
-    # We cannot deterministically map old INTEGER IDs to new UUIDs because the prior
-    # migration replaced course IDs entirely. Preserve integrity by nulling values.
-    op.execute("UPDATE users SET current_course_id_new = NULL;")
+    if 'users' not in inspector.get_table_names():
+        return
 
-    # Drop existing FK constraints on users.current_course_id if present
-    op.execute(
-        """
-        DO $$
-        DECLARE r RECORD; BEGIN
-        FOR r IN (
-            SELECT conname FROM pg_constraint
-            WHERE contype='f' AND conrelid='users'::regclass
-            AND conkey[1] = (
-                SELECT attnum FROM pg_attribute
-                WHERE attrelid='users'::regclass AND attname='current_course_id'
-            )
-        ) LOOP
-            EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'users', r.conname);
-        END LOOP; END$$;
-        """
-    )
+    columns = {col['name']: col for col in inspector.get_columns('users')}
 
-    # Swap columns
-    op.execute("ALTER TABLE users DROP COLUMN current_course_id;")
-    op.execute("ALTER TABLE users RENAME COLUMN current_course_id_new TO current_course_id;")
+    current_column = columns.get('current_course_id')
+    if current_column is not None and 'UUID' in str(current_column['type']).upper():
+        # Column already migrated to UUID, nothing to do
+        return
 
-    # Recreate FK to courses(id)
-    op.execute(
-        "ALTER TABLE users ADD CONSTRAINT fk_users_current_course_id FOREIGN KEY (current_course_id) REFERENCES courses(id);"
-    )
+    if 'current_course_id_new' not in columns:
+        op.add_column(
+            "users",
+            sa.Column("current_course_id_new", sa.dialects.postgresql.UUID(as_uuid=False), nullable=True),
+        )
+
+        op.execute("UPDATE users SET current_course_id_new = NULL;")
+
+        # Drop existing FK constraints on users.current_course_id if present
+        op.execute(
+            """
+            DO $$
+            DECLARE r RECORD; BEGIN
+            FOR r IN (
+                SELECT conname FROM pg_constraint
+                WHERE contype='f' AND conrelid='users'::regclass
+                AND conkey[1] = (
+                    SELECT attnum FROM pg_attribute
+                    WHERE attrelid='users'::regclass AND attname='current_course_id'
+                )
+            ) LOOP
+                EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'users', r.conname);
+            END LOOP; END$$;
+            """
+        )
+
+        if current_column is not None:
+            op.execute("ALTER TABLE users DROP COLUMN current_course_id;")
+
+        op.execute("ALTER TABLE users RENAME COLUMN current_course_id_new TO current_course_id;")
+
+        op.execute(
+            "ALTER TABLE users ADD CONSTRAINT fk_users_current_course_id FOREIGN KEY (current_course_id) REFERENCES courses(id);"
+        )
 
 
 def downgrade() -> None:
     # Reverse: change current_course_id back to INTEGER, values will be nulled
-    op.add_column(
-        "users",
-        sa.Column("current_course_id_oldint", sa.Integer(), nullable=True),
-    )
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if 'users' not in inspector.get_table_names():
+        return
 
-    op.execute("UPDATE users SET current_course_id_oldint = NULL;")
+    columns = {col['name']: col for col in inspector.get_columns('users')}
 
-    # Drop FK on UUID column
+    if 'current_course_id_oldint' not in columns:
+        op.add_column(
+            "users",
+            sa.Column("current_course_id_oldint", sa.Integer(), nullable=True),
+        )
+        op.execute("UPDATE users SET current_course_id_oldint = NULL;")
+
     op.execute(
         """
         DO $$
@@ -87,6 +105,8 @@ def downgrade() -> None:
         """
     )
 
-    op.execute("ALTER TABLE users DROP COLUMN current_course_id;")
+    if 'current_course_id' in columns:
+        op.execute("ALTER TABLE users DROP COLUMN current_course_id;")
+
     op.execute("ALTER TABLE users RENAME COLUMN current_course_id_oldint TO current_course_id;")
 

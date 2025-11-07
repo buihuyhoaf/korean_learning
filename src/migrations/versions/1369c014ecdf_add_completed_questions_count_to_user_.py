@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -19,15 +20,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade():
-    op.add_column(
-        "user_lesson_progress",
-        sa.Column("completed_questions_count", sa.Integer(), nullable=False, server_default="0"),
-    )
-    op.alter_column(
-        "user_lesson_progress",
-        "completed_questions_count",
-        server_default=None,
-    )
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if 'user_lesson_progress' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('user_lesson_progress')}
+        if 'completed_questions_count' not in columns:
+            op.add_column(
+                "user_lesson_progress",
+                sa.Column("completed_questions_count", sa.Integer(), nullable=False, server_default="0"),
+            )
+            op.alter_column(
+                "user_lesson_progress",
+                "completed_questions_count",
+                server_default=None,
+            )
 
 def downgrade():
-    op.drop_column("user_lesson_progress", "completed_questions_count")
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if 'user_lesson_progress' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('user_lesson_progress')}
+        if 'completed_questions_count' in columns:
+            op.drop_column("user_lesson_progress", "completed_questions_count")
