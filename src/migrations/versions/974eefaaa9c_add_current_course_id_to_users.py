@@ -7,6 +7,7 @@ Create Date: 2024-10-18 15:30:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -17,33 +18,30 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add current_course_id column to users table
-    op.add_column('users', sa.Column('current_course_id', sa.Integer(), nullable=True))
-    
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    existing_columns = {column['name'] for column in inspector.get_columns('users')}
+    existing_fks = {fk['name'] for fk in inspector.get_foreign_keys('users')}
+
+    # Add current_course_id column to users table if missing
+    if 'current_course_id' not in existing_columns:
+        op.add_column('users', sa.Column('current_course_id', sa.Integer(), nullable=True))
+
     # Add entry_test_score column if it doesn't exist
-    try:
+    if 'entry_test_score' not in existing_columns:
         op.add_column('users', sa.Column('entry_test_score', sa.Integer(), nullable=True))
-    except Exception:
-        # Column might already exist
-        pass
-    
+
     # Add has_completed_entry_test column if it doesn't exist
-    try:
+    if 'has_completed_entry_test' not in existing_columns:
         op.add_column('users', sa.Column('has_completed_entry_test', sa.Boolean(), nullable=False, server_default='false'))
-    except Exception:
-        # Column might already exist
-        pass
-    
-    # Add foreign key constraint for current_course_id
-    try:
+
+    # Add foreign key constraint for current_course_id if missing
+    if 'fk_users_current_course_id' not in existing_fks:
         op.create_foreign_key(
             'fk_users_current_course_id',
             'users', 'courses',
             ['current_course_id'], ['id']
         )
-    except Exception:
-        # Constraint might already exist
-        pass
 
 
 def downgrade() -> None:
