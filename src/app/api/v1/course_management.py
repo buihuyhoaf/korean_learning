@@ -1,7 +1,7 @@
 # src/app/api/v1/course_management.py
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Tuple
 from uuid import UUID
-from datetime import datetime, UTC
+from datetime import datetime, UTC, date
 import random
 from collections import defaultdict
 
@@ -19,6 +19,7 @@ from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonP
 from ...models.exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption
 from ...models.question import Question
 from ...models.question_option import QuestionOption
+from ...models.user import User
 from ...crud.progress_tracking import ProgressTrackingCRUD
 
 router = APIRouter(tags=["courses-units-lessons"])
@@ -69,6 +70,73 @@ def _convert_user_lesson_progress_to_dict(progress: Optional[UserLessonProgress]
         "progress_percent": int(progress.progress_percent),
         "is_completed": progress.is_completed
     }
+
+
+async def _update_user_streak_if_needed(
+    db: AsyncSession,
+    user_id: UUID,
+    user: User
+) -> Tuple[bool, int]:
+    """
+    Update user streak if they have activity today and haven't updated streak yet.
+    
+    Returns:
+        Tuple of (streak_updated: bool, streak_bonus_exp: int)
+    """
+    from ...models.gamification import UserExpLog
+    
+    today = date.today()
+    today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=UTC)
+    today_end = datetime.combine(today, datetime.max.time()).replace(tzinfo=UTC)
+    
+    # Check if user has any exp logs today (any activity)
+    today_exp_logs_query = select(func.count()).select_from(UserExpLog).where(
+        and_(
+            UserExpLog.user_id == user_id,
+            UserExpLog.created_at >= today_start,
+            UserExpLog.created_at < today_end
+        )
+    )
+    today_exp_logs_result = await db.execute(today_exp_logs_query)
+    today_exp_logs_count = today_exp_logs_result.scalar() or 0
+    
+    # Check if streak was already updated today (by checking streak_bonus logs today)
+    streak_updated_today_query = select(func.count()).select_from(UserExpLog).where(
+        and_(
+            UserExpLog.user_id == user_id,
+            UserExpLog.source == "streak_bonus",
+            UserExpLog.created_at >= today_start,
+            UserExpLog.created_at < today_end
+        )
+    )
+    streak_updated_today_result = await db.execute(streak_updated_today_query)
+    streak_already_updated = (streak_updated_today_result.scalar() or 0) > 0
+    
+    # Only update streak if:
+    # 1. User has activity today (exp logs exist)
+    # 2. Streak hasn't been updated today yet
+    if today_exp_logs_count > 0 and not streak_already_updated:
+        # Increment streak
+        user.streak_days += 1
+        
+        # Calculate streak bonus EXP (min of streak_days * 5, max 50)
+        streak_bonus = min(user.streak_days * 5, 50)
+        
+        if streak_bonus > 0:
+            # Add streak bonus to user exp
+            user.exp += streak_bonus
+            
+            # Log streak bonus
+            streak_exp_log = UserExpLog(
+                user_id=user_id,
+                source="streak_bonus",
+                amount=streak_bonus
+            )
+            db.add(streak_exp_log)
+            
+            return True, streak_bonus
+    
+    return False, 0
 
 
 # ============================================================================
@@ -420,6 +488,21 @@ async def get_lesson(
             }
             exercises_data.append(exercise_dict)
     
+    # Calculate exp info (configurable)
+    total_questions_result = await db.execute(
+        select(func.count()).select_from(Question).where(Question.lesson_id == lesson_id)
+    )
+    total_questions = total_questions_result.scalar() or 0
+    
+    max_exp_for_lesson = lesson.max_exp or 120  # Default fallback
+    exp_per_question = max_exp_for_lesson / total_questions if total_questions > 0 else 0
+    
+    exp_info = {
+        "max_exp": max_exp_for_lesson,  # Total exp for completing all questions
+        "exp_per_question": int(exp_per_question),  # Exp per correct answer
+        "total_questions": total_questions  # Total questions in lesson
+    }
+    
     return {
         "id": lesson.id,
         "unit_id": lesson.unit_id,
@@ -429,7 +512,8 @@ async def get_lesson(
         "created_at": lesson.created_at,
         "questions": questions_data,
         "exercises": exercises_data,
-        "progress": _convert_user_lesson_progress_to_dict(user_progress)
+        "progress": _convert_user_lesson_progress_to_dict(user_progress),
+        "exp_info": exp_info  # Add exp_info for FE to calculate exp_per_question
     }
 
 
@@ -661,8 +745,23 @@ async def submit_practice_question_answer(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Submit answer for a practice question in a lesson"""
+    """Submit answer for a practice question in a lesson
+    
+    Request body should include:
+    - answer data (selected_option_id or answer)
+    - exp_earned (optional, calculated by FE from exp_info.exp_per_question)
+    """
     user_id = current_user["id"]
+    
+    # Get exp_earned from request (sent by FE, calculated from exp_info.exp_per_question)
+    exp_earned = request.get("exp_earned", 0)
+
+    # Ensure lesson exists (also used for max_exp)
+    lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
+    lesson_result = await db.execute(lesson_query)
+    lesson = lesson_result.scalar_one_or_none()
+    if not lesson:
+        raise NotFoundException("Lesson not found")
     
     # Get question and verify it belongs to lesson
     question_query = select(Question).options(
@@ -682,19 +781,113 @@ async def submit_practice_question_answer(
     # Determine if answer is correct
     is_correct, user_answer_str = _check_answer_correctness(question, request)
     
+    # Save user answer
+    from ...models.user_answer import UserAnswer
+    user_answer = UserAnswer(
+        user_id=user_id,
+        question_id=question_id,
+        answer=request,
+        is_correct=is_correct,
+        score=1.0 if is_correct else 0.0
+    )
+    db.add(user_answer)
+    await db.flush()  # Get the ID for user_answer
+    
+    # ============================================================
+    # CỘNG EXP CHO USER VÀ UPDATE STREAK
+    # ============================================================
+    actual_exp_earned = 0
+    streak_updated = False
+    streak_bonus_exp = 0
+    
+    if is_correct and exp_earned > 0:
+        # Check if user already answered this question correctly before
+        previous_answer_query = select(UserAnswer).filter(
+            and_(
+                UserAnswer.user_id == user_id,
+                UserAnswer.question_id == question_id,
+                UserAnswer.is_correct == True,
+                UserAnswer.id != user_answer.id  # Exclude current answer
+            )
+        ).order_by(UserAnswer.answered_at.desc()).limit(1)
+        previous_answer_result = await db.execute(previous_answer_query)
+        previous_correct_answer = previous_answer_result.scalar_one_or_none()
+        
+        # Only award exp if this is first time answering correctly
+        if not previous_correct_answer:
+            # Validate exp_earned is reasonable
+            total_questions_result = await db.execute(
+                select(func.count()).select_from(Question).where(Question.lesson_id == lesson_id)
+            )
+            total_questions = total_questions_result.scalar() or 0
+            
+            max_exp_for_lesson = lesson.max_exp or 120
+            max_exp_per_question = max_exp_for_lesson / total_questions if total_questions > 0 else 0
+            
+            # Validate: exp_earned should not exceed max_exp_per_question
+            if exp_earned <= max_exp_per_question:
+                actual_exp_earned = int(exp_earned)
+                
+                # Get user from database
+                from ...models.gamification import UserExpLog
+                
+                user_query = select(User).filter(User.id == user_id)
+                user_result = await db.execute(user_query)
+                user = user_result.scalar_one_or_none()
+                
+                if user:
+                    # 1. Cộng exp từ question vào user.exp
+                    user.exp += actual_exp_earned
+                    
+                    # 2. Tạo log để track exp gain từ question
+                    exp_log = UserExpLog(
+                        user_id=user_id,
+                        source="question_completed",
+                        amount=actual_exp_earned
+                    )
+                    db.add(exp_log)
+                    
+                    # 3. TRIGGER STREAK UPDATE (chỉ update 1 lần mỗi ngày)
+                    streak_updated, streak_bonus_exp = await _update_user_streak_if_needed(
+                        db, user_id, user
+                    )
+            else:
+                # Log warning if FE sent invalid exp
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Invalid exp_earned from FE: {exp_earned} (max allowed: {max_exp_per_question}) "
+                    f"for user {user_id}, question {question_id}"
+                )
+    
     # If correct, increment completed_questions_count
     if is_correct:
         await _increment_lesson_progress(db, user_id, lesson_id)
     
-    # Update lesson/unit/course progress after potential increment
+    # Update lesson/unit/course progress
     progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
     lesson_progress_obj = progress_result.get("lesson_progress")
+    
+    # Commit all changes (user_answer, user.exp, exp_logs, streak)
+    await db.commit()
+    
+    # Get updated user info for response
+    user_query = select(User).filter(User.id == user_id)
+    user_result = await db.execute(user_query)
+    user = user_result.scalar_one_or_none()
+    current_streak = user.streak_days if user else 0
     
     return {
         "is_correct": is_correct,
         "correct_answer": question.correct_answer,
         "explanation": question.explanation,
         "message": "Answer submitted successfully",
+        "exp_earned": actual_exp_earned,  # Exp from question (0 if invalid or already earned)
+        "streak_info": {
+            "streak_updated": streak_updated,  # Whether streak was updated this time
+            "current_streak": current_streak,  # Current streak days
+            "streak_bonus_exp": streak_bonus_exp  # Bonus exp from streak (if updated)
+        },
         "lesson_progress": {
             "progress_percent": int(lesson_progress_obj.progress_percent) if lesson_progress_obj else 0
         }

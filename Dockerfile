@@ -41,6 +41,7 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=builder --chown=app:app /app/src /code/src
 COPY --from=builder --chown=app:app /app/migrations /code/migrations
 COPY --from=builder --chown=app:app /app/src/alembic.ini /code/alembic.ini
+COPY --from=builder --chown=app:app /app/deploy.sh /code/deploy.sh
 
 # Ensure the virtual environment is in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
@@ -48,14 +49,17 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Set default port (can be overridden by Render/Railway)
 ENV PORT=8000
 
+# Make deployment script executable
+RUN chmod +x /code/deploy.sh
+
 # Switch to the non-root user
 USER app
 
 # Set the working directory
 WORKDIR /code
 
-# Production command with gunicorn (Render/Railway compatible)
-CMD sh -c "gunicorn src.app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:${PORT:-8000}"
+# Use deployment script to run migrations then start server
+CMD ["/code/deploy.sh"]
 
 # -------- Dev command (uncomment for local development) --------
 # CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

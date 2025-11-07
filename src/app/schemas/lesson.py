@@ -8,6 +8,7 @@ class LessonBase(BaseModel):
     unit_id: Annotated[int, Field(gt=0, examples=[1])]
     title: Annotated[str, Field(min_length=1, max_length=200, examples=["Greetings"])]
     description: Annotated[str, Field(min_length=1, examples=["Learn how to greet people in Korean"])]
+    max_exp: Annotated[int, Field(default=120, ge=0, description="Maximum EXP for completing all questions")]
 
 
 class Lesson(LessonBase):
@@ -30,6 +31,7 @@ class LessonUpdate(BaseModel):
     unit_id: Annotated[int | None, Field(gt=0, default=None)]
     title: Annotated[str | None, Field(min_length=1, max_length=200, default=None)]
     description: Annotated[str | None, Field(min_length=1, default=None)]
+    max_exp: Annotated[int | None, Field(ge=0, default=None)]
 
 
 class LessonUpdateInternal(LessonUpdate):

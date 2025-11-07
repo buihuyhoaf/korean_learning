@@ -48,6 +48,7 @@ class Lesson(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
+    max_exp: Mapped[int] = mapped_column(Integer, default=120, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
 
     # Relationships
