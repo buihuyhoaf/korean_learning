@@ -39,7 +39,7 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy source code from builder stage
 COPY --from=builder --chown=app:app /app/src /code/src
-COPY --from=builder --chown=app:app /app/migrations /code/migrations
+COPY --from=builder --chown=app:app /app/src/migrations /code/migrations
 COPY --from=builder --chown=app:app /app/src/alembic.ini /code/alembic.ini
 COPY --from=builder --chown=app:app /app/deploy.sh /code/deploy.sh
 
