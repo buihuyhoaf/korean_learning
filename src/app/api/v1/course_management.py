@@ -658,6 +658,7 @@ async def get_lesson_questions(
             "audio_url": audio_url,
             "image_url": image_url,
             "explanation": question.explanation,
+            "question_metadata": question.question_metadata,
             "order_index": question.order_index,
             "question_type": question_type_value,
             "options": [
@@ -668,7 +669,50 @@ async def get_lesson_questions(
                     "order_index": opt.order_index
                 }
                 for opt in question.options
-            ]
+            ],
+            "matching_pairs": [
+                {
+                    "id": pair.id,
+                    "left_text": pair.left_text,
+                    "left_media": pair.left_media,
+                    "right_text": pair.right_text,
+                    "right_media": pair.right_media,
+                    "sort_order": pair.sort_order
+                }
+                for pair in question.matching_pairs or []
+            ],
+            "sentence_order": (
+                {
+                    "id": question.sentence_order.id,
+                    "correct_sequence": question.sentence_order.correct_sequence
+                }
+                if question.sentence_order else None
+            ),
+            "audio_comprehension": (
+                {
+                    "id": question.audio_comprehension.id,
+                    "transcript": question.audio_comprehension.transcript,
+                    "tts_config": question.audio_comprehension.tts_config
+                }
+                if question.audio_comprehension else None
+            ),
+            "pronunciation": (
+                {
+                    "id": question.pronunciation.id,
+                    "target_phrase": question.pronunciation.target_phrase,
+                    "reference_audio_url": question.pronunciation.reference_audio_url,
+                    "tts_config": question.pronunciation.tts_config
+                }
+                if question.pronunciation else None
+            ),
+            "blank": (
+                {
+                    "id": question.blanks.id,
+                    "correct_answer": question.blanks.correct_answer if current_user and current_user.get("is_superuser") else None,
+                    "case_sensitive": question.blanks.case_sensitive
+                }
+                if question.blanks else None
+            )
         }
         questions_data.append(question_dict)
     
