@@ -68,8 +68,10 @@ def upgrade() -> None:
 
         constraints = inspector.get_foreign_keys('questions')
         for constraint in constraints:
-            if constraint['referred_table'] == 'lessons'
-            and constraint['name'] == op.f('fk_questions_lesson_id'):
+            if (
+                constraint['referred_table'] == 'lessons'
+                and constraint['name'] == op.f('fk_questions_lesson_id')
+            ):
                 op.drop_constraint(op.f('fk_questions_lesson_id'), 'questions', type_='foreignkey')
                 break
         if not any(fk['referred_table'] == 'lessons' for fk in inspector.get_foreign_keys('questions')):
