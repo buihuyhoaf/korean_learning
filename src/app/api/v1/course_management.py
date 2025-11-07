@@ -71,6 +71,27 @@ def _convert_user_lesson_progress_to_dict(progress: Optional[UserLessonProgress]
     }
 
 
+def _get_question_media_url(question: Question, media_key: str) -> Optional[str]:
+    """Safely extract media URLs from question object supporting legacy fields."""
+    # Legacy direct attribute support (e.g., question.audio_url)
+    direct_attr = getattr(question, f"{media_key}_url", None)
+    if direct_attr:
+        return direct_attr
+    media = getattr(question, "media", None)
+    if isinstance(media, dict):
+        candidate_keys = (
+            media_key,
+            f"{media_key}_url",
+            f"{media_key}Url",
+            f"{media_key.upper()}_URL"
+        )
+        for key in candidate_keys:
+            value = media.get(key)
+            if value:
+                return value
+    return None
+
+
 async def _update_user_streak_if_needed(
     db: AsyncSession,
     user_id: UUID,
@@ -437,14 +458,21 @@ async def get_lesson(
     # Format questions
     questions_data = []
     for question in questions:
+        audio_url = _get_question_media_url(question, "audio")
+        image_url = _get_question_media_url(question, "image")
+        question_type_value = (
+            question.question_type_relation.code
+            if getattr(question, "question_type_relation", None)
+            else getattr(question, "question_type", None)
+        )
         question_dict = {
             "id": question.id,
             "content": question.content,
-            "audio_url": question.audio_url,
-            "image_url": question.image_url,
+            "audio_url": audio_url,
+            "image_url": image_url,
             "explanation": question.explanation,
             "order_index": question.order_index,
-            "question_type": question.question_type,
+            "question_type": question_type_value,
             "question_type_id": question.question_type_id,
             "options": [
                 {
@@ -555,14 +583,21 @@ async def get_lesson_questions(
     # Format questions
     questions_data = []
     for question in questions:
+        audio_url = _get_question_media_url(question, "audio")
+        image_url = _get_question_media_url(question, "image")
+        question_type_value = (
+            question.question_type_relation.code
+            if getattr(question, "question_type_relation", None)
+            else getattr(question, "question_type", None)
+        )
         question_dict = {
             "id": question.id,
             "content": question.content,
-            "audio_url": question.audio_url,
-            "image_url": question.image_url,
+            "audio_url": audio_url,
+            "image_url": image_url,
             "explanation": question.explanation,
             "order_index": question.order_index,
-            "question_type": question.question_type,
+            "question_type": question_type_value,
             "options": [
                 {
                     "id": opt.id,
