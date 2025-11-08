@@ -438,17 +438,56 @@ console.log('📍 [Upload Widget] Current path:', window.location.pathname);
 // Add smooth scroll behavior
 document.documentElement.style.scrollBehavior = 'smooth';
 
-function injectProgressTrackerLink() {
-    const selectors = [
+function createProgressTrackerElements() {
+    const link = document.createElement('a');
+    link.href = ADMIN_BASE_PATH + '/progress-tracker';
+    link.textContent = 'Progress Tracker';
+    link.classList.add('sidebar-link', 'nav-link');
+    link.setAttribute('data-progress-tracker-link', 'true');
+
+    const item = document.createElement('li');
+    item.classList.add('sidebar-item', 'nav-item');
+    item.appendChild(link);
+
+    return { link, item };
+}
+
+function insertProgressTrackerLink() {
+    if (document.querySelector('[data-progress-tracker-link]')) {
+        return true;
+    }
+
+    const listSelectors = [
         '.app-sidebar nav ul',
         '.app-sidebar .sidebar-nav ul',
+        '.app-sidebar ul',
+        '.sidebar nav ul',
+        '.sidebar-nav ul',
+        'nav.sidebar-nav ul',
+        '.sidebar-menu ul',
+        'nav ul.sidebar-menu'
+    ];
+
+    for (const selector of listSelectors) {
+        const container = document.querySelector(selector);
+        if (!container) {
+            continue;
+        }
+
+        const { item } = createProgressTrackerElements();
+        container.appendChild(item);
+        return true;
+    }
+
+    const navSelectors = [
         '.app-sidebar nav',
-        '.app-sidebar .sidebar-nav',
-        '.app-sidebar .sidebar-menu',
+        'nav.sidebar-nav',
+        '.sidebar-nav',
+        '.sidebar',
         '.app-sidebar'
     ];
 
-    for (const selector of selectors) {
+    for (const selector of navSelectors) {
         const container = document.querySelector(selector);
         if (!container) {
             continue;
@@ -458,41 +497,20 @@ function injectProgressTrackerLink() {
             return true;
         }
 
-        const wrapperTag = container.tagName === 'UL' || container.tagName === 'OL' ? 'li' : 'div';
-        const item = document.createElement(wrapperTag);
-        item.className = 'sidebar-item';
-
-        const link = document.createElement('a');
-        link.className = 'sidebar-link';
-        link.href = ADMIN_BASE_PATH + '/progress-tracker';
-        link.textContent = 'Progress Tracker';
-        link.setAttribute('data-progress-tracker-link', 'true');
-
-        item.appendChild(link);
-
-        if (container.tagName === 'UL' || container.tagName === 'OL') {
-            container.appendChild(item);
-            return true;
-        }
-
-        if (container.tagName === 'NAV' || container.classList.contains('sidebar-nav') || container.classList.contains('sidebar-menu')) {
-            container.appendChild(item);
-            return true;
-        }
-
-        if (selector === '.app-sidebar') {
-            let nav = container.querySelector('nav');
-            if (!nav) {
-                nav = document.createElement('nav');
-                nav.className = 'sidebar-nav';
-                container.appendChild(nav);
-            }
-            nav.appendChild(item);
-            return true;
-        }
+        const { link } = createProgressTrackerElements();
+        container.appendChild(link);
+        return true;
     }
 
     return false;
+}
+
+function ensureProgressTrackerLink() {
+    if (!insertProgressTrackerLink()) {
+        setTimeout(insertProgressTrackerLink, 300);
+        setTimeout(insertProgressTrackerLink, 1200);
+        setTimeout(insertProgressTrackerLink, 3000);
+    }
 }
 
 // Image Upload Widget for Question Media Field
@@ -938,11 +956,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Inject Teacher Progress Tracker shortcut into sidebar
     try {
-        const inserted = injectProgressTrackerLink();
-        if (!inserted) {
-            setTimeout(injectProgressTrackerLink, 250);
-            setTimeout(injectProgressTrackerLink, 1200);
-        }
+        ensureProgressTrackerLink();
     } catch (err) {
         console.warn('Unable to inject progress tracker link', err);
     }
@@ -1017,7 +1031,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Re-initialize on form updates (for dynamic content like HTMX)
     const observer = new MutationObserver(function(mutations) {
         let shouldReinit = false;
-        let sidebarUpdated = false;
         mutations.forEach(function(mutation) {
             if (mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(function(node) {
@@ -1026,9 +1039,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             node.querySelector && (node.querySelector('input') || node.querySelector('textarea'))) {
                             shouldReinit = true;
                         }
-                        if (!sidebarUpdated && node.closest && node.closest('.app-sidebar')) {
-                            sidebarUpdated = true;
-                        }
                     }
                 });
             }
@@ -1036,10 +1046,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (shouldReinit) {
             console.log('🔄 [Upload Widget] DOM changed, re-initializing...');
             setTimeout(initializeImageUploadWidget, 100);
-        }
-        if (sidebarUpdated) {
-            console.log('🔄 [Progress Tracker] Sidebar changed, ensuring link exists...');
-            setTimeout(injectProgressTrackerLink, 50);
         }
     });
     
@@ -1057,7 +1063,7 @@ new MutationObserver(() => {
         lastUrl = url;
         console.log('🔄 [Upload Widget] URL changed, re-initializing...');
         setTimeout(initializeImageUploadWidget, 500);
-        setTimeout(injectProgressTrackerLink, 100);
+        setTimeout(ensureProgressTrackerLink, 100);
     }
 }).observe(document, { subtree: true, childList: true });
 
@@ -1065,13 +1071,13 @@ new MutationObserver(() => {
 document.body.addEventListener('htmx:afterSwap', function(event) {
     console.log('🔄 [Upload Widget] HTMX afterSwap event, re-initializing...');
     setTimeout(initializeImageUploadWidget, 100);
-    setTimeout(injectProgressTrackerLink, 150);
+    setTimeout(ensureProgressTrackerLink, 150);
 });
 
 document.body.addEventListener('htmx:load', function(event) {
     console.log('🔄 [Upload Widget] HTMX load event, re-initializing...');
     setTimeout(initializeImageUploadWidget, 100);
-    setTimeout(injectProgressTrackerLink, 150);
+    setTimeout(ensureProgressTrackerLink, 150);
 });
 
 // Also try initializing periodically for dynamic content (especially for HTMX-loaded forms)
@@ -1086,7 +1092,7 @@ const initInterval = setInterval(function() {
         }
         initializeImageUploadWidget();
         initializeCourseImageUpload();
-        injectProgressTrackerLink();
+        ensureProgressTrackerLink();
     } else {
         clearInterval(initInterval);
         console.log('⏹️ [Upload Widget] Stopped periodic initialization after max attempts');
