@@ -1,17 +1,27 @@
-from typing import Optional
+from typing import Optional, Annotated
 from pathlib import Path
 
 from crudadmin import CRUDAdmin
-from fastapi import Request
+from fastapi import Request, Depends, HTTPException, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
 from ..core.config import EnvironmentOption, settings
 from ..core.db.database import async_get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+
 import logging
 from .views import register_admin_views
 from .custom_assets import serve_custom_css, serve_custom_js
+from ..api.v1.user_progress import (
+    fetch_progress_tracker_users,
+    build_exp_series_response,
+)
+from ..schemas.progress_tracking import ExpSeriesResponse
+from ..core.exceptions.http_exceptions import NotFoundException
+from ..schemas.user import UserSummary
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +119,49 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             {
                 "request": request,
                 "admin_mount": admin_mount,
-                "api_prefix": "/api/v1/admin/progress-tracking",
+                "api_prefix": f"{admin_mount}/progress-tracker/api",
                 "current_user": getattr(request.state, "user", None),
             },
         )
+
+    @admin.app.get(
+        "/progress-tracker/api/users",
+        response_model=list[UserSummary],
+    )
+    async def admin_progress_tracker_users(
+        request: Request,
+        search: Annotated[str, Query(min_length=1, description="Username or email fragment to search for")],
+        limit: Annotated[int, Query(ge=1, le=25)] = 10,
+        db: AsyncSession = Depends(async_get_db),
+    ) -> list[UserSummary]:
+        if not getattr(request.state, "user", None):
+            raise HTTPException(status_code=403, detail="Admin session required")
+
+        return await fetch_progress_tracker_users(db=db, search_term=search, limit=limit)
+
+    @admin.app.get(
+        "/progress-tracker/api/exp-series",
+        response_model=ExpSeriesResponse,
+    )
+    async def admin_progress_tracker_exp_series(
+        request: Request,
+        user_ids: Annotated[str, Query(min_length=1, description="Comma separated list of user UUIDs")],
+        days: Annotated[int, Query(ge=1, le=365)] = 30,
+        db: AsyncSession = Depends(async_get_db),
+    ) -> ExpSeriesResponse:
+        if not getattr(request.state, "user", None):
+            raise HTTPException(status_code=403, detail="Admin session required")
+
+        raw_ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
+        if not raw_ids:
+            return await build_exp_series_response(db=db, target_ids=[], days=days)
+
+        try:
+            target_ids = [UUID(uid) for uid in raw_ids]
+        except ValueError as exc:
+            raise NotFoundException("One or more user IDs are invalid") from exc
+
+        return await build_exp_series_response(db=db, target_ids=target_ids, days=days)
 
     return admin
 
