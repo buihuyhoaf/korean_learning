@@ -537,7 +537,7 @@ async def get_lesson(
             "blank": (
                 {
                     "id": question.blanks.id,
-                    "correct_answer": question.blanks.correct_answer if current_user and current_user.get("is_superuser") else None,
+                    "correct_answer": question.blanks.correct_answer,
                     "case_sensitive": question.blanks.case_sensitive
                 }
                 if question.blanks else None
@@ -712,7 +712,7 @@ async def get_lesson_questions(
             "blank": (
                 {
                     "id": question.blanks.id,
-                    "correct_answer": question.blanks.correct_answer if current_user and current_user.get("is_superuser") else None,
+                    "correct_answer": question.blanks.correct_answer,
                     "case_sensitive": question.blanks.case_sensitive
                 }
                 if question.blanks else None

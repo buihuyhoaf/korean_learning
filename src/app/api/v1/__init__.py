@@ -22,6 +22,7 @@ from .leaderboard import router as leaderboard_router
 from .entry_test import router as entry_test_router
 from .upload import router as upload_router
 from .predict import router as predict_router
+from .grade import router as grade_router
 
 router = APIRouter(prefix="/v1")
 
@@ -45,3 +46,4 @@ router.include_router(leaderboard_router)
 router.include_router(entry_test_router)
 router.include_router(upload_router)
 router.include_router(predict_router)
+router.include_router(grade_router)

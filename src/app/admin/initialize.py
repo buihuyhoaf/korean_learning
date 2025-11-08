@@ -2,6 +2,7 @@ from typing import Optional, Annotated
 from pathlib import Path
 
 from crudadmin import CRUDAdmin
+from crudadmin.core.db import get_default_db_path
 from fastapi import Request, Depends, HTTPException, Query
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -56,28 +57,31 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
     force_seed = os.getenv("CRUDADMIN_FORCE_SEED", "false").lower() == "true"
     should_reset = os.getenv("CRUDADMIN_RESET", "false").lower() == "true"
     
-    if settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
-        # Check if values are not the defaults (to avoid auto-seeding in production)
-        default_username = "admin"
-        default_password = "!Ch4ng3Th1sP4ssW0rd!"
-        
-        # Only set initial_admin if:
-        # 1. Values are explicitly different from defaults, OR
-        # 2. CRUDADMIN_FORCE_SEED=true (to force seed even with defaults), OR  
-        # 3. CRUDADMIN_RESET=true (to seed after reset)
-        if (settings.ADMIN_USERNAME != default_username or 
-            settings.ADMIN_PASSWORD != default_password or
-            force_seed or
-            should_reset):
+    admin_db_path_env = os.getenv("CRUDADMIN_DB_PATH")
+    if admin_db_path_env and admin_db_path_env.lower() != "none":
+        admin_db_path = Path(admin_db_path_env)
+    else:
+        admin_db_path = Path(get_default_db_path())
+    admin_db_exists = admin_db_path.exists()
+
+    seed_requested = not admin_db_exists or force_seed or should_reset
+
+    if seed_requested:
+        if settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
             initial_admin = {
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
             }
-            logger.info(f"[ADMIN_INIT] Initial admin will be seeded: username={settings.ADMIN_USERNAME}")
+            logger.info(
+                f"[ADMIN_INIT] Initial admin will be seeded (requested={seed_requested}, "
+                f"db_exists={admin_db_exists})"
+            )
         else:
-            logger.info(f"[ADMIN_INIT] Skipping initial admin seed (using defaults without force_seed)")
+            logger.warning("[ADMIN_INIT] Seed requested but admin credentials are missing; skipping")
     else:
-        logger.info(f"[ADMIN_INIT] No initial admin credentials provided, skipping seed")
+        logger.info(
+            f"[ADMIN_INIT] Admin DB already present at {admin_db_path}. Skipping initial admin seed"
+        )
 
     admin = CRUDAdmin(
         session=async_get_db,
