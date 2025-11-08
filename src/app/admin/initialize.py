@@ -137,10 +137,8 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         search: Annotated[str, Query(min_length=1, description="Username or email fragment to search for")],
         limit: Annotated[int, Query(ge=1, le=25)] = 10,
         db: AsyncSession = Depends(async_get_db),
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
     ) -> list[UserSummary]:
-        if not getattr(request.state, "user", None):
-            raise HTTPException(status_code=403, detail="Admin session required")
-
         return await fetch_progress_tracker_users(db=db, search_term=search, limit=limit)
 
     @admin.app.get(
@@ -152,10 +150,8 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         user_ids: Annotated[str, Query(min_length=1, description="Comma separated list of user UUIDs")],
         days: Annotated[int, Query(ge=1, le=365)] = 30,
         db: AsyncSession = Depends(async_get_db),
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
     ) -> ExpSeriesResponse:
-        if not getattr(request.state, "user", None):
-            raise HTTPException(status_code=403, detail="Admin session required")
-
         raw_ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
         if not raw_ids:
             return await build_exp_series_response(db=db, target_ids=[], days=days)

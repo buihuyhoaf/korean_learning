@@ -1073,10 +1073,6 @@ async def submit_practice_question_answer(
     if is_correct:
         await _increment_lesson_progress(db, user_id, lesson_id)
     
-    # Update lesson/unit/course progress
-    progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
-    lesson_progress_obj = progress_result.get("lesson_progress")
-    
     # Commit all changes (user_answer, user.exp, exp_logs, streak)
     await db.commit()
     
@@ -1097,9 +1093,7 @@ async def submit_practice_question_answer(
             "current_streak": current_streak,  # Current streak days
             "streak_bonus_exp": streak_bonus_exp  # Bonus exp from streak (if updated)
         },
-        "lesson_progress": {
-            "progress_percent": int(lesson_progress_obj.progress_percent) if lesson_progress_obj else 0
-        }
+        "lesson_progress": None
     }
 
 
