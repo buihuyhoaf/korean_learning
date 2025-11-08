@@ -19,6 +19,10 @@ from ..models.exercise import Exercise
 from ..models.course import Lesson, Unit, Course
 
 
+# EXP reward granted per completed exercise (see app/api/v1/exercises.py)
+EXERCISE_EXP_REWARD = 20
+
+
 class ProgressTrackingCRUD:
     """CRUD operations for progress tracking"""
     
@@ -58,10 +62,10 @@ class ProgressTrackingCRUD:
         total_exercises = len(exercises)
         
         total_items = total_questions + total_exercises
-        
+
         if total_items == 0:
             return 100.0  # No content, consider completed
-        
+
         # Count completed questions using stored counter on progress record
         progress_check_query = select(UserLessonProgress).filter(
             and_(
@@ -73,20 +77,34 @@ class ProgressTrackingCRUD:
         existing_progress = progress_check_result.scalar_one_or_none()
         
         if existing_progress:
-            completed_questions = max(0, min(existing_progress.completed_questions_count, total_questions))
-            completed_exercises = max(0, min(existing_progress.completed_exercises_count, total_exercises))
+            completed_questions = max(
+                0,
+                min(existing_progress.completed_questions_count, total_questions)
+            )
+            completed_exercises = max(
+                0,
+                min(existing_progress.completed_exercises_count, total_exercises)
+            )
         else:
             completed_questions = 0
-        completed_exercises = 0
-        
-        # Calculate progress
-        question_progress = (completed_questions / total_questions * 100) if total_questions > 0 else 0
-        exercise_progress = (completed_exercises / total_exercises * 100) if total_exercises > 0 else 0
-        
-        # Weighted average (questions 70%, exercises 30%)
-        progress = (question_progress * 0.7 + exercise_progress * 0.3) if total_items > 0 else 0
-        
-        return round(progress, 2)
+            completed_exercises = 0
+
+        # Calculate EXP-based progress so that reaching the configured EXP goals yields 100%
+        question_exp_total = lesson.max_exp if total_questions > 0 else 0
+        question_exp_per = question_exp_total / total_questions if total_questions > 0 else 0
+        earned_question_exp = completed_questions * question_exp_per
+
+        exercise_exp_total = total_exercises * EXERCISE_EXP_REWARD
+        earned_exercise_exp = completed_exercises * EXERCISE_EXP_REWARD
+
+        total_required_exp = question_exp_total + exercise_exp_total
+
+        if total_required_exp == 0:
+            return 100.0
+
+        progress = (earned_question_exp + earned_exercise_exp) / total_required_exp * 100
+
+        return round(min(progress, 100.0), 2)
     
     @staticmethod
     async def update_lesson_progress(
