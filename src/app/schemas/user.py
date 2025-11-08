@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -30,6 +31,16 @@ class UserRead(BaseModel):
     current_course_id: Annotated[int | None, Field(examples=[None])]
     entry_test_score: Annotated[int | None, Field(examples=[None])]
 
+
+class UserSummary(BaseModel):
+    """Lightweight schema for user listings in admin trackers."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
+    email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
+    role: Annotated[str, Field(examples=["student"])]
+    exp: Annotated[int, Field(examples=[0])]
 
 class UserCreate(BaseModel):
     """Schema for creating users that matches the actual User model."""

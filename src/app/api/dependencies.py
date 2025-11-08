@@ -75,6 +75,15 @@ async def get_current_superuser(current_user: Annotated[dict, Depends(get_curren
     return current_user
 
 
+async def get_current_admin_or_teacher(current_user: Annotated[dict, Depends(get_current_user)]) -> dict:
+    """Allow access for superuser, admin role, or teacher role."""
+    allowed_roles = {"admin", "teacher"}
+    if current_user.get("is_superuser") or current_user.get("role") in allowed_roles:
+        return current_user
+
+    raise ForbiddenException("You do not have enough privileges.")
+
+
 async def rate_limiter_dependency(
     request: Request, db: Annotated[AsyncSession, Depends(async_get_db)], user: dict | None = Depends(get_optional_user)
 ) -> None:

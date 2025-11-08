@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Student EXP Progress Tracker</title>
+  <link rel="stylesheet" href="{{ admin_mount }}/custom.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body {
+      margin: 0;
+      background: #f6f7fb;
+      color: #1f2933;
+    }
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .tracker-page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+    }
+    .page-header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #1f2933;
+    }
+    .page-header .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(255,107,107,0.15), rgba(255,143,143,0.15));
+      color: #ff6b6b;
+      font-weight: 600;
+    }
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 18px 45px rgba(15,23,42,0.08);
+      padding: 1.5rem;
+    }
+    .card h2 {
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #202e3b;
+    }
+    .search-box {
+      display: grid;
+      gap: 0.75rem;
+    }
+    .search-box form {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .search-box input[type="text"] {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid #d8dee6;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.95rem;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+    .search-box input[type="text"]:focus {
+      outline: none;
+      border-color: #ff6b6b;
+      box-shadow: 0 0 0 3px rgba(255,107,107,0.15);
+    }
+    .search-box button,
+    .range-selector button {
+      border: none;
+      background: linear-gradient(135deg, #ff6b6b, #ff8585);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 10px;
+      padding: 0.55rem 1.1rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .search-box button:hover,
+    .range-selector button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(255,107,107,0.2);
+    }
+    .search-results,
+    .tracked-users {
+      display: grid;
+      gap: 0.6rem;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 0.3rem;
+    }
+    .search-result,
+    .tracked-user {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.035);
+      border: 1px solid rgba(15,23,42,0.05);
+    }
+    .search-result span,
+    .tracked-user span {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      font-size: 0.9rem;
+    }
+    .result-meta {
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+    .search-result button,
+    .tracked-user button {
+      border: none;
+      background: rgba(15,23,42,0.08);
+      color: #1f2933;
+      padding: 0.45rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .search-result button:hover {
+      background: rgba(255,107,107,0.2);
+      color: #ff4f4f;
+    }
+    .tracked-user button {
+      background: rgba(255,107,107,0.15);
+      color: #ff4f4f;
+    }
+    .tracked-user button:hover {
+      background: rgba(255,107,107,0.25);
+    }
+    .chart-card {
+      display: grid;
+      gap: 1rem;
+    }
+    .chart-topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .range-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .range-selector select {
+      border-radius: 10px;
+      border: 1px solid #d8dee6;
+      padding: 0.45rem 0.65rem;
+      font-size: 0.9rem;
+    }
+    .state-message {
+      padding: 0.9rem;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.04);
+      text-align: center;
+      color: #475569;
+      font-size: 0.9rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table thead {
+      background: linear-gradient(135deg, #ff6b6b, #ff8f8f);
+      color: #fff;
+    }
+    table th, table td {
+      padding: 0.7rem 0.9rem;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+    table tbody tr:nth-child(odd) {
+      background: rgba(15,23,42,0.02);
+    }
+    table tbody tr:nth-child(even) {
+      background: rgba(15,23,42,0.05);
+    }
+    .loading-indicator {
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      color: #ff6b6b;
+      font-weight: 600;
+    }
+    .loading-indicator.active {
+      display: inline-flex;
+    }
+    @media (max-width: 960px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+      }
+      .search-box form {
+        flex-direction: column;
+      }
+      .search-box button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="tracker-page">
+    <div class="page-header">
+      <h1>Student EXP Progress Tracker</h1>
+      <a class="back-link" href="{{ admin_mount }}">&larr; Back to Admin</a>
+    </div>
+
+    <div class="layout-grid">
+      <section class="card">
+        <h2>Search students</h2>
+        <div class="search-box">
+          <form id="searchForm">
+            <input id="studentSearch" type="text" placeholder="Search username or email" autocomplete="off" />
+            <button type="submit">Search</button>
+          </form>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <h2>Tracked students</h2>
+        <div id="trackedUsers" class="tracked-users"></div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-topbar">
+          <div class="range-selector">
+            <label for="rangeSelect">Range:</label>
+            <select id="rangeSelect">
+              <option value="7">Last 7 days</option>
+              <option value="14">Last 14 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="60">Last 60 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+            <button id="refreshButton" type="button">Refresh</button>
+            <span id="loadingIndicator" class="loading-indicator">
+              <span class="spinner">&#9696;</span>
+              <span>Loading</span>
+            </span>
+          </div>
+        </div>
+
+        <div id="stateMessage" class="state-message">
+          Add students on the left to visualize their EXP progress.
+        </div>
+        <canvas id="progressChart" height="320"></canvas>
+
+        <div class="table-wrapper">
+          <h2>Summary</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>EXP (start &rarr; end)</th>
+                <th>Change</th>
+                <th>Avg / day</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody">
+              <tr>
+                <td colspan="4" style="text-align:center; padding:1rem;">No students tracked yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const API_PREFIX = "{{ api_prefix }}";
+      const searchForm = document.getElementById('searchForm');
+      const searchField = document.getElementById('studentSearch');
+      const searchResults = document.getElementById('searchResults');
+      const trackedUsersContainer = document.getElementById('trackedUsers');
+      const rangeSelect = document.getElementById('rangeSelect');
+      const refreshButton = document.getElementById('refreshButton');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const stateMessage = document.getElementById('stateMessage');
+      const summaryBody = document.getElementById('summaryBody');
+      const chartCanvas = document.getElementById('progressChart');
+      const trackedUsers = new Map();
+      const colors = [
+        '#FF6B6B', '#4ECDC4', '#556ee6', '#ffb703',
+        '#8338ec', '#06d6a0', '#ef476f', '#118ab2',
+        '#f77f00', '#2ec4b6'
+      ];
+      let progressChart = null;
+
+      function setLoading(isLoading) {
+        loadingIndicator.classList.toggle('active', isLoading);
+        refreshButton.disabled = isLoading;
+      }
+
+      function showMessage(text) {
+        stateMessage.textContent = text;
+        stateMessage.style.display = 'block';
+        chartCanvas.style.display = 'none';
+      }
+
+      function hideMessage() {
+        stateMessage.style.display = 'none';
+        chartCanvas.style.display = 'block';
+      }
+
+      function renderSearchResults(items) {
+        searchResults.innerHTML = '';
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'state-message';
+          empty.textContent = 'No users found.';
+          searchResults.appendChild(empty);
+          return;
+        }
+
+        items.forEach(user => {
+          const row = document.createElement('div');
+          row.className = 'search-result';
+
+          const info = document.createElement('span');
+          info.innerHTML = '<strong>' + user.username + '</strong><span class="result-meta">' + user.email + '</span>';
+          row.appendChild(info);
+
+          const addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.textContent = trackedUsers.has(user.id) ? 'Tracked' : 'Add';
+          addBtn.disabled = trackedUsers.has(user.id);
+          addBtn.addEventListener('click', () => {
+            trackedUsers.set(user.id, user);
+            renderTrackedUsers();
+            fetchSeries();
+          });
+          row.appendChild(addBtn);
+
+          searchResults.appendChild(row);
+        });
+      }
+
+      function renderTrackedUsers() {
+        trackedUsersContainer.innerHTML = '';
+        if (!trackedUsers.size) {
+          const empty = document.createElement('div');
+          empty.className = 'state-message';
+          empty.textContent = 'No students tracked yet.';
+          trackedUsersContainer.appendChild(empty);
+          return;
+        }
+
+        trackedUsers.forEach((user, id) => {
+          const row = document.createElement('div');
+          row.className = 'tracked-user';
+
+          const info = document.createElement('span');
+          info.innerHTML = '<strong>' + user.username + '</strong><span class="result-meta">' + user.email + '</span>';
+          row.appendChild(info);
+
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', () => {
+            trackedUsers.delete(id);
+            renderTrackedUsers();
+            fetchSeries();
+          });
+          row.appendChild(removeBtn);
+
+          trackedUsersContainer.appendChild(row);
+        });
+      }
+
+      function ensureChart() {
+        if (progressChart) {
+          return progressChart;
+        }
+        progressChart = new Chart(chartCanvas, {
+          type: 'line',
+          data: {
+            datasets: []
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'nearest',
+              intersect: false
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'bottom'
+              },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const point = ctx.raw;
+                    return ctx.dataset.label + ': ' + point.y.toLocaleString() + ' EXP';
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                type: 'time',
+                time: { unit: 'day' },
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              },
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Total EXP'
+                }
+              }
+            }
+          }
+        });
+        return progressChart;
+      }
+
+      function updateChart(payload) {
+        if (!payload.series.length) {
+          showMessage('Add students on the left to visualize their EXP progress.');
+          summaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1rem;">No students tracked yet.</td></tr>';
+          if (progressChart) {
+            progressChart.data.datasets = [];
+            progressChart.update();
+          }
+          return;
+        }
+
+        hideMessage();
+        const chartInstance = ensureChart();
+        chartInstance.data.datasets = payload.series.map((userSeries, index) => {
+          const color = colors[index % colors.length];
+          return {
+            label: userSeries.username,
+            data: userSeries.series.map(point => ({
+              x: point.date,
+              y: point.cumulative_exp
+            })),
+            borderColor: color,
+            backgroundColor: color + '33',
+            pointRadius: 3,
+            tension: 0.35,
+            fill: false
+          };
+        });
+        chartInstance.update();
+
+        summaryBody.innerHTML = '';
+        payload.series.forEach((userSeries, idx) => {
+          const firstPoint = userSeries.series[0];
+          const lastPoint = userSeries.series[userSeries.series.length - 1];
+          const totalChange = lastPoint.cumulative_exp - firstPoint.cumulative_exp;
+          const avg = Math.round((totalChange / userSeries.series.length) * 10) / 10;
+
+          const row = document.createElement('tr');
+          row.innerHTML = ''
+            + '<td><strong style="color:' + colors[idx % colors.length] + '">' + userSeries.username + '</strong></td>'
+            + '<td>' + firstPoint.cumulative_exp.toLocaleString() + ' &rarr; <strong>'
+            + lastPoint.cumulative_exp.toLocaleString() + '</strong></td>'
+            + '<td>' + (totalChange >= 0 ? '+' : '') + totalChange.toLocaleString() + ' EXP</td>'
+            + '<td>' + avg.toLocaleString() + ' EXP/day</td>';
+          summaryBody.appendChild(row);
+        });
+      }
+
+      async function fetchSeries() {
+        if (!trackedUsers.size) {
+          updateChart({ series: [] });
+          return;
+        }
+
+        const params = new URLSearchParams({
+          user_ids: Array.from(trackedUsers.keys()).join(','),
+          days: rangeSelect.value
+        });
+
+        setLoading(true);
+        try {
+          const response = await fetch(API_PREFIX + '/exp-series?' + params.toString(), {
+            credentials: 'include'
+          });
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+          const data = await response.json();
+          updateChart(data);
+        } catch (error) {
+          console.error('Failed to load EXP series', error);
+          showMessage('Failed to load progress data. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function performSearch(event) {
+        event.preventDefault();
+        const term = searchField.value.trim();
+        if (!term) {
+          renderSearchResults([]);
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const params = new URLSearchParams({ search: term, limit: '10' });
+          const response = await fetch(API_PREFIX + '/users?' + params.toString(), {
+            credentials: 'include'
+          });
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+          const users = await response.json();
+          renderSearchResults(users);
+        } catch (error) {
+          console.error('Search failed', error);
+          renderSearchResults([]);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      searchForm.addEventListener('submit', performSearch);
+      refreshButton.addEventListener('click', fetchSeries);
+      rangeSelect.addEventListener('change', fetchSeries);
+      renderTrackedUsers();
+    });
+  </script>
+</body>
+</html>
+
+

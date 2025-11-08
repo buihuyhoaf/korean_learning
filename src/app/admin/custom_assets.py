@@ -426,8 +426,10 @@ tbody tr:hover {{
 
 def get_custom_js(settings) -> str:
     """Generate custom JavaScript for the admin interface."""
-    return """
+    return f"""
 // Korean Learning Admin - Custom JavaScript
+
+const ADMIN_BASE_PATH = "{settings.CRUD_ADMIN_MOUNT_PATH.rstrip('/') or '/admin'}";
 
 console.log('🇰🇷 Korean Learning Admin Loaded');
 console.log('📍 [Upload Widget] Script loaded at:', new Date().toISOString());
@@ -876,6 +878,33 @@ function initializeCourseImageUpload() {
 // Add loading animation on page transitions
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 [Upload Widget] DOMContentLoaded event fired');
+    
+    // Inject Teacher Progress Tracker shortcut into sidebar
+    try {
+        const sidebarCandidates = [
+            document.querySelector('.app-sidebar nav ul'),
+            document.querySelector('.app-sidebar .sidebar-nav'),
+            document.querySelector('.app-sidebar ul')
+        ].filter(Boolean);
+
+        sidebarCandidates.some(container => {
+            if (container.querySelector('[data-progress-tracker-link]')) {
+                return true;
+            }
+            const item = document.createElement('li');
+            item.className = 'sidebar-item';
+            const link = document.createElement('a');
+            link.className = 'sidebar-link';
+            link.href = ADMIN_BASE_PATH + '/progress-tracker';
+            link.textContent = 'Progress Tracker';
+            link.setAttribute('data-progress-tracker-link', 'true');
+            item.appendChild(link);
+            container.appendChild(item);
+            return true;
+        });
+    } catch (err) {
+        console.warn('Unable to inject progress tracker link', err);
+    }
     
     // Animate cards on load
     const cards = document.querySelectorAll('.card');

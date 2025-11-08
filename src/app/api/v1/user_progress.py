@@ -1,20 +1,22 @@
 # src/app/api/v1/user_progress.py
 from typing import Annotated, Any, cast
-from datetime import datetime, UTC, date, timedelta
+from datetime import datetime, UTC, date, timedelta, time
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Query
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 
-from ...api.dependencies import get_current_user, get_current_superuser
+from ...api.dependencies import get_current_user, get_current_superuser, get_current_admin_or_teacher
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.user import User
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
-from src.app.models import UserExpLog
-from ...models.gamification import DailyGoal
+from ...models.gamification import DailyGoal, UserExpLog
 from ...models.course import Course
+from ...schemas.user import UserSummary
+from ...schemas.progress_tracking import ExpSeriesResponse, UserExpSeries, DateRange, ExpPoint
 
 router = APIRouter(tags=["progress"])
 
@@ -423,6 +425,148 @@ async def update_user_daily_goals(
 
 
 # Admin endpoints for monitoring progress
+@router.get(
+    "/admin/progress-tracking/users",
+    response_model=list[UserSummary],
+)
+async def search_users_for_progress_tracker(
+    request: Request,
+    search: Annotated[str, Query(min_length=1, description="Username or email fragment to search for")],
+    limit: Annotated[int, Query(ge=1, le=25)] = 10,
+    current_user: Annotated[dict, Depends(get_current_admin_or_teacher)] = None,
+    db: Annotated[AsyncSession, Depends(async_get_db)] = None,
+) -> list[UserSummary]:
+    """Search for users by username or email for the admin progress tracker."""
+    search_term = search.strip()
+    if not search_term:
+        return []
+
+    stmt = (
+        select(User)
+        .where(
+            or_(
+                User.username.ilike(f"%{search_term}%"),
+                User.email.ilike(f"%{search_term}%"),
+            )
+        )
+        .order_by(User.username.asc())
+        .limit(limit)
+    )
+    users_result = await db.execute(stmt)
+    users = users_result.scalars().all()
+
+    return [UserSummary.model_validate(user) for user in users]
+
+
+@router.get(
+    "/admin/progress-tracking/exp-series",
+    response_model=ExpSeriesResponse,
+)
+async def get_users_exp_series(
+    request: Request,
+    user_ids: Annotated[str, Query(min_length=1, description="Comma separated list of user UUIDs")],
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    current_user: Annotated[dict, Depends(get_current_admin_or_teacher)] = None,
+    db: Annotated[AsyncSession, Depends(async_get_db)] = None,
+) -> ExpSeriesResponse:
+    """Return EXP time-series data for the selected users."""
+    raw_ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
+    if not raw_ids:
+        today = datetime.now(UTC).date()
+        return ExpSeriesResponse(
+            date_range=DateRange(start=today, end=today),
+            series=[],
+        )
+
+    try:
+        target_ids = [UUID(uid) for uid in raw_ids]
+    except ValueError as exc:
+        raise NotFoundException("One or more user IDs are invalid") from exc
+
+    end_date = datetime.now(UTC).date()
+    start_date = end_date - timedelta(days=days - 1)
+    cutoff = datetime.combine(start_date, time.min, tzinfo=UTC)
+
+    user_rows = await db.execute(
+        select(User.id, User.username, User.exp).where(User.id.in_(target_ids))
+    )
+    raw_user_rows = user_rows.all()
+    user_map = {row.id: {"username": row.username, "total_exp": row.exp or 0} for row in raw_user_rows}
+
+    if len(user_map) != len(target_ids):
+        raise NotFoundException("At least one user could not be found")
+
+    baseline_rows = await db.execute(
+        select(
+            UserExpLog.user_id,
+            func.coalesce(func.sum(UserExpLog.amount), 0).label("baseline"),
+        )
+        .where(
+            UserExpLog.user_id.in_(target_ids),
+            UserExpLog.created_at < cutoff,
+        )
+        .group_by(UserExpLog.user_id)
+    )
+    baseline_map = {row.user_id: int(row.baseline or 0) for row in baseline_rows.all()}
+
+    bucket = func.date_trunc("day", UserExpLog.created_at)
+    timeseries_rows = await db.execute(
+        select(
+            UserExpLog.user_id,
+            bucket.label("bucket"),
+            func.coalesce(func.sum(UserExpLog.amount), 0).label("exp_delta"),
+        )
+        .where(
+            UserExpLog.user_id.in_(target_ids),
+            UserExpLog.created_at >= cutoff,
+        )
+        .group_by(UserExpLog.user_id, bucket)
+        .order_by(bucket.asc())
+    )
+
+    per_user_daily: dict[UUID, dict[date, int]] = {user_id: {} for user_id in target_ids}
+    for user_id, bucket_value, exp_delta in timeseries_rows.all():
+        day = bucket_value.date()
+        per_user_daily[user_id][day] = int(exp_delta or 0)
+
+    day_span = (end_date - start_date).days
+    timeline = [start_date + timedelta(days=offset) for offset in range(day_span + 1)]
+
+    series_payload: list[UserExpSeries] = []
+    for user_id in target_ids:
+        user_info = user_map[user_id]
+        baseline_exp = baseline_map.get(user_id, 0)
+        cumulative = baseline_exp
+        points: list[ExpPoint] = []
+
+        daily_map = per_user_daily.get(user_id, {})
+        for day in timeline:
+            delta = daily_map.get(day, 0)
+            cumulative += delta
+            points.append(
+                ExpPoint(
+                    date=day,
+                    exp_delta=delta,
+                    cumulative_exp=cumulative,
+                )
+            )
+
+        series_payload.append(
+            UserExpSeries(
+                user_id=user_id,
+                username=user_info["username"],
+                starting_exp=baseline_exp,
+                total_exp=int(user_info["total_exp"]),
+                series=points,
+            )
+        )
+
+    return ExpSeriesResponse(
+        date_range=DateRange(start=start_date, end=end_date),
+        series=series_payload,
+    )
+
+
 @router.get("/admin/progress-stats", dependencies=[Depends(get_current_superuser)], response_model=dict)
 async def get_progress_stats(
     request: Request,
