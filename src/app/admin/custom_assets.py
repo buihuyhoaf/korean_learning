@@ -880,28 +880,81 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 [Upload Widget] DOMContentLoaded event fired');
     
     // Inject Teacher Progress Tracker shortcut into sidebar
-    try {
-        const sidebarCandidates = [
-            document.querySelector('.app-sidebar nav ul'),
-            document.querySelector('.app-sidebar .sidebar-nav'),
-            document.querySelector('.app-sidebar ul')
-        ].filter(Boolean);
+    const progressLinkText = 'Progress Tracker';
 
-        sidebarCandidates.some(container => {
-            if (container.querySelector('[data-progress-tracker-link]')) {
-                return true;
+    function buildLinkElement() {
+        const link = document.createElement('a');
+        link.className = 'sidebar-link';
+        link.href = ADMIN_BASE_PATH + '/progress-tracker';
+        link.textContent = progressLinkText;
+        link.setAttribute('data-progress-tracker-link', 'true');
+        return link;
+    }
+
+    function injectLink() {
+        const sidebar = document.querySelector('.app-sidebar');
+        if (!sidebar) {
+            return false;
+        }
+
+        if (sidebar.querySelector('[data-progress-tracker-link]')) {
+            return true;
+        }
+
+        const candidateSelectors = [
+            '.app-sidebar nav ul',
+            '.app-sidebar .sidebar-nav',
+            '.app-sidebar ul',
+            '.sidebar nav ul',
+            '.sidebar ul',
+        ];
+
+        for (const selector of candidateSelectors) {
+            const container = document.querySelector(selector);
+            if (!container) {
+                continue;
             }
+
             const item = document.createElement('li');
             item.className = 'sidebar-item';
-            const link = document.createElement('a');
-            link.className = 'sidebar-link';
-            link.href = ADMIN_BASE_PATH + '/progress-tracker';
-            link.textContent = 'Progress Tracker';
-            link.setAttribute('data-progress-tracker-link', 'true');
-            item.appendChild(link);
+            item.appendChild(buildLinkElement());
             container.appendChild(item);
             return true;
-        });
+        }
+
+        const nav = sidebar.querySelector('nav');
+        if (nav) {
+            const list = document.createElement('ul');
+            list.className = 'sidebar-nav';
+            const item = document.createElement('li');
+            item.className = 'sidebar-item';
+            item.appendChild(buildLinkElement());
+            list.appendChild(item);
+            nav.appendChild(list);
+            return true;
+        }
+
+        const fallbackContainer = document.createElement('div');
+        fallbackContainer.className = 'sidebar-nav';
+        const fallbackItem = document.createElement('div');
+        fallbackItem.className = 'sidebar-item';
+        fallbackItem.appendChild(buildLinkElement());
+        fallbackContainer.appendChild(fallbackItem);
+        sidebar.appendChild(fallbackContainer);
+        return true;
+    }
+
+    const linkInjectionInterval = setInterval(() => {
+        if (injectLink()) {
+            clearInterval(linkInjectionInterval);
+        }
+    }, 1000);
+
+    try {
+        injectLink();
+        if (!injectLink()) {
+            console.warn('Unable to find sidebar container for Progress Tracker link');
+        }
     } catch (err) {
         console.warn('Unable to inject progress tracker link', err);
     }
@@ -976,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Re-initialize on form updates (for dynamic content like HTMX)
     const observer = new MutationObserver(function(mutations) {
         let shouldReinit = false;
+        let sidebarUpdated = false;
         mutations.forEach(function(mutation) {
             if (mutation.addedNodes.length > 0) {
                 mutation.addedNodes.forEach(function(node) {
@@ -984,6 +1038,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             node.querySelector && (node.querySelector('input') || node.querySelector('textarea'))) {
                             shouldReinit = true;
                         }
+                        if (!sidebarUpdated && node.closest && node.closest('.app-sidebar')) {
+                            sidebarUpdated = true;
+                        }
                     }
                 });
             }
@@ -991,6 +1048,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (shouldReinit) {
             console.log('🔄 [Upload Widget] DOM changed, re-initializing...');
             setTimeout(initializeImageUploadWidget, 100);
+        }
+        if (sidebarUpdated) {
+            console.log('🔄 [Progress Tracker] Sidebar changed, ensuring link exists...');
+            setTimeout(injectLink, 50);
         }
     });
     
@@ -1008,6 +1069,7 @@ new MutationObserver(() => {
         lastUrl = url;
         console.log('🔄 [Upload Widget] URL changed, re-initializing...');
         setTimeout(initializeImageUploadWidget, 500);
+        setTimeout(injectLink, 100);
     }
 }).observe(document, { subtree: true, childList: true });
 
