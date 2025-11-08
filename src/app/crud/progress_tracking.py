@@ -8,6 +8,9 @@ progress percentages for lessons, units, and courses based on user activities.
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, UTC
+import math
+from dataclasses import dataclass
+from collections import Counter
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,6 +26,29 @@ from ..models.course import Lesson, Unit, Course
 EXERCISE_EXP_REWARD = 20
 
 
+@dataclass
+class LessonExpBreakdown:
+    question_exp: float = 0.0
+    listening_exp: float = 0.0
+    speaking_exp: float = 0.0
+    writing_exp: float = 0.0
+
+    def clamp_non_negative(self) -> "LessonExpBreakdown":
+        return LessonExpBreakdown(
+            question_exp=max(0.0, self.question_exp),
+            listening_exp=max(0.0, self.listening_exp),
+            speaking_exp=max(0.0, self.speaking_exp),
+            writing_exp=max(0.0, self.writing_exp)
+        )
+
+
+@dataclass
+class LessonProgressComputation:
+    progress_percent: float
+    completed_questions: int
+    completed_exercises: int
+
+
 class ProgressTrackingCRUD:
     """CRUD operations for progress tracking"""
     
@@ -35,7 +61,7 @@ class ProgressTrackingCRUD:
         db: AsyncSession,
         user_id: UUID,
         lesson_id: UUID
-    ) -> float:
+    ) -> LessonProgressComputation:
         """Calculate lesson progress percentage based on:
         - Questions answered correctly (practice questions)
         - Exercises completed
@@ -47,7 +73,7 @@ class ProgressTrackingCRUD:
         lesson = lesson_result.scalar_one_or_none()
         
         if not lesson:
-            return 0.0
+            return LessonProgressComputation(0.0, 0, 0)
         
         # Get questions for this lesson
         questions_query = select(Question).filter(Question.lesson_id == lesson_id)
@@ -64,7 +90,7 @@ class ProgressTrackingCRUD:
         total_items = total_questions + total_exercises
 
         if total_items == 0:
-            return 100.0  # No content, consider completed
+            return LessonProgressComputation(100.0, total_questions, total_exercises)  # No content, consider completed
 
         # Count completed questions using stored counter on progress record
         progress_check_query = select(UserLessonProgress).filter(
@@ -100,26 +126,156 @@ class ProgressTrackingCRUD:
         total_required_exp = question_exp_total + exercise_exp_total
 
         if total_required_exp == 0:
-            return 100.0
+            return LessonProgressComputation(100.0, completed_questions, completed_exercises)
 
         progress = (earned_question_exp + earned_exercise_exp) / total_required_exp * 100
 
-        return round(min(progress, 100.0), 2)
+        return LessonProgressComputation(
+            progress_percent=round(min(progress, 100.0), 2),
+            completed_questions=completed_questions,
+            completed_exercises=completed_exercises
+        )
+    
+    @staticmethod
+    async def _calculate_progress_from_exp(
+        db: AsyncSession,
+        lesson_id: UUID,
+        exp_breakdown: LessonExpBreakdown
+    ) -> LessonProgressComputation:
+        """Calculate lesson progress based on explicit EXP values provided by the client."""
+        normalized_exp = exp_breakdown.clamp_non_negative()
+        
+        lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
+        lesson_result = await db.execute(lesson_query)
+        lesson = lesson_result.scalar_one_or_none()
+        if not lesson:
+            return LessonProgressComputation(0.0, 0, 0)
+        
+        questions_query = select(Question).filter(Question.lesson_id == lesson_id)
+        questions_result = await db.execute(questions_query)
+        questions = questions_result.scalars().all()
+        total_questions = len(questions)
+        
+        exercises_query = select(Exercise).filter(Exercise.lesson_id == lesson_id)
+        exercises_result = await db.execute(exercises_query)
+        exercises = exercises_result.scalars().all()
+        
+        def map_exercise_type(raw: str | None) -> Optional[str]:
+            if not raw:
+                return None
+            lowered = raw.lower()
+            if lowered in {"listening", "audio_comprehension"}:
+                return "listening"
+            if lowered in {"speaking", "pronunciation"}:
+                return "speaking"
+            if lowered in {"writing", "writing_practice"}:
+                return "writing"
+            return None
+        
+        exercise_type_counts = Counter()
+        for exercise in exercises:
+            raw_type = getattr(exercise, "type", None)
+            mapped = map_exercise_type(str(raw_type) if raw_type is not None else None)
+            if mapped:
+                exercise_type_counts[mapped] += 1
+        
+        question_required_exp = lesson.max_exp if total_questions > 0 else 0
+        question_exp_per = question_required_exp / total_questions if total_questions > 0 else 0
+        
+        listening_required_exp = exercise_type_counts.get("listening", 0) * EXERCISE_EXP_REWARD
+        speaking_required_exp = exercise_type_counts.get("speaking", 0) * EXERCISE_EXP_REWARD
+        writing_required_exp = exercise_type_counts.get("writing", 0) * EXERCISE_EXP_REWARD
+        
+        question_exp_earned = min(normalized_exp.question_exp, question_required_exp)
+        listening_exp_earned = min(normalized_exp.listening_exp, listening_required_exp)
+        speaking_exp_earned = min(normalized_exp.speaking_exp, speaking_required_exp)
+        writing_exp_earned = min(normalized_exp.writing_exp, writing_required_exp)
+        
+        if question_exp_per > 0:
+            completed_questions = min(
+                total_questions,
+                math.floor(question_exp_earned / question_exp_per + 1e-9)
+            )
+        elif total_questions == 0:
+            completed_questions = 0
+        else:
+            completed_questions = total_questions
+        
+        listening_completed = exercise_type_counts.get("listening", 0)
+        speaking_completed = exercise_type_counts.get("speaking", 0)
+        writing_completed = exercise_type_counts.get("writing", 0)
+        
+        if EXERCISE_EXP_REWARD > 0:
+            listening_completed = min(
+                exercise_type_counts.get("listening", 0),
+                math.floor(listening_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
+            )
+            speaking_completed = min(
+                exercise_type_counts.get("speaking", 0),
+                math.floor(speaking_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
+            )
+            writing_completed = min(
+                exercise_type_counts.get("writing", 0),
+                math.floor(writing_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
+            )
+        
+        completed_exercises = listening_completed + speaking_completed + writing_completed
+        
+        total_required_exp = (
+            question_required_exp
+            + listening_required_exp
+            + speaking_required_exp
+            + writing_required_exp
+        )
+        
+        if total_required_exp == 0:
+            return LessonProgressComputation(
+                progress_percent=100.0,
+                completed_questions=completed_questions,
+                completed_exercises=completed_exercises
+            )
+        
+        total_exp_earned = (
+            question_exp_earned
+            + listening_exp_earned
+            + speaking_exp_earned
+            + writing_exp_earned
+        )
+        progress_percent = round(
+            min(total_exp_earned / total_required_exp * 100, 100.0),
+            2
+        )
+        
+        return LessonProgressComputation(
+            progress_percent=progress_percent,
+            completed_questions=completed_questions,
+            completed_exercises=completed_exercises
+        )
     
     @staticmethod
     async def update_lesson_progress(
         db: AsyncSession,
         user_id: UUID,
         lesson_id: UUID,
-        progress_percent: Optional[float] = None
+        exp_breakdown: Optional[LessonExpBreakdown] = None,
+        precomputed: Optional[LessonProgressComputation] = None
     ) -> UserLessonProgress:
         """Update or create lesson progress record"""
         
-        # Calculate progress if not provided
-        if progress_percent is None:
-            progress_percent = await ProgressTrackingCRUD.calculate_lesson_progress(
+        if exp_breakdown is not None:
+            calculation = await ProgressTrackingCRUD._calculate_progress_from_exp(
+                db, lesson_id, exp_breakdown
+            )
+        elif precomputed is not None:
+            calculation = precomputed
+        else:
+            calculation = await ProgressTrackingCRUD.calculate_lesson_progress(
                 db, user_id, lesson_id
             )
+        
+        progress_percent = calculation.progress_percent
+        completed_questions = calculation.completed_questions
+        completed_exercises = calculation.completed_exercises
         
         # Check if progress record exists
         progress_query = select(UserLessonProgress).filter(
@@ -139,6 +295,8 @@ class ProgressTrackingCRUD:
             # Update existing progress
             existing_progress.progress_percent = progress_percent
             existing_progress.is_completed = is_completed
+            existing_progress.completed_questions_count = completed_questions
+            existing_progress.completed_exercises_count = completed_exercises
             
             if is_completed and existing_progress.completed_at is None:
                 existing_progress.completed_at = datetime.now(UTC)
@@ -172,7 +330,9 @@ class ProgressTrackingCRUD:
                 lesson_id=lesson_id,
                 progress_percent=progress_percent,
                 is_completed=is_completed,
-                completed_at=datetime.now(UTC) if is_completed else None
+                completed_at=datetime.now(UTC) if is_completed else None,
+                completed_questions_count=completed_questions,
+                completed_exercises_count=completed_exercises
             )
             db.add(new_progress)
             
@@ -419,13 +579,14 @@ class ProgressTrackingCRUD:
     async def update_all_progress(
         db: AsyncSession,
         user_id: UUID,
-        lesson_id: UUID
+        lesson_id: UUID,
+        exp_breakdown: Optional[LessonExpBreakdown] = None
     ) -> dict:
         """Update progress for lesson, unit, and course after lesson activity"""
         
         # Update lesson progress
         lesson_progress = await ProgressTrackingCRUD.update_lesson_progress(
-            db, user_id, lesson_id
+            db, user_id, lesson_id, exp_breakdown=exp_breakdown
         )
         
         # Get lesson to find unit_id

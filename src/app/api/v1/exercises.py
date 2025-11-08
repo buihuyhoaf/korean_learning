@@ -15,7 +15,6 @@ from ...schemas.exercise import (
     ExerciseListResponse, ExerciseStatsResponse
 )
 from ...crud.exercise import ExerciseCRUD
-from ...crud.progress_tracking import ProgressTrackingCRUD
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
@@ -293,15 +292,8 @@ async def submit_exercise(
     lesson_id = exercise.lesson_id
     await course_management._increment_exercise_completion(db, user_id, lesson_id)
     
-    # Update all progress (lesson -> unit -> course)
-    progress_result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
-    lesson_progress_obj = progress_result.get("lesson_progress")
-    
-    if lesson_progress_obj:
-        submission_result["lesson_progress"] = {
-            "progress_percent": int(lesson_progress_obj.progress_percent) if lesson_progress_obj.progress_percent else 0,
-            "is_completed": lesson_progress_obj.is_completed
-        }
+    # Progress is now updated explicitly via lesson progress endpoint.
+    submission_result["lesson_progress"] = None
     
     return submission_result
 

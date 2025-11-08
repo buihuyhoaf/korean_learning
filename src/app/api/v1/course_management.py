@@ -9,11 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Annotated, Optional, Tuple, Any
 from uuid import UUID
+from pydantic import BaseModel, Field
 
 from ...api.dependencies import get_current_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
-from ...crud.progress_tracking import ProgressTrackingCRUD
+from ...crud.progress_tracking import ProgressTrackingCRUD, LessonExpBreakdown
 from ...models.course import Course, Lesson, Unit
 from ...models.exercise import Exercise, ExerciseQuestion
 from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
@@ -22,6 +23,18 @@ from ...models.question_type import QuestionType
 from ...models.user import User
 
 router = APIRouter(tags=["courses-units-lessons"])
+
+
+# ============================================================================
+# REQUEST MODELS
+# ============================================================================
+
+
+class LessonProgressUpdateRequest(BaseModel):
+    question_exp: int = Field(0, ge=0)
+    listening_exp: int = Field(0, ge=0)
+    speaking_exp: int = Field(0, ge=0)
+    writing_exp: int = Field(0, ge=0)
 
 
 # ============================================================================
@@ -1100,14 +1113,24 @@ async def submit_practice_question_answer(
 @router.post("/lessons/{lesson_id}/progress/update", response_model=dict)
 async def update_lesson_progress_endpoint(
     lesson_id: UUID,
+    payload: LessonProgressUpdateRequest,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Update progress for lesson, unit, and course after lesson activity"""
     user_id = UUID(str(current_user["id"]))
     
+    exp_breakdown = LessonExpBreakdown(
+        question_exp=payload.question_exp,
+        listening_exp=payload.listening_exp,
+        speaking_exp=payload.speaking_exp,
+        writing_exp=payload.writing_exp
+    )
+    
     # Update all progress (lesson -> unit -> course)
-    result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
+    result = await ProgressTrackingCRUD.update_all_progress(
+        db, user_id, lesson_id, exp_breakdown=exp_breakdown
+    )
     
     # Convert ORM objects to dictionaries
     lesson_progress = result.get("lesson_progress")
@@ -1132,13 +1155,13 @@ async def get_lesson_progress(
     user_id = UUID(str(current_user["id"]))
     
     # Calculate current progress
-    progress_percent = await ProgressTrackingCRUD.calculate_lesson_progress(
+    progress_computation = await ProgressTrackingCRUD.calculate_lesson_progress(
         db, user_id, lesson_id
     )
     
     # Get or create progress record
     progress = await ProgressTrackingCRUD.update_lesson_progress(
-        db, user_id, lesson_id, progress_percent
+        db, user_id, lesson_id, precomputed=progress_computation
     )
     
     return {
