@@ -6,6 +6,7 @@ progress percentages for lessons, units, and courses based on user activities.
 """
 
 from typing import Optional
+from uuid import UUID
 from datetime import datetime, UTC
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +29,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def calculate_lesson_progress(
         db: AsyncSession,
-        user_id: int,
-        lesson_id: int
+        user_id: UUID,
+        lesson_id: UUID
     ) -> float:
         """Calculate lesson progress percentage based on:
         - Questions answered correctly (practice questions)
@@ -90,8 +91,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def update_lesson_progress(
         db: AsyncSession,
-        user_id: int,
-        lesson_id: int,
+        user_id: UUID,
+        lesson_id: UUID,
         progress_percent: Optional[float] = None
     ) -> UserLessonProgress:
         """Update or create lesson progress record"""
@@ -187,8 +188,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def calculate_unit_progress(
         db: AsyncSession,
-        user_id: int,
-        unit_id: int
+        user_id: UUID,
+        unit_id: UUID
     ) -> float:
         """Calculate unit progress percentage based on lessons completed."""
         
@@ -237,8 +238,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def update_unit_progress(
         db: AsyncSession,
-        user_id: int,
-        unit_id: int,
+        user_id: UUID,
+        unit_id: UUID,
         progress_percent: Optional[float] = None
     ) -> UserUnitProgress:
         """Update or create unit progress record"""
@@ -293,8 +294,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def calculate_course_progress(
         db: AsyncSession,
-        user_id: int,
-        course_id: int
+        user_id: UUID,
+        course_id: UUID
     ) -> float:
         """Calculate course progress percentage based on:
         - Units completed
@@ -342,8 +343,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def update_course_progress(
         db: AsyncSession,
-        user_id: int,
-        course_id: int,
+        user_id: UUID,
+        course_id: UUID,
         progress_percent: Optional[float] = None
     ) -> UserCourseProgress:
         """Update or create course progress record"""
@@ -399,8 +400,8 @@ class ProgressTrackingCRUD:
     @staticmethod
     async def update_all_progress(
         db: AsyncSession,
-        user_id: int,
-        lesson_id: int
+        user_id: UUID,
+        lesson_id: UUID
     ) -> dict:
         """Update progress for lesson, unit, and course after lesson activity"""
         

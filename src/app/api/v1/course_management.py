@@ -184,10 +184,11 @@ async def get_courses(
     total = total_result.scalar()
     
     # Get user progress if authenticated
+    user_uuid = UUID(str(current_user["id"])) if current_user else None
     user_progress = {}
-    if current_user:
+    if user_uuid:
         progress_query = select(UserCourseProgress).where(
-            UserCourseProgress.user_id == current_user["id"]
+            UserCourseProgress.user_id == user_uuid
         )
         progress_result = await db.execute(progress_query)
         user_progress = {p.course_id: p for p in progress_result.scalars().all()}
@@ -234,10 +235,11 @@ async def get_course(
         raise NotFoundException("Course not found")
     
     # Get user progress
+    user_uuid = UUID(str(current_user["id"])) if current_user else None
     user_progress = None
-    if current_user:
+    if user_uuid:
         progress_query = select(UserCourseProgress).filter(
-            UserCourseProgress.user_id == current_user["id"],
+            UserCourseProgress.user_id == user_uuid,
             UserCourseProgress.course_id == course_id
         )
         progress_result = await db.execute(progress_query)
@@ -256,9 +258,9 @@ async def get_course(
         }
         
         # Get user progress for unit
-        if current_user:
+        if user_uuid:
             unit_progress_query = select(UserUnitProgress).filter(
-                UserUnitProgress.user_id == current_user["id"],
+                UserUnitProgress.user_id == user_uuid,
                 UserUnitProgress.unit_id == unit.id
             )
             unit_progress_result = await db.execute(unit_progress_query)
@@ -303,10 +305,11 @@ async def get_unit(
         raise NotFoundException("Unit not found")
     
     # Get user progress
+    user_uuid = UUID(str(current_user["id"])) if current_user else None
     user_progress = None
-    if current_user:
+    if user_uuid:
         progress_query = select(UserUnitProgress).filter(
-            UserUnitProgress.user_id == current_user["id"],
+            UserUnitProgress.user_id == user_uuid,
             UserUnitProgress.unit_id == unit_id
         )
         progress_result = await db.execute(progress_query)
@@ -325,9 +328,9 @@ async def get_unit(
             "exercises_count": len(lesson.exercises) if lesson.exercises else 0
         }
         
-        if current_user:
+        if user_uuid:
             lesson_progress_query = select(UserLessonProgress).filter(
-                UserLessonProgress.user_id == current_user["id"],
+                UserLessonProgress.user_id == user_uuid,
                 UserLessonProgress.lesson_id == lesson.id
             )
             lesson_progress_result = await db.execute(lesson_progress_query)
@@ -370,10 +373,11 @@ async def get_lesson(
         raise NotFoundException("Lesson not found")
     
     # Get user progress
+    user_uuid = UUID(str(current_user["id"])) if current_user else None
     user_progress = None
-    if current_user:
+    if user_uuid:
         progress_query = select(UserLessonProgress).filter(
-            UserLessonProgress.user_id == current_user["id"],
+            UserLessonProgress.user_id == user_uuid,
             UserLessonProgress.lesson_id == lesson_id
         )
         progress_result = await db.execute(progress_query)
@@ -880,24 +884,38 @@ def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, 
     
     selected_option_id = request.get("selected_option_id")
     if selected_option_id is not None:
-        # Multiple choice style by explicit selected_option_id
+        # Handle option-based answer submissions
         selected_option = next(
-            (opt for opt in question.options if opt.id == selected_option_id), None
+            (opt for opt in question.options if str(opt.id) == str(selected_option_id)), None
         )
-        if selected_option:
-            is_correct = bool(selected_option.is_correct)
-            user_answer_str = selected_option.option_text
         
-        correct_option_texts = [
-            opt.option_text for opt in question.options if opt.is_correct and opt.option_text
-        ]
-        if correct_option_texts:
-            correct_answer_payload = ", ".join(correct_option_texts)
+        if question_type_code == "BLANK":
+            correct_text = question.blanks.correct_answer if question.blanks else None
+            correct_answer_payload = correct_text
+            user_answer_str = selected_option.option_text if selected_option and selected_option.option_text else ""
+            
+            if correct_text is None:
+                is_correct = False
+            else:
+                if question.blanks and question.blanks.case_sensitive:
+                    is_correct = user_answer_str.strip() == correct_text.strip()
+                else:
+                    is_correct = user_answer_str.strip().lower() == correct_text.strip().lower()
         else:
-            # Fallback to IDs if texts missing
-            correct_answer_payload = [
-                opt.id for opt in question.options if opt.is_correct
+            if selected_option:
+                is_correct = bool(selected_option.is_correct)
+                user_answer_str = selected_option.option_text
+            
+            correct_option_texts = [
+                opt.option_text for opt in question.options if opt.is_correct and opt.option_text
             ]
+            if correct_option_texts:
+                correct_answer_payload = ", ".join(correct_option_texts)
+            else:
+                # Fallback to IDs if texts missing
+                correct_answer_payload = [
+                    opt.id for opt in question.options if opt.is_correct
+                ]
     elif "answer" in request:
         # Text-based answer
         user_answer_str = str(request.get("answer", "")).strip()
@@ -938,7 +956,7 @@ async def submit_practice_question_answer(
     - answer data (selected_option_id or answer)
     - exp_earned (optional, calculated by FE from exp_info.exp_per_question)
     """
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Get exp_earned from request (sent by FE, calculated from exp_info.exp_per_question)
     exp_earned = request.get("exp_earned", 0)
@@ -1087,12 +1105,12 @@ async def submit_practice_question_answer(
 
 @router.post("/lessons/{lesson_id}/progress/update", response_model=dict)
 async def update_lesson_progress_endpoint(
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Update progress for lesson, unit, and course after lesson activity"""
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Update all progress (lesson -> unit -> course)
     result = await ProgressTrackingCRUD.update_all_progress(db, user_id, lesson_id)
@@ -1112,12 +1130,12 @@ async def update_lesson_progress_endpoint(
 
 @router.get("/lessons/{lesson_id}/progress", response_model=dict)
 async def get_lesson_progress(
-    lesson_id: int,
+    lesson_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get progress for a lesson"""
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Calculate current progress
     progress_percent = await ProgressTrackingCRUD.calculate_lesson_progress(
@@ -1139,12 +1157,12 @@ async def get_lesson_progress(
 
 @router.get("/units/{unit_id}/progress", response_model=dict)
 async def get_unit_progress(
-    unit_id: int,
+    unit_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get progress for a unit"""
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Calculate current progress
     progress_percent = await ProgressTrackingCRUD.calculate_unit_progress(
@@ -1166,12 +1184,12 @@ async def get_unit_progress(
 
 @router.get("/courses/{course_id}/progress", response_model=dict)
 async def get_course_progress(
-    course_id: int,
+    course_id: UUID,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
     """Get progress for a course"""
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Calculate current progress
     progress_percent = await ProgressTrackingCRUD.calculate_course_progress(

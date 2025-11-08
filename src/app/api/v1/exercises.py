@@ -225,7 +225,7 @@ async def submit_exercise(
         raise NotFoundException("Exercise not found")
     
     # Get user ID
-    user_id = current_user["id"]
+    user_id = UUID(str(current_user["id"]))
     
     # Process submission based on exercise type
     submission_result = {
