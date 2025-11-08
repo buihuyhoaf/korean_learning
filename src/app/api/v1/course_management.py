@@ -7,7 +7,7 @@ from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Annotated, Optional, Tuple
+from typing import Annotated, Optional, Tuple, Any
 from uuid import UUID
 
 from ...api.dependencies import get_current_user
@@ -862,14 +862,21 @@ async def _increment_exercise_completion(
     await db.commit()
 
 
-def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, str]:
+def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, str, Any | None]:
     """Check if user's answer is correct based on request payload.
     
     Returns:
-        Tuple of (is_correct: bool, user_answer_str: str)
+        Tuple of (is_correct: bool, user_answer_str: str, correct_answer: Any | None)
     """
     is_correct = False
     user_answer_str = ""
+    correct_answer_payload: Any | None = None
+    
+    question_type_code = (
+        question.question_type_relation.code.upper()
+        if getattr(question, "question_type_relation", None) and question.question_type_relation.code
+        else None
+    )
     
     selected_option_id = request.get("selected_option_id")
     if selected_option_id is not None:
@@ -880,13 +887,42 @@ def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, 
         if selected_option:
             is_correct = bool(selected_option.is_correct)
             user_answer_str = selected_option.option_text
-    elif "answer" in request and question.correct_answer:
+        
+        correct_option_texts = [
+            opt.option_text for opt in question.options if opt.is_correct and opt.option_text
+        ]
+        if correct_option_texts:
+            correct_answer_payload = ", ".join(correct_option_texts)
+        else:
+            # Fallback to IDs if texts missing
+            correct_answer_payload = [
+                opt.id for opt in question.options if opt.is_correct
+            ]
+    elif "answer" in request:
         # Text-based answer
         user_answer_str = str(request.get("answer", "")).strip()
-        is_correct = user_answer_str.lower() == question.correct_answer.lower().strip()
+        
+        if question_type_code == "BLANK" and question.blanks:
+            correct_text = question.blanks.correct_answer or ""
+            correct_answer_payload = correct_text
+            if question.blanks.case_sensitive:
+                is_correct = user_answer_str == correct_text.strip()
+            else:
+                is_correct = user_answer_str.lower() == correct_text.strip().lower()
+        else:
+            # Attempt to pull correct answer from metadata for legacy questions
+            if isinstance(question.question_metadata, dict):
+                metadata_correct = question.question_metadata.get("correct_answer")
+                if metadata_correct is not None:
+                    correct_answer_payload = metadata_correct
+                    if isinstance(metadata_correct, str):
+                        is_correct = user_answer_str.lower() == metadata_correct.strip().lower()
+                    elif isinstance(metadata_correct, list):
+                        normalized = [str(item).strip().lower() for item in metadata_correct]
+                        is_correct = user_answer_str.lower() in normalized
     
-    return is_correct, user_answer_str
-
+    return is_correct, user_answer_str, correct_answer_payload
+    
 
 @router.post("/lessons/{lesson_id}/practice-questions/{question_id}/submit", response_model=dict)
 async def submit_practice_question_answer(
@@ -916,7 +952,11 @@ async def submit_practice_question_answer(
     
     # Get question and verify it belongs to lesson
     question_query = select(Question).options(
-        selectinload(Question.options)
+        selectinload(Question.options),
+        selectinload(Question.blanks),
+        selectinload(Question.sentence_order),
+        selectinload(Question.matching_pairs),
+        selectinload(Question.question_type_relation)
     ).filter(
         and_(
             Question.id == question_id,
@@ -930,7 +970,7 @@ async def submit_practice_question_answer(
         raise NotFoundException("Question not found or doesn't belong to this lesson")
     
     # Determine if answer is correct
-    is_correct, user_answer_str = _check_answer_correctness(question, request)
+    is_correct, user_answer_str, correct_answer_payload = _check_answer_correctness(question, request)
     
     # Save user answer
     from ...models.user_answer import UserAnswer
@@ -1030,7 +1070,7 @@ async def submit_practice_question_answer(
     
     return {
         "is_correct": is_correct,
-        "correct_answer": question.correct_answer,
+        "correct_answer": correct_answer_payload,
         "explanation": question.explanation,
         "message": "Answer submitted successfully",
         "exp_earned": actual_exp_earned,  # Exp from question (0 if invalid or already earned)

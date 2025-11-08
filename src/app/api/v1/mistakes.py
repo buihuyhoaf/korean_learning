@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastcrud.paginated import PaginatedListResponse, compute_offset, paginated_response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
+from sqlalchemy.orm import selectinload
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
@@ -261,14 +262,51 @@ async def practice_mistake(
         raise NotFoundException("Mistake not found")
     
     # Get question details
-    question_result = await db.execute(select(Question).where(Question.id == mistake.question_id))
+    question_result = await db.execute(
+        select(Question).options(
+            selectinload(Question.options),
+            selectinload(Question.blanks),
+            selectinload(Question.question_type_relation)
+        ).where(Question.id == mistake.question_id)
+    )
     question = question_result.scalar_one_or_none()
     if not question:
         raise NotFoundException("Question not found")
     
+    correct_answer_text: Any | None = None
+    question_type_code = (
+        question.question_type_relation.code.upper()
+        if question.question_type_relation and question.question_type_relation.code
+        else None
+    )
+    
+    # Determine canonical correct answer text
+    if question_type_code == "BLANK" and question.blanks:
+        correct_answer_text = question.blanks.correct_answer or ""
+    elif question_type_code == "MULTIPLE_CHOICE":
+        option_texts = [
+            opt.option_text for opt in question.options if opt.is_correct and opt.option_text
+        ]
+        if option_texts:
+            correct_answer_text = ", ".join(option_texts)
+    elif isinstance(question.question_metadata, dict):
+        metadata_correct = question.question_metadata.get("correct_answer")
+        if isinstance(metadata_correct, str):
+            correct_answer_text = metadata_correct
+    
     # Check if answer is correct
     user_answer = practice_answer.get("answer", "")
-    is_correct = user_answer.strip().lower() == question.correct_answer.strip().lower()
+    user_answer_clean = user_answer.strip()
+    if question_type_code == "BLANK" and question.blanks:
+        if question.blanks.case_sensitive:
+            is_correct = user_answer_clean == (correct_answer_text or "").strip()
+        else:
+            is_correct = user_answer_clean.lower() == (correct_answer_text or "").strip().lower()
+    elif correct_answer_text is not None:
+        is_correct = user_answer_clean.lower() == correct_answer_text.strip().lower()
+    else:
+        # Fallback: if we cannot determine correct answer, mark as incorrect to avoid false positives
+        is_correct = False
     
     # Update mistake record
     if is_correct:
@@ -286,7 +324,7 @@ async def practice_mistake(
     
     return {
         "is_correct": is_correct,
-        "correct_answer": question.correct_answer,
+        "correct_answer": correct_answer_text,
         "explanation": question.explanation,
         "updated_error_count": mistake.error_count,
         "message": "Correct! Great job!" if is_correct else "Not quite right. Keep practicing!"
