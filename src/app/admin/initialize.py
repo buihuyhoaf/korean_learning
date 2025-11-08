@@ -1,8 +1,8 @@
-from typing import Optional, Annotated
+from typing import Optional
 from pathlib import Path
 
 from crudadmin import CRUDAdmin
-from fastapi import Request, Depends
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -12,7 +12,6 @@ from ..core.db.database import async_get_db
 import logging
 from .views import register_admin_views
 from .custom_assets import serve_custom_css, serve_custom_js
-from ..api.dependencies import get_current_admin_or_teacher
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +102,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
     register_admin_views(admin)
 
     @admin.app.get("/progress-tracker", response_class=HTMLResponse)
-    async def teacher_progress_tracker(
-        request: Request,
-        current_user: Annotated[dict, Depends(get_current_admin_or_teacher)],
-    ) -> HTMLResponse:
+    async def teacher_progress_tracker(request: Request) -> HTMLResponse:
         admin_mount = settings.CRUD_ADMIN_MOUNT_PATH.rstrip("/") or "/admin"
         return templates.TemplateResponse(
             "progress_tracker.html",
@@ -114,7 +110,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 "request": request,
                 "admin_mount": admin_mount,
                 "api_prefix": "/api/v1/admin/progress-tracking",
-                "current_user": current_user,
+                "current_user": getattr(request.state, "user", None),
             },
         )
 
