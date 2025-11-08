@@ -426,10 +426,10 @@ tbody tr:hover {{
 
 def get_custom_js(settings) -> str:
     """Generate custom JavaScript for the admin interface."""
-    return f"""
+    js_template = """
 // Korean Learning Admin - Custom JavaScript
 
-const ADMIN_BASE_PATH = "{settings.CRUD_ADMIN_MOUNT_PATH.rstrip('/') or '/admin'}";
+const ADMIN_BASE_PATH = "__ADMIN_BASE_PATH__";
 
 console.log('🇰🇷 Korean Learning Admin Loaded');
 console.log('📍 [Upload Widget] Script loaded at:', new Date().toISOString());
@@ -1046,6 +1046,8 @@ window.addEventListener('beforeunload', function() {
     document.body.style.transition = 'opacity 0.3s ease';
 });
 """
+    admin_base_path = settings.CRUD_ADMIN_MOUNT_PATH.rstrip("/") or "/admin"
+    return js_template.replace("__ADMIN_BASE_PATH__", admin_base_path)
 
 
 async def serve_custom_css(request: Request) -> Response:
