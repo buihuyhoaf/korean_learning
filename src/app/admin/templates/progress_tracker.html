@@ -500,6 +500,27 @@
         });
       }
 
+      function handleAuthRedirect(response) {
+        if (response.redirected && response.url.includes('/login')) {
+          window.location.href = response.url;
+          return true;
+        }
+        return false;
+      }
+
+      async function parseJsonResponse(response) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const body = await response.text();
+          if (response.url.includes('/login')) {
+            window.location.href = response.url;
+            return Promise.reject(new Error('Session expired'));
+          }
+          throw new Error(body || 'Unexpected non-JSON response');
+        }
+        return response.json();
+      }
+
       async function fetchSeries() {
         if (!trackedUsers.size) {
           updateChart({ series: [] });
@@ -516,14 +537,17 @@
           const response = await fetch(API_PREFIX + '/exp-series?' + params.toString(), {
             credentials: 'include'
           });
-          if (!response.ok) {
-            throw new Error(await response.text());
+          if (handleAuthRedirect(response)) {
+            return;
           }
-          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(await response.text() || 'Request failed');
+          }
+          const data = await parseJsonResponse(response);
           updateChart(data);
         } catch (error) {
           console.error('Failed to load EXP series', error);
-          showMessage('Failed to load progress data. Please try again.');
+          showMessage('Failed to load progress data. Please ensure your admin session is active and try again.');
         } finally {
           setLoading(false);
         }
@@ -543,14 +567,18 @@
           const response = await fetch(API_PREFIX + '/users?' + params.toString(), {
             credentials: 'include'
           });
-          if (!response.ok) {
-            throw new Error(await response.text());
+          if (handleAuthRedirect(response)) {
+            return;
           }
-          const users = await response.json();
+          if (!response.ok) {
+            throw new Error(await response.text() || 'Request failed');
+          }
+          const users = await parseJsonResponse(response);
           renderSearchResults(users);
         } catch (error) {
           console.error('Search failed', error);
           renderSearchResults([]);
+          showMessage('Unable to load data. Please refresh the page and confirm your admin session is still active.');
         } finally {
           setLoading(false);
         }
