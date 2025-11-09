@@ -23,9 +23,15 @@ class PronunciationServiceError(RuntimeError):
 
 @lru_cache(maxsize=1)
 def _get_openai_client() -> OpenAI:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise PronunciationServiceError("OPENAI_API_KEY is not set")
+        visible_keys = [key for key in os.environ.keys() if "OPENAI" in key.upper()]
+        hint = (
+            "OPENAI_API_KEY is not set. Ensure the environment variable is defined "
+            "exactly as OPENAI_API_KEY (current detected keys: "
+            f"{visible_keys or 'none'})."
+        )
+        raise PronunciationServiceError(hint)
     return OpenAI(api_key=api_key)
 
 
