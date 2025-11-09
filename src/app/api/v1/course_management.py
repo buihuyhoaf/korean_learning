@@ -600,10 +600,7 @@ async def get_lesson(
             exercises_data.append(exercise_dict)
     
     # Calculate exp info (configurable)
-    total_questions_result = await db.execute(
-        select(func.count()).select_from(Question).where(Question.lesson_id == lesson_id)
-    )
-    total_questions = total_questions_result.scalar() or 0
+    total_questions = len(questions_data)
     
     max_exp_for_lesson = lesson.max_exp or 120  # Default fallback
     exp_per_question = max_exp_for_lesson / total_questions if total_questions > 0 else 0
