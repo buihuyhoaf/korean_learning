@@ -1132,16 +1132,36 @@ async def update_lesson_progress_endpoint(
         db, user_id, lesson_id, exp_breakdown=exp_breakdown
     )
     
-    # Convert ORM objects to dictionaries
     lesson_progress = result.get("lesson_progress")
     unit_progress = result.get("unit_progress")
     course_progress = result.get("course_progress")
+    
+    streak_info = {
+        "streak_updated": False,
+        "current_streak": 0,
+        "streak_bonus_exp": 0
+    }
+    
+    if lesson_progress and lesson_progress.progress_percent >= 80.0:
+        user_query = select(User).filter(User.id == user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
+        if user:
+            streak_updated, streak_bonus = await _update_user_streak_if_needed(db, user_id, user)
+            await db.commit()
+            await db.refresh(user)
+            streak_info = {
+                "streak_updated": streak_updated,
+                "current_streak": user.streak_days,
+                "streak_bonus_exp": streak_bonus
+            }
     
     return {
         "message": "Progress updated successfully",
         "lesson_progress": _convert_user_lesson_progress_to_dict(lesson_progress),
         "unit_progress": _convert_user_unit_progress_to_dict(unit_progress),
-        "course_progress": _convert_user_course_progress_to_dict(course_progress)
+        "course_progress": _convert_user_course_progress_to_dict(course_progress),
+        "streak_info": streak_info
     }
 
 
