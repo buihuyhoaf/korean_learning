@@ -43,7 +43,7 @@ async def evaluate_user_pronunciation(
         return JSONResponse(PronunciationEvaluationResponse(**evaluation).model_dump())
     except PronunciationServiceError as exc:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         ) from exc
     except HTTPException:

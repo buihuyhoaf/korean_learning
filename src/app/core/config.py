@@ -149,10 +149,6 @@ class MLModelSettings(BaseSettings):
     PRONUNCIATION_SCORE_THRESHOLD: float = config("PRONUNCIATION_SCORE_THRESHOLD", default=0.6)
 
 
-class OpenAISettings(BaseSettings):
-    OPENAI_API_KEY: str | None = config("OPENAI_API_KEY", default=None)
-
-
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -170,7 +166,6 @@ class Settings(
     EnvironmentSettings,
     SupabaseSettings,
     MLModelSettings,
-    OpenAISettings,
 ):
     pass
 

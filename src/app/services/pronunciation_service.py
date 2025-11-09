@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+import io
 import logging
-import os
 from difflib import SequenceMatcher
 from typing import Any
 
-from functools import lru_cache
-
 from dotenv import load_dotenv
-from openai import OpenAI
+import speech_recognition as sr
 
 from ..core.config import settings
 
@@ -21,35 +19,27 @@ class PronunciationServiceError(RuntimeError):
     """Raised when pronunciation evaluation fails."""
 
 
-@lru_cache(maxsize=1)
-def _get_openai_client() -> OpenAI:
-    api_key = settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        visible_keys = [key for key in os.environ.keys() if "OPENAI" in key.upper()]
-        hint = (
-            "OPENAI_API_KEY is not set. Ensure the environment variable is defined "
-            "exactly as OPENAI_API_KEY (current detected keys: "
-            f"{visible_keys or 'none'})."
-        )
-        raise PronunciationServiceError(hint)
-    return OpenAI(api_key=api_key)
-
-
 def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
-    client = _get_openai_client()
     try:
-        response = client.audio.transcriptions.create(
-            model="gpt-4o-mini-transcribe",
-            file=(filename, audio_bytes, "audio/wav"),
-        )
+        recognizer = sr.Recognizer()
+        audio_stream = io.BytesIO(audio_bytes)
+        audio_stream.name = filename  # type: ignore[attr-defined]
+        audio_stream.seek(0)
+        with sr.AudioFile(audio_stream) as source:
+            audio = recognizer.record(source)
+        try:
+            transcript = recognizer.recognize_google(audio, language="ko-KR")
+        except sr.UnknownValueError:
+            transcript = ""
+        except sr.RequestError as exc:  # pragma: no cover - external service failure
+            LOGGER.error("Google Speech Recognition request error: %s", exc)
+            raise PronunciationServiceError(f"Speech recognition request failed: {exc}") from exc
+        return transcript.strip()
+    except ValueError as exc:
+        raise PronunciationServiceError(f"Unsupported audio format: {exc}") from exc
     except Exception as exc:  # pragma: no cover - log unexpected errors
-        LOGGER.error("OpenAI transcription failed: %s", exc)
-        raise PronunciationServiceError(f"Transcription failed: {exc}") from exc
-
-    transcript = (response.text or "").strip()
-    if not transcript:
-        raise PronunciationServiceError("No transcript returned from OpenAI")
-    return transcript
+        LOGGER.error("Speech recognition failed: %s", exc)
+        raise PronunciationServiceError(f"Speech recognition failed: {exc}") from exc
 
 
 def compare_pronunciation(transcript: str, target: str) -> float:
