@@ -21,6 +21,7 @@ from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonP
 from ...models.question import Question
 from ...models.question_type import QuestionType
 from ...models.user import User
+from ...models.gamification import UserExpLog
 
 router = APIRouter(tags=["courses-units-lessons"])
 
@@ -123,6 +124,45 @@ def _build_diagnostic_codes(
         codes.add(659)
     
     return sorted(codes)
+
+
+async def _apply_progress_exp_updates(
+    db: AsyncSession,
+    user_id: UUID,
+    lesson_id: UUID,
+    exp_breakdown: LessonExpBreakdown
+) -> tuple[list[int], Optional[User], int]:
+    """Apply EXP when a lesson progress update is submitted."""
+    question_exp = max(0, exp_breakdown.question_exp)
+    listening_exp = max(0, exp_breakdown.listening_exp)
+    speaking_exp = max(0, exp_breakdown.speaking_exp)
+    writing_exp = max(0, exp_breakdown.writing_exp)
+
+    total_increment = question_exp + listening_exp + speaking_exp + writing_exp
+    diagnostic_codes: list[int] = []
+
+    user_query = select(User).filter(User.id == user_id)
+    user_result = await db.execute(user_query)
+    user = user_result.scalar_one_or_none()
+
+    if not user:
+        diagnostic_codes.append(659)
+        return diagnostic_codes, None, 0
+
+    if total_increment <= 0:
+        diagnostic_codes.append(658)
+        return diagnostic_codes, user, 0
+
+    user.exp += total_increment
+    exp_log = UserExpLog(
+        user_id=user_id,
+        source="lesson_progress_update",
+        amount=total_increment
+    )
+    db.add(exp_log)
+    diagnostic_codes.append(656)
+
+    return diagnostic_codes, user, total_increment
 
 
 def _get_question_media_url(question: Question, media_key: str) -> Optional[str]:
@@ -1009,25 +1049,15 @@ async def submit_practice_question_answer(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> dict:
-    """Submit answer for a practice question in a lesson
-    
-    Request body should include:
-    - answer data (selected_option_id or answer)
-    - exp_earned (optional, calculated by FE from exp_info.exp_per_question)
-    """
+    """Submit answer for a practice question in a lesson (validation only)."""
     user_id = UUID(str(current_user["id"]))
     
-    # Get exp_earned from request (sent by FE, calculated from exp_info.exp_per_question)
-    exp_earned = request.get("exp_earned", 0)
-
-    # Ensure lesson exists (also used for max_exp)
     lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
     lesson_result = await db.execute(lesson_query)
     lesson = lesson_result.scalar_one_or_none()
     if not lesson:
         raise NotFoundException("Lesson not found")
     
-    # Get question and verify it belongs to lesson
     question_query = select(Question).options(
         selectinload(Question.options),
         selectinload(Question.blanks),
@@ -1046,10 +1076,8 @@ async def submit_practice_question_answer(
     if not question:
         raise NotFoundException("Question not found or doesn't belong to this lesson")
     
-    # Determine if answer is correct
     is_correct, user_answer_str, correct_answer_payload = _check_answer_correctness(question, request)
     
-    # Save user answer
     from ...models.user_answer import UserAnswer
     user_answer = UserAnswer(
         user_id=user_id,
@@ -1059,118 +1087,22 @@ async def submit_practice_question_answer(
         score=1.0 if is_correct else 0.0
     )
     db.add(user_answer)
-    await db.flush()  # Get the ID for user_answer
+    await db.flush()
     
     diagnostic_codes: list[int] = []
-    
-    # ============================================================
-    # CỘNG EXP CHO USER VÀ UPDATE STREAK
-    # ============================================================
-    actual_exp_earned = 0
-    streak_updated = False
-    streak_bonus_exp = 0
-    streak_reason = "NO_ATTEMPT"
-    
-    if is_correct and exp_earned > 0:
-        # Check if user already answered this question correctly before
-        previous_answer_query = select(UserAnswer).filter(
-            and_(
-                UserAnswer.user_id == user_id,
-                UserAnswer.question_id == question_id,
-                UserAnswer.is_correct == True,
-                UserAnswer.id != user_answer.id  # Exclude current answer
-            )
-        ).order_by(UserAnswer.answered_at.desc()).limit(1)
-        previous_answer_result = await db.execute(previous_answer_query)
-        previous_correct_answer = previous_answer_result.scalar_one_or_none()
-        
-        # Only award exp if this is first time answering correctly
-        if not previous_correct_answer:
-            # Validate exp_earned is reasonable
-            total_questions_result = await db.execute(
-                select(func.count()).select_from(Question).where(Question.lesson_id == lesson_id)
-            )
-            total_questions = total_questions_result.scalar() or 0
-            
-            max_exp_for_lesson = lesson.max_exp or 120
-            max_exp_per_question = max_exp_for_lesson / total_questions if total_questions > 0 else 0
-            
-            # Validate: exp_earned should not exceed max_exp_per_question
-            if exp_earned <= max_exp_per_question:
-                actual_exp_earned = int(exp_earned)
-                
-                # Get user from database
-                from ...models.gamification import UserExpLog
-                
-                user_query = select(User).filter(User.id == user_id)
-                user_result = await db.execute(user_query)
-                user = user_result.scalar_one_or_none()
-                
-                if user:
-                    # 1. Cộng exp từ question vào user.exp
-                    user.exp += actual_exp_earned
-                    
-                    # 2. Tạo log để track exp gain từ question
-                    exp_log = UserExpLog(
-                        user_id=user_id,
-                        source="question_completed",
-                        amount=actual_exp_earned
-                    )
-                    db.add(exp_log)
-                    
-                    # 3. TRIGGER STREAK UPDATE (chỉ update 1 lần mỗi ngày)
-                    streak_updated, streak_bonus_exp, streak_reason = await _update_user_streak_if_needed(
-                        db, user_id, user
-                    )
-                else:
-                    streak_reason = "USER_NOT_FOUND"
-            else:
-                # Log warning if FE sent invalid exp
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(
-                    f"Invalid exp_earned from FE: {exp_earned} (max allowed: {max_exp_per_question}) "
-                    f"for user {user_id}, question {question_id}"
-                )
-                diagnostic_codes.append(651)  # EXP_TOO_HIGH
-        else:
-            diagnostic_codes.append(653)  # ALREADY_RECORDED
-    elif is_correct and exp_earned <= 0:
-        diagnostic_codes.append(652)  # EXP_NON_POSITIVE
-    
-    # If correct, increment completed_questions_count
     if is_correct:
         await _increment_lesson_progress(db, user_id, lesson_id)
     else:
-        diagnostic_codes.append(660)  # ANSWER_INCORRECT
+        diagnostic_codes.append(660)
     
-    # Commit all changes (user_answer, user.exp, exp_logs, streak)
     await db.commit()
-    
-    # Get updated user info for response
-    user_query = select(User).filter(User.id == user_id)
-    user_result = await db.execute(user_query)
-    user = user_result.scalar_one_or_none()
-    current_streak = user.streak_days if user else 0
     
     return {
         "is_correct": is_correct,
         "correct_answer": correct_answer_payload,
         "explanation": question.explanation,
         "message": "Answer submitted successfully",
-        "exp_earned": actual_exp_earned,  # Exp from question (0 if invalid or already earned)
-        "streak_info": {
-            "streak_updated": streak_updated,  # Whether streak was updated this time
-            "current_streak": current_streak,  # Current streak days
-            "streak_bonus_exp": streak_bonus_exp  # Bonus exp from streak (if updated)
-        },
-        "lesson_progress": None,
-        "diagnostic_codes": _build_diagnostic_codes(
-            streak_updated=streak_updated,
-            streak_reason=streak_reason,
-            base_codes=diagnostic_codes,
-            actual_exp_earned=actual_exp_earned
-        )
+        "diagnostic_codes": diagnostic_codes
     }
 
 
@@ -1200,37 +1132,52 @@ async def update_lesson_progress_endpoint(
     unit_progress = result.get("unit_progress")
     course_progress = result.get("course_progress")
     
+    diagnostic_codes: list[int] = []
+    exp_codes, user_for_exp, total_exp_added = await _apply_progress_exp_updates(
+        db=db,
+        user_id=user_id,
+        lesson_id=lesson_id,
+        exp_breakdown=exp_breakdown
+    )
+    diagnostic_codes.extend(exp_codes)
+
     streak_info = {
         "streak_updated": False,
         "current_streak": 0,
-        "streak_bonus_exp": 0
+        "streak_bonus_exp": 0,
+        "diagnostic_codes": []
     }
-    
-    diagnostic_codes: list[int] = []
+
+    user_for_streak = user_for_exp
     if lesson_progress and lesson_progress.progress_percent >= 80.0:
-        user_query = select(User).filter(User.id == user_id)
-        user_result = await db.execute(user_query)
-        user = user_result.scalar_one_or_none()
-        if user:
-            streak_updated, streak_bonus, streak_reason = await _update_user_streak_if_needed(db, user_id, user)
-            await db.commit()
-            await db.refresh(user)
+        if not user_for_streak:
+            user_query = select(User).filter(User.id == user_id)
+            user_result = await db.execute(user_query)
+            user_for_streak = user_result.scalar_one_or_none()
+
+        if user_for_streak:
+            streak_updated, streak_bonus, streak_reason = await _update_user_streak_if_needed(
+                db, user_id, user_for_streak
+            )
             streak_diag_codes = _build_diagnostic_codes(
                 streak_updated=streak_updated,
                 streak_reason=streak_reason,
                 base_codes=[],
-                actual_exp_earned=exp_breakdown.question_exp
+                actual_exp_earned=total_exp_added
             )
             diagnostic_codes.extend(streak_diag_codes)
             streak_info = {
                 "streak_updated": streak_updated,
-                "current_streak": user.streak_days,
+                "current_streak": user_for_streak.streak_days,
                 "streak_bonus_exp": streak_bonus,
                 "diagnostic_codes": streak_diag_codes
             }
         else:
             diagnostic_codes.append(659)
-    
+            streak_info["diagnostic_codes"] = [659]
+
+    await db.commit()
+
     return {
         "message": "Progress updated successfully",
         "lesson_progress": _convert_user_lesson_progress_to_dict(lesson_progress),
