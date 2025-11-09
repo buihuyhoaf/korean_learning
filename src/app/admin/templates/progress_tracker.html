@@ -501,7 +501,7 @@
       }
 
       function handleAuthRedirect(response) {
-        if (response.redirected && response.url.includes('/login')) {
+        if (response.redirected) {
           window.location.href = response.url;
           return true;
         }
@@ -512,8 +512,10 @@
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
           const body = await response.text();
-          if (response.url.includes('/login')) {
-            window.location.href = response.url;
+          if (/<html/i.test(body)) {
+            if (!response.redirected) {
+              window.location.href = response.url;
+            }
             return Promise.reject(new Error('Session expired'));
           }
           throw new Error(body || 'Unexpected non-JSON response');
