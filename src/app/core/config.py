@@ -146,10 +146,6 @@ class SupabaseSettings(BaseSettings):
 
 class MLModelSettings(BaseSettings):
     STROKE_MODEL_PATH: str | None = config("STROKE_MODEL_PATH", default=None)
-    PRONUNCIATION_VOSK_MODEL_PATH: str | None = config(
-        "PRONUNCIATION_VOSK_MODEL_PATH",
-        default=os.getenv("PRONUNCIATION_VOSK_MODEL_PATH", "./models/vosk-model-small-ko-0.22")
-    )
     PRONUNCIATION_SCORE_THRESHOLD: float = config("PRONUNCIATION_SCORE_THRESHOLD", default=0.6)
 
 

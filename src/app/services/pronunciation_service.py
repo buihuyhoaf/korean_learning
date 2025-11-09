@@ -1,106 +1,61 @@
 from __future__ import annotations
 
-import io
-import json
 import logging
-import wave
-from functools import lru_cache
+import os
+from difflib import SequenceMatcher
 from typing import Any
 
-import numpy as np
-from rapidfuzz.distance import Levenshtein
-from rapidfuzz.distance import JaroWinkler
-from vosk import KaldiRecognizer, Model
+from functools import lru_cache
+
+from dotenv import load_dotenv
+from openai import OpenAI
 
 from ..core.config import settings
 
 LOGGER = logging.getLogger(__name__)
 
-
-class PronunciationModelNotConfigured(RuntimeError):
-    """Raised when Vosk model is not configured."""
+load_dotenv()
 
 
-@lru_cache
-def _load_vosk_model() -> Model:
-    model_path = settings.PRONUNCIATION_VOSK_MODEL_PATH
-    if not model_path:
-        raise PronunciationModelNotConfigured("PRONUNCIATION_VOSK_MODEL_PATH is not set")
+class PronunciationServiceError(RuntimeError):
+    """Raised when pronunciation evaluation fails."""
+
+
+@lru_cache(maxsize=1)
+def _get_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise PronunciationServiceError("OPENAI_API_KEY is not set")
+    return OpenAI(api_key=api_key)
+
+
+def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
+    client = _get_openai_client()
     try:
-        return Model(model_path)
-    except Exception as exc:  # pragma: no cover - defensive logging
-        raise PronunciationModelNotConfigured(
-            f"Failed to load Vosk model at {model_path}: {exc}"
-        ) from exc
+        response = client.audio.transcriptions.create(
+            model="gpt-4o-mini-transcribe",
+            file=(filename, audio_bytes, "audio/wav"),
+        )
+    except Exception as exc:  # pragma: no cover - log unexpected errors
+        LOGGER.error("OpenAI transcription failed: %s", exc)
+        raise PronunciationServiceError(f"Transcription failed: {exc}") from exc
 
-
-def _ensure_wav_buffer(audio_bytes: bytes, sample_rate: int = 16_000) -> bytes:
-    """
-    Ensure audio bytes are in a WAV container.
-
-    Accepts either raw PCM16 mono data or WAV data.
-    """
-    with io.BytesIO(audio_bytes) as buf:
-        try:
-            with wave.open(buf, "rb") as wf:
-                wf.getparams()  # Validate header
-                return audio_bytes
-        except wave.Error:
-            pass
-
-    audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
-    with io.BytesIO() as wav_buffer:
-        with wave.open(wav_buffer, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
-            wf.writeframes(audio_array.tobytes())
-        return wav_buffer.getvalue()
-
-
-def transcribe_audio(audio_bytes: bytes) -> str:
-    wav_bytes = _ensure_wav_buffer(audio_bytes)
-    recognizer = KaldiRecognizer(_load_vosk_model(), 16_000)
-    recognizer.SetWords(True)
-
-    with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
-        transcript_parts: list[str] = []
-        while True:
-            data = wf.readframes(4000)
-            if not data:
-                break
-            if recognizer.AcceptWaveform(data):
-                result = json.loads(recognizer.Result())
-                transcript_parts.append(result.get("text", ""))
-
-    final_result = json.loads(recognizer.FinalResult())
-    transcript_parts.append(final_result.get("text", ""))
-    transcript = " ".join(part for part in transcript_parts if part).strip()
-    LOGGER.debug("Vosk transcript: %s", transcript)
+    transcript = (response.text or "").strip()
+    if not transcript:
+        raise PronunciationServiceError("No transcript returned from OpenAI")
     return transcript
 
 
-def _normalize(text: str) -> str:
-    normalized = text.strip()
-    normalized = normalized.replace("  ", " ")
-    return normalized
-
-
 def compare_pronunciation(transcript: str, target: str) -> float:
-    normalized_transcript = _normalize(transcript)
-    normalized_target = _normalize(target)
+    normalized_transcript = transcript.strip().lower()
+    normalized_target = target.strip().lower()
     if not normalized_transcript or not normalized_target:
         return 0.0
-
-    levenshtein_ratio = 1.0 - (Levenshtein.distance(normalized_transcript, normalized_target) /
-                               max(len(normalized_transcript), len(normalized_target)))
-    jw_score = JaroWinkler.normalized_similarity(normalized_transcript, normalized_target)
-    combined_score = max(0.0, min(1.0, (levenshtein_ratio + jw_score) / 2))
-    return combined_score
+    return SequenceMatcher(a=normalized_transcript, b=normalized_target).ratio()
 
 
-def evaluate_pronunciation(audio_bytes: bytes, sentence: str) -> dict[str, Any]:
-    transcript = transcribe_audio(audio_bytes)
+def evaluate_pronunciation(audio_bytes: bytes, filename: str, sentence: str) -> dict[str, Any]:
+    transcript = transcribe_audio(audio_bytes, filename)
     score = compare_pronunciation(transcript, sentence)
     return {
         "transcript": transcript,

@@ -5,10 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ...api.dependencies import get_current_user
-from ...services.pronunciation_service import (
-    PronunciationModelNotConfigured,
-    evaluate_pronunciation,
-)
+from ...services.pronunciation_service import PronunciationServiceError, evaluate_pronunciation
 
 router = APIRouter(prefix="/pronunciation", tags=["pronunciation"])
 
@@ -38,11 +35,15 @@ async def evaluate_user_pronunciation(
                 detail="Uploaded audio is empty",
             )
 
-        evaluation = evaluate_pronunciation(audio_bytes=audio_bytes, sentence=sentence)
+        evaluation = evaluate_pronunciation(
+            audio_bytes=audio_bytes,
+            filename=file.filename or "audio.wav",
+            sentence=sentence,
+        )
         return JSONResponse(PronunciationEvaluationResponse(**evaluation).model_dump())
-    except PronunciationModelNotConfigured as exc:
+    except PronunciationServiceError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
         ) from exc
     except HTTPException:
