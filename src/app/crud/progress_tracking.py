@@ -22,10 +22,6 @@ from ..models.exercise import Exercise
 from ..models.course import Lesson, Unit, Course
 
 
-# EXP reward granted per completed exercise (see app/api/v1/exercises.py)
-EXERCISE_EXP_REWARD = 20
-
-
 @dataclass
 class LessonExpBreakdown:
     question_exp: float = 0.0
@@ -67,32 +63,26 @@ class ProgressTrackingCRUD:
         - Exercises completed
         """
         
-        # Get lesson
         lesson_query = select(Lesson).filter(Lesson.id == lesson_id)
         lesson_result = await db.execute(lesson_query)
         lesson = lesson_result.scalar_one_or_none()
-        
         if not lesson:
             return LessonProgressComputation(0.0, 0, 0)
         
-        # Get questions for this lesson
         questions_query = select(Question).filter(Question.lesson_id == lesson_id)
         questions_result = await db.execute(questions_query)
         questions = questions_result.scalars().all()
         total_questions = len(questions)
         
-        # Get exercises for this lesson
         exercises_query = select(Exercise).filter(Exercise.lesson_id == lesson_id)
         exercises_result = await db.execute(exercises_query)
         exercises = exercises_result.scalars().all()
         total_exercises = len(exercises)
         
         total_items = total_questions + total_exercises
-        
         if total_items == 0:
-            return LessonProgressComputation(100.0, total_questions, total_exercises)  # No content, consider completed
+            return LessonProgressComputation(100.0, total_questions, total_exercises)
         
-        # Count completed questions using stored counter on progress record
         progress_check_query = select(UserLessonProgress).filter(
             and_(
                 UserLessonProgress.user_id == user_id,
@@ -113,25 +103,15 @@ class ProgressTrackingCRUD:
             )
         else:
             completed_questions = 0
-        completed_exercises = 0
+            completed_exercises = 0
         
-        # Calculate EXP-based progress so that reaching the configured EXP goals yields 100%
-        question_exp_total = lesson.max_exp if total_questions > 0 else 0
-        question_exp_per = question_exp_total / total_questions if total_questions > 0 else 0
-        earned_question_exp = completed_questions * question_exp_per
-
-        exercise_exp_total = total_exercises * EXERCISE_EXP_REWARD
-        earned_exercise_exp = completed_exercises * EXERCISE_EXP_REWARD
-
-        total_required_exp = question_exp_total + exercise_exp_total
-
-        if total_required_exp == 0:
-            return LessonProgressComputation(100.0, completed_questions, completed_exercises)
-
-        progress = (earned_question_exp + earned_exercise_exp) / total_required_exp * 100
-
+        progress_percent = round(
+            min(((completed_questions + completed_exercises) / total_items) * 100.0, 100.0),
+            2
+        )
+        
         return LessonProgressComputation(
-            progress_percent=round(min(progress, 100.0), 2),
+            progress_percent=progress_percent,
             completed_questions=completed_questions,
             completed_exercises=completed_exercises
         )
@@ -181,15 +161,7 @@ class ProgressTrackingCRUD:
         
         question_required_exp = lesson.max_exp if total_questions > 0 else 0
         question_exp_per = question_required_exp / total_questions if total_questions > 0 else 0
-        
-        listening_required_exp = exercise_type_counts.get("listening", 0) * EXERCISE_EXP_REWARD
-        speaking_required_exp = exercise_type_counts.get("speaking", 0) * EXERCISE_EXP_REWARD
-        writing_required_exp = exercise_type_counts.get("writing", 0) * EXERCISE_EXP_REWARD
-        
         question_exp_earned = min(normalized_exp.question_exp, question_required_exp)
-        listening_exp_earned = min(normalized_exp.listening_exp, listening_required_exp)
-        speaking_exp_earned = min(normalized_exp.speaking_exp, speaking_required_exp)
-        writing_exp_earned = min(normalized_exp.writing_exp, writing_required_exp)
         
         if question_exp_per > 0:
             completed_questions = min(
@@ -201,48 +173,23 @@ class ProgressTrackingCRUD:
         else:
             completed_questions = total_questions
         
-        listening_completed = exercise_type_counts.get("listening", 0)
-        speaking_completed = exercise_type_counts.get("speaking", 0)
-        writing_completed = exercise_type_counts.get("writing", 0)
-        
-        if EXERCISE_EXP_REWARD > 0:
-            listening_completed = min(
-                exercise_type_counts.get("listening", 0),
-                math.floor(listening_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
-            )
-            speaking_completed = min(
-                exercise_type_counts.get("speaking", 0),
-                math.floor(speaking_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
-            )
-            writing_completed = min(
-                exercise_type_counts.get("writing", 0),
-                math.floor(writing_exp_earned / EXERCISE_EXP_REWARD + 1e-9)
-            )
+        listening_completed = exercise_type_counts.get("listening", 0) if normalized_exp.listening_exp > 0 else 0
+        speaking_completed = exercise_type_counts.get("speaking", 0) if normalized_exp.speaking_exp > 0 else 0
+        writing_completed = exercise_type_counts.get("writing", 0) if normalized_exp.writing_exp > 0 else 0
         
         completed_exercises = listening_completed + speaking_completed + writing_completed
+        total_exercises = sum(exercise_type_counts.values())
+        total_items = total_questions + total_exercises
         
-        total_required_exp = (
-            question_required_exp
-            + listening_required_exp
-            + speaking_required_exp
-            + writing_required_exp
-        )
-        
-        if total_required_exp == 0:
+        if total_items == 0:
             return LessonProgressComputation(
                 progress_percent=100.0,
                 completed_questions=completed_questions,
                 completed_exercises=completed_exercises
             )
         
-        total_exp_earned = (
-            question_exp_earned
-            + listening_exp_earned
-            + speaking_exp_earned
-            + writing_exp_earned
-        )
         progress_percent = round(
-            min(total_exp_earned / total_required_exp * 100, 100.0),
+            min(((completed_questions + completed_exercises) / total_items) * 100.0, 100.0),
             2
         )
         
