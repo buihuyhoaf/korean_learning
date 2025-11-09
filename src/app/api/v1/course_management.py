@@ -84,6 +84,47 @@ def _convert_user_lesson_progress_to_dict(progress: Optional[UserLessonProgress]
     }
 
 
+def _build_diagnostic_codes(
+    streak_updated: bool,
+    streak_reason: str,
+    base_codes: list[int],
+    actual_exp_earned: int
+) -> list[int]:
+    """
+    Compose diagnostic codes for FE diagnostics.
+    
+    Codes:
+        651: exp_earned exceeds max allowed per question
+        652: exp_earned is zero or negative
+        653: question already answered correctly before
+        654: streak already updated today
+        655: no exp activity logged today
+        656: exp accepted and applied
+        657: streak updated successfully
+        658: exp skipped/ignored
+        659: user not found during streak update
+        660: answer incorrect
+    """
+    codes = set(base_codes or [])
+    
+    if actual_exp_earned > 0:
+        codes.add(656)
+    elif actual_exp_earned == 0 and 652 not in codes and 651 not in codes:
+        codes.add(658)
+    
+    reason_normalized = (streak_reason or "").upper()
+    if streak_updated:
+        codes.add(657)
+    elif reason_normalized == "ALREADY_UPDATED":
+        codes.add(654)
+    elif reason_normalized == "NO_ACTIVITY":
+        codes.add(655)
+    elif reason_normalized == "USER_NOT_FOUND":
+        codes.add(659)
+    
+    return sorted(codes)
+
+
 def _get_question_media_url(question: Question, media_key: str) -> Optional[str]:
     """Safely extract media URLs from question object supporting legacy fields."""
     # Legacy direct attribute support (e.g., question.audio_url)
@@ -109,12 +150,16 @@ async def _update_user_streak_if_needed(
     db: AsyncSession,
     user_id: UUID,
     user: User
-) -> Tuple[bool, int]:
+) -> Tuple[bool, int, str]:
     """
     Update user streak if they have activity today and haven't updated streak yet.
     
     Returns:
-        Tuple of (streak_updated: bool, streak_bonus_exp: int)
+        Tuple of (streak_updated: bool, streak_bonus_exp: int, reason_code: str)
+        reason_code:
+            "UPDATED"            -> streak incremented
+            "ALREADY_UPDATED"    -> streak already incremented today
+            "NO_ACTIVITY"        -> no exp activity today
     """
     from ...models.gamification import UserExpLog
     
@@ -166,10 +211,14 @@ async def _update_user_streak_if_needed(
                 amount=streak_bonus
             )
             db.add(streak_exp_log)
-            
-            return True, streak_bonus
+        
+        return True, streak_bonus, "UPDATED"
     
-    return False, 0
+    if streak_already_updated:
+        return False, 0, "ALREADY_UPDATED"
+    if today_exp_logs_count <= 0:
+        return False, 0, "NO_ACTIVITY"
+    return False, 0, "UNKNOWN"
 
 
 # ============================================================================
@@ -1012,12 +1061,15 @@ async def submit_practice_question_answer(
     db.add(user_answer)
     await db.flush()  # Get the ID for user_answer
     
+    diagnostic_codes: list[int] = []
+    
     # ============================================================
     # CỘNG EXP CHO USER VÀ UPDATE STREAK
     # ============================================================
     actual_exp_earned = 0
     streak_updated = False
     streak_bonus_exp = 0
+    streak_reason = "NO_ATTEMPT"
     
     if is_correct and exp_earned > 0:
         # Check if user already answered this question correctly before
@@ -1067,9 +1119,11 @@ async def submit_practice_question_answer(
                     db.add(exp_log)
                     
                     # 3. TRIGGER STREAK UPDATE (chỉ update 1 lần mỗi ngày)
-                    streak_updated, streak_bonus_exp = await _update_user_streak_if_needed(
+                    streak_updated, streak_bonus_exp, streak_reason = await _update_user_streak_if_needed(
                         db, user_id, user
                     )
+                else:
+                    streak_reason = "USER_NOT_FOUND"
             else:
                 # Log warning if FE sent invalid exp
                 import logging
@@ -1078,10 +1132,17 @@ async def submit_practice_question_answer(
                     f"Invalid exp_earned from FE: {exp_earned} (max allowed: {max_exp_per_question}) "
                     f"for user {user_id}, question {question_id}"
                 )
+                diagnostic_codes.append(651)  # EXP_TOO_HIGH
+        else:
+            diagnostic_codes.append(653)  # ALREADY_RECORDED
+    elif is_correct and exp_earned <= 0:
+        diagnostic_codes.append(652)  # EXP_NON_POSITIVE
     
     # If correct, increment completed_questions_count
     if is_correct:
         await _increment_lesson_progress(db, user_id, lesson_id)
+    else:
+        diagnostic_codes.append(660)  # ANSWER_INCORRECT
     
     # Commit all changes (user_answer, user.exp, exp_logs, streak)
     await db.commit()
@@ -1103,7 +1164,13 @@ async def submit_practice_question_answer(
             "current_streak": current_streak,  # Current streak days
             "streak_bonus_exp": streak_bonus_exp  # Bonus exp from streak (if updated)
         },
-        "lesson_progress": None
+        "lesson_progress": None,
+        "diagnostic_codes": _build_diagnostic_codes(
+            streak_updated=streak_updated,
+            streak_reason=streak_reason,
+            base_codes=diagnostic_codes,
+            actual_exp_earned=actual_exp_earned
+        )
     }
 
 
@@ -1139,26 +1206,38 @@ async def update_lesson_progress_endpoint(
         "streak_bonus_exp": 0
     }
     
+    diagnostic_codes: list[int] = []
     if lesson_progress and lesson_progress.progress_percent >= 80.0:
         user_query = select(User).filter(User.id == user_id)
         user_result = await db.execute(user_query)
         user = user_result.scalar_one_or_none()
         if user:
-            streak_updated, streak_bonus = await _update_user_streak_if_needed(db, user_id, user)
+            streak_updated, streak_bonus, streak_reason = await _update_user_streak_if_needed(db, user_id, user)
             await db.commit()
             await db.refresh(user)
+            streak_diag_codes = _build_diagnostic_codes(
+                streak_updated=streak_updated,
+                streak_reason=streak_reason,
+                base_codes=[],
+                actual_exp_earned=exp_breakdown.question_exp
+            )
+            diagnostic_codes.extend(streak_diag_codes)
             streak_info = {
                 "streak_updated": streak_updated,
                 "current_streak": user.streak_days,
-                "streak_bonus_exp": streak_bonus
+                "streak_bonus_exp": streak_bonus,
+                "diagnostic_codes": streak_diag_codes
             }
+        else:
+            diagnostic_codes.append(659)
     
     return {
         "message": "Progress updated successfully",
         "lesson_progress": _convert_user_lesson_progress_to_dict(lesson_progress),
         "unit_progress": _convert_user_unit_progress_to_dict(unit_progress),
         "course_progress": _convert_user_course_progress_to_dict(course_progress),
-        "streak_info": streak_info
+        "streak_info": streak_info,
+        "diagnostic_codes": sorted(set(diagnostic_codes))
     }
 
 
