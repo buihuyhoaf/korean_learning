@@ -18,7 +18,7 @@ class UserBase(BaseModel):
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: UUID
     username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
     picture: Annotated[str | None, Field(examples=["https://example.com/picture.jpg"])]
@@ -26,9 +26,9 @@ class UserRead(BaseModel):
     exp: Annotated[int, Field(examples=[0])]
     streak_days: Annotated[int, Field(examples=[0])]
     created_at: datetime
-    tier_id: Annotated[int | None, Field(examples=[None])]
+    tier_id: Annotated[UUID | None, Field(examples=[None])]
     has_completed_entry_test: Annotated[bool, Field(examples=[False])]
-    current_course_id: Annotated[int | None, Field(examples=[None])]
+    current_course_id: Annotated[UUID | None, Field(examples=[None])]
     entry_test_score: Annotated[int | None, Field(examples=[None])]
 
 
@@ -62,7 +62,7 @@ class UserCreateInternal(BaseModel):
     role: Annotated[str, Field(default="student", examples=["student"])]
     exp: Annotated[int, Field(default=0, examples=[0])]
     streak_days: Annotated[int, Field(default=0, examples=[0])]
-    tier_id: Annotated[int | None, Field(default=None, examples=[None])]
+    tier_id: Annotated[UUID | None, Field(default=None, examples=[None])]
 
 
 class UserUpdate(BaseModel):
@@ -81,7 +81,7 @@ class UserUpdate(BaseModel):
     role: Annotated[str | None, Field(examples=["student"], default=None)]
     exp: Annotated[int | None, Field(examples=[0], default=None)]
     streak_days: Annotated[int | None, Field(examples=[0], default=None)]
-    tier_id: Annotated[int | None, Field(examples=[None], default=None)]
+    tier_id: Annotated[UUID | None, Field(examples=[None], default=None)]
 
 
 class UserUpdateInternal(UserUpdate):
@@ -89,7 +89,7 @@ class UserUpdateInternal(UserUpdate):
 
 
 class UserTierUpdate(BaseModel):
-    tier_id: int
+    tier_id: UUID
 
 
 class UserDelete(BaseModel):
