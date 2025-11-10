@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Push Notifications</title>
+    <link rel="stylesheet" href="{{ admin_mount }}/custom.css" />
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #f6f7fb;
+        color: #1f2933;
+      }
+      .page {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 3.5rem;
+        display: grid;
+        gap: 1.5rem;
+      }
+      .card {
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        padding: 1.8rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2933;
+      }
+      p.lead {
+        margin: 0.5rem 0 0;
+        color: #475569;
+      }
+      .form-grid {
+        display: grid;
+        gap: 1.2rem;
+        margin-top: 1.5rem;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+        color: #1f2933;
+      }
+      input[type="text"],
+      input[type="search"],
+      textarea,
+      select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid #d8dee6;
+        padding: 0.75rem 0.95rem;
+        font-size: 0.95rem;
+        transition: border 0.2s ease, box-shadow 0.2s ease;
+        background: #fff;
+      }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+      }
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.6rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.2s ease;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #ff6b6b, #ff8585);
+        color: #fff;
+      }
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .btn-primary:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(255, 107, 107, 0.25);
+      }
+      .btn-secondary {
+        background: rgba(15, 23, 42, 0.08);
+        color: #1f2933;
+      }
+      .btn-secondary:hover {
+        background: rgba(15, 23, 42, 0.12);
+      }
+      .user-search {
+        display: grid;
+        gap: 0.9rem;
+      }
+      .search-results,
+      .selected-users {
+        display: grid;
+        gap: 0.65rem;
+        max-height: 240px;
+        overflow-y: auto;
+        padding-right: 0.25rem;
+      }
+      .search-item,
+      .selected-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.035);
+        border: 1px solid rgba(15, 23, 42, 0.05);
+      }
+      .search-item span,
+      .selected-item span {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        font-size: 0.9rem;
+      }
+      .search-meta {
+        font-size: 0.78rem;
+        color: #64748b;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: rgba(255, 107, 107, 0.15);
+        color: #ff4f4f;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .alert {
+        border-radius: 12px;
+        padding: 0.9rem 1.1rem;
+        font-size: 0.9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .alert-success {
+        background: rgba(56, 178, 172, 0.12);
+        color: #0f766e;
+      }
+      .alert-error {
+        background: rgba(239, 68, 68, 0.12);
+        color: #b91c1c;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .summary-card {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .summary-card strong {
+        font-size: 1.15rem;
+      }
+      @media (max-width: 800px) {
+        .page {
+          padding: 2rem 1rem 3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <h1>Push Notifications</h1>
+        <p class="lead">
+          Chọn người dùng, nhập tiêu đề và nội dung để gửi push notification thông qua Firebase Cloud Messaging.
+        </p>
+        <div id="alert-container" class="hidden"></div>
+        <form id="push-form" class="form-grid" autocomplete="off">
+          <div class="user-search">
+            <label for="user-search-input">Tìm kiếm người dùng</label>
+            <input
+              type="search"
+              id="user-search-input"
+              placeholder="Nhập username hoặc email (tối thiểu 2 ký tự)"
+              minlength="2"
+            />
+            <div class="search-results" id="search-results"></div>
+            <div class="selected-users" id="selected-users"></div>
+            <div>
+              <button type="button" class="btn btn-secondary" id="clear-selected">Xoá danh sách</button>
+            </div>
+          </div>
+
+          <div>
+            <label for="title-input">Tiêu đề</label>
+            <input id="title-input" type="text" maxlength="200" placeholder="Ví dụ: Lời nhắc học tập" required />
+          </div>
+
+          <div>
+            <label for="body-input">Nội dung thông báo</label>
+            <textarea
+              id="body-input"
+              maxlength="500"
+              placeholder="Nhập nội dung chi tiết (tối đa 500 ký tự)"
+              required
+            ></textarea>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary" id="send-button">Gửi thông báo</button>
+            <button type="button" class="btn btn-secondary" id="preview-selection">Xem tổng quan</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card summary-card hidden" id="summary-card">
+        <h2>Tổng quan</h2>
+        <div><strong id="summary-count">0</strong> người nhận</div>
+        <div id="summary-users"></div>
+        <div>
+          <strong>Tiêu đề:</strong>
+          <span id="summary-title"></span>
+        </div>
+        <div>
+          <strong>Nội dung:</strong>
+          <span id="summary-body"></span>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const adminMount = "{{ admin_mount }}";
+      const apiNotificationsEndpoint = "{{ api_notifications_endpoint }}";
+
+      const searchInput = document.getElementById("user-search-input");
+      const searchResults = document.getElementById("search-results");
+      const selectedUsersEl = document.getElementById("selected-users");
+      const clearButton = document.getElementById("clear-selected");
+      const form = document.getElementById("push-form");
+      const sendButton = document.getElementById("send-button");
+      const previewButton = document.getElementById("preview-selection");
+      const alertContainer = document.getElementById("alert-container");
+      const summaryCard = document.getElementById("summary-card");
+      const summaryCount = document.getElementById("summary-count");
+      const summaryUsers = document.getElementById("summary-users");
+      const summaryTitle = document.getElementById("summary-title");
+      const summaryBody = document.getElementById("summary-body");
+
+      const selectedUsers = new Map(); // uuid -> {username, email}
+      let searchTimeout;
+
+      function showAlert(message, type = "success") {
+        alertContainer.className = `alert ${type === "success" ? "alert-success" : "alert-error"}`;
+        alertContainer.textContent = message;
+        alertContainer.classList.remove("hidden");
+        setTimeout(() => alertContainer.classList.add("hidden"), 5000);
+      }
+
+      function renderSelectedUsers() {
+        selectedUsersEl.innerHTML = "";
+        selectedUsers.forEach((info, id) => {
+          const item = document.createElement("div");
+          item.className = "selected-item";
+          item.innerHTML = `
+            <span>
+              <strong>${info.username}</strong>
+              <span class="search-meta">${info.email}</span>
+              <span class="search-meta">${id}</span>
+            </span>
+            <button type="button" data-user-id="${id}">Xoá</button>
+          `;
+          item.querySelector("button").addEventListener("click", () => {
+            selectedUsers.delete(id);
+            renderSelectedUsers();
+          });
+          selectedUsersEl.appendChild(item);
+        });
+      }
+
+      function renderSearchResults(users) {
+        searchResults.innerHTML = "";
+        if (!users?.length) {
+          const empty = document.createElement("div");
+          empty.className = "search-item";
+          empty.innerHTML = `<span>Không tìm thấy người dùng phù hợp</span>`;
+          searchResults.appendChild(empty);
+          return;
+        }
+
+        users.forEach((user) => {
+          const item = document.createElement("div");
+          item.className = "search-item";
+          item.innerHTML = `
+            <span>
+              <strong>${user.username}</strong>
+              <span class="search-meta">${user.email}</span>
+              <span class="badge">UUID</span>
+              <span class="search-meta">${user.id}</span>
+            </span>
+            <button type="button">Thêm</button>
+          `;
+          item.querySelector("button").addEventListener("click", () => {
+            selectedUsers.set(user.id, { username: user.username, email: user.email });
+            renderSelectedUsers();
+          });
+          searchResults.appendChild(item);
+        });
+      }
+
+      async function searchUsers(query) {
+        if (!query || query.length < 2) {
+          searchResults.innerHTML = "";
+          return;
+        }
+        try {
+          const url = `${adminMount}/progress-tracker/api/users?search=${encodeURIComponent(query)}&limit=20`;
+          const res = await fetch(url, { credentials: "include" });
+          if (!res.ok) throw new Error("Không thể tải danh sách người dùng");
+          const data = await res.json();
+          renderSearchResults(data);
+        } catch (err) {
+          renderSearchResults([]);
+          console.error(err);
+        }
+      }
+
+      searchInput.addEventListener("input", (event) => {
+        const value = event.target.value.trim();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => searchUsers(value), 300);
+      });
+
+      clearButton.addEventListener("click", () => {
+        selectedUsers.clear();
+        renderSelectedUsers();
+      });
+
+      previewButton.addEventListener("click", () => {
+        const title = document.getElementById("title-input").value.trim();
+        const body = document.getElementById("body-input").value.trim();
+        const entries = Array.from(selectedUsers.entries());
+        if (!entries.length) {
+          showAlert("Chưa có người dùng nào được chọn.", "error");
+          return;
+        }
+        summaryCard.classList.remove("hidden");
+        summaryCount.textContent = entries.length;
+        summaryUsers.innerHTML = entries
+          .map(([id, info]) => `<div>${info.username} (${info.email}) • ${id}</div>`)
+          .join("");
+        summaryTitle.textContent = title || "—";
+        summaryBody.textContent = body || "—";
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const title = document.getElementById("title-input").value.trim();
+        const body = document.getElementById("body-input").value.trim();
+        const userIds = Array.from(selectedUsers.keys());
+
+        if (!userIds.length) {
+          showAlert("Vui lòng chọn ít nhất một người dùng.", "error");
+          return;
+        }
+
+        if (!title || !body) {
+          showAlert("Tiêu đề và nội dung không được để trống.", "error");
+          return;
+        }
+
+        sendButton.disabled = true;
+        sendButton.textContent = "Đang gửi...";
+
+        try {
+          const res = await fetch(`${adminMount}/push-notifications/api/send`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              user_ids: userIds,
+              title,
+              body,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (res.status === 503 && data?.detail?.includes("Firebase")) {
+            showAlert("Firebase not initialized. Vui lòng kiểm tra biến môi trường.", "error");
+            return;
+          }
+
+          if (!res.ok) {
+            const message = data?.detail || "Không thể gửi thông báo.";
+            showAlert(message, "error");
+            return;
+          }
+
+          showAlert(`Đã gửi thông báo: ${data.stats.success} thành công / ${data.stats.failed} thất bại.`, "success");
+          summaryCard.classList.remove("hidden");
+          summaryCount.textContent = userIds.length;
+          summaryUsers.innerHTML = Array.from(selectedUsers.entries())
+            .map(([id, info]) => `<div>${info.username} (${info.email}) • ${id}</div>`)
+            .join("");
+          summaryTitle.textContent = title;
+          summaryBody.textContent = body;
+        } catch (err) {
+          console.error(err);
+          showAlert("Đã xảy ra lỗi khi gửi thông báo.", "error");
+        } finally {
+          sendButton.disabled = false;
+          sendButton.textContent = "Gửi thông báo";
+        }
+      });
+    </script>
+  </body>
+</html>
+

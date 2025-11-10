@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from crudadmin import CRUDAdmin
 from crudadmin.admin_interface.model_view import PasswordTransformer
@@ -33,6 +33,7 @@ from ..models.gamification import (
 from ..models.social import Friend, Leaderboard
 from ..models.ai_log import AiLog
 from ..models.notification import Notification
+from ..models.user_push_token import UserPushToken
 from ..models.rate_limit import RateLimit
 from ..models.user_answer import UserAnswer
 from ..models.entry_test import (
@@ -101,7 +102,8 @@ from ..schemas.gamification_schemas import (
 )
 from ..schemas.notification_schemas import (
     NotificationCreate,
-    NotificationUpdate
+    NotificationUpdate,
+    AdminPushNotificationRequest,
 )
 from ..schemas.entry_test import (
     EntryTestCreate, 

@@ -3,10 +3,10 @@ from pathlib import Path
 
 from crudadmin import CRUDAdmin
 from crudadmin.core.db import get_default_db_path
-from fastapi import Request, Depends, HTTPException, Query
+from fastapi import Request, Depends, HTTPException, Query, status
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..core.config import EnvironmentOption, settings
 from ..core.db.database import async_get_db
@@ -23,6 +23,8 @@ from ..api.v1.user_progress import (
 from ..schemas.progress_tracking import ExpSeriesResponse
 from ..core.exceptions.http_exceptions import NotFoundException
 from ..schemas.user import UserSummary
+from ..schemas.notification_schemas import AdminPushNotificationRequest
+from ..services.push_service import FirebaseNotInitializedError, PushSendResult, send_push_notification
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +164,54 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             raise NotFoundException("One or more user IDs are invalid") from exc
 
         return await build_exp_series_response(db=db, target_ids=target_ids, days=days)
+
+    @admin.app.get("/push-notifications", response_class=HTMLResponse)
+    async def admin_push_notifications_page(
+        request: Request,
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
+    ) -> HTMLResponse:
+        admin_mount = settings.CRUD_ADMIN_MOUNT_PATH.rstrip("/") or "/admin"
+        api_base = "/api/v1"
+        return templates.TemplateResponse(
+            "push_notifications.html",
+            {
+                "request": request,
+                "admin_mount": admin_mount,
+                "api_notifications_endpoint": f"{api_base}/notifications/send",
+            },
+        )
+
+    @admin.app.post("/push-notifications/api/send")
+    async def admin_push_notifications_send(
+        payload: AdminPushNotificationRequest,
+        db: AsyncSession = Depends(async_get_db),
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
+    ) -> JSONResponse:
+        try:
+            target_ids = [UUID(str(user_id)) for user_id in payload.user_ids]
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid user ID format") from exc
+
+        try:
+            result: PushSendResult = await send_push_notification(
+                db=db,
+                user_ids=target_ids,
+                title=payload.title,
+                body=payload.body,
+            )
+        except FirebaseNotInitializedError as exc:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": str(exc)},
+            )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "message": "Notifications dispatched",
+                "stats": result.as_dict(),
+            },
+        )
 
     return admin
 

@@ -452,6 +452,20 @@ function createProgressTrackerElements() {
     return { link, item };
 }
 
+function createPushNotificationElements() {
+    const link = document.createElement('a');
+    link.href = ADMIN_BASE_PATH + '/push-notifications';
+    link.textContent = 'Push Notifications';
+    link.classList.add('sidebar-link', 'nav-link');
+    link.setAttribute('data-push-notifications-link', 'true');
+
+    const item = document.createElement('li');
+    item.classList.add('sidebar-item', 'nav-item');
+    item.appendChild(link);
+
+    return { link, item };
+}
+
 function insertProgressTrackerLink() {
     if (document.querySelector('[data-progress-tracker-link]')) {
         return true;
@@ -505,11 +519,72 @@ function insertProgressTrackerLink() {
     return false;
 }
 
+function insertPushNotificationsLink() {
+    if (document.querySelector('[data-push-notifications-link]')) {
+        return true;
+    }
+
+    const listSelectors = [
+        '.app-sidebar nav ul',
+        '.app-sidebar .sidebar-nav ul',
+        '.app-sidebar ul',
+        '.sidebar nav ul',
+        '.sidebar-nav ul',
+        'nav.sidebar-nav ul',
+        '.sidebar-menu ul',
+        'nav ul.sidebar-menu'
+    ];
+
+    for (const selector of listSelectors) {
+        const container = document.querySelector(selector);
+        if (!container) {
+            continue;
+        }
+
+        const { item } = createPushNotificationElements();
+        container.appendChild(item);
+        return true;
+    }
+
+    const navSelectors = [
+        '.app-sidebar nav',
+        'nav.sidebar-nav',
+        '.sidebar-nav',
+        '.sidebar',
+        '.app-sidebar'
+    ];
+
+    for (const selector of navSelectors) {
+        const container = document.querySelector(selector);
+        if (!container) {
+            continue;
+        }
+
+        if (container.querySelector('[data-push-notifications-link]')) {
+            return true;
+        }
+
+        const { link } = createPushNotificationElements();
+        container.appendChild(link);
+        return true;
+    }
+
+    return false;
+}
+
 function ensureProgressTrackerLink() {
     if (!insertProgressTrackerLink()) {
         setTimeout(insertProgressTrackerLink, 300);
         setTimeout(insertProgressTrackerLink, 1200);
         setTimeout(insertProgressTrackerLink, 3000);
+    }
+}
+
+function ensurePushNotificationsLink() {
+    if (!insertPushNotificationsLink()) {
+        setTimeout(insertPushNotificationsLink, 300);
+        setTimeout(insertPushNotificationsLink, 1200);
+        setTimeout(insertPushNotificationsLink, 3000);
     }
 }
 
@@ -960,6 +1035,11 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (err) {
         console.warn('Unable to inject progress tracker link', err);
     }
+    try {
+        ensurePushNotificationsLink();
+    } catch (err) {
+        console.warn('Unable to inject push notifications link', err);
+    }
     
     // Animate cards on load
     const cards = document.querySelectorAll('.card');
@@ -1064,6 +1144,7 @@ new MutationObserver(() => {
         console.log('🔄 [Upload Widget] URL changed, re-initializing...');
         setTimeout(initializeImageUploadWidget, 500);
         setTimeout(ensureProgressTrackerLink, 100);
+        setTimeout(ensurePushNotificationsLink, 150);
     }
 }).observe(document, { subtree: true, childList: true });
 
@@ -1072,12 +1153,14 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     console.log('🔄 [Upload Widget] HTMX afterSwap event, re-initializing...');
     setTimeout(initializeImageUploadWidget, 100);
     setTimeout(ensureProgressTrackerLink, 150);
+    setTimeout(ensurePushNotificationsLink, 200);
 });
 
 document.body.addEventListener('htmx:load', function(event) {
     console.log('🔄 [Upload Widget] HTMX load event, re-initializing...');
     setTimeout(initializeImageUploadWidget, 100);
     setTimeout(ensureProgressTrackerLink, 150);
+    setTimeout(ensurePushNotificationsLink, 200);
 });
 
 // Also try initializing periodically for dynamic content (especially for HTMX-loaded forms)
@@ -1093,6 +1176,7 @@ const initInterval = setInterval(function() {
         initializeImageUploadWidget();
         initializeCourseImageUpload();
         ensureProgressTrackerLink();
+        ensurePushNotificationsLink();
     } else {
         clearInterval(initInterval);
         console.log('⏹️ [Upload Widget] Stopped periodic initialization after max attempts');
