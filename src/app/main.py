@@ -17,6 +17,7 @@ from .admin.custom_assets import serve_custom_css, serve_custom_js
 from .api import router
 from .core.config import settings
 from .core.setup import create_application, lifespan_factory
+from .core.firebase import init_firebase
 from .core import logger  # Import logger configuration
 from sqlalchemy.exc import IntegrityError
 
@@ -116,6 +117,8 @@ async def lifespan_with_admin(app: FastAPI) -> AsyncGenerator[None, None]:
 
         yield
 
+
+init_firebase()
 
 app = create_application(router=router, settings=settings, lifespan=lifespan_with_admin)
 
