@@ -24,6 +24,7 @@ from .upload import router as upload_router
 from .predict import router as predict_router
 from .grade import router as grade_router
 from .pronunciation import router as pronunciation_router
+from .push_tokens import router as push_tokens_router
 
 router = APIRouter(prefix="/v1")
 
@@ -49,3 +50,4 @@ router.include_router(upload_router)
 router.include_router(predict_router)
 router.include_router(grade_router)
 router.include_router(pronunciation_router)
+router.include_router(push_tokens_router)

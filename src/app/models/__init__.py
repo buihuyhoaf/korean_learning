@@ -31,6 +31,7 @@ from .gamification import (
 from .social import Friend, Leaderboard
 from .ai_log import AiLog
 from .notification import Notification
+from .user_push_token import UserPushToken
 
 # Keep old models for backward compatibility (can be removed later)
 from .rate_limit import RateLimit

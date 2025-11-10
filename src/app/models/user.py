@@ -43,3 +43,4 @@ class User(Base):
     notifications = relationship("Notification", back_populates="user")
     refresh_tokens = relationship("UserRefreshToken", back_populates="user", cascade="all, delete-orphan")
     answers = relationship("UserAnswer", back_populates="user", cascade="all, delete-orphan")
+    push_tokens = relationship("UserPushToken", back_populates="user", cascade="all, delete-orphan")
