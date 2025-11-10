@@ -19,9 +19,11 @@ def init_firebase() -> Optional[firebase_admin.App]:
 
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if not credentials_path:
-        logger.warning(
-            "Firebase disabled: GOOGLE_APPLICATION_CREDENTIALS environment variable not set."
-        )
+        logger.warning("Firebase disabled: GOOGLE_APPLICATION_CREDENTIALS environment variable not set.")
+        return None
+
+    if not os.path.exists(credentials_path):
+        logger.warning("Firebase disabled: credentials file not found at %s", credentials_path)
         return None
 
     try:

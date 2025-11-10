@@ -1,0 +1,145 @@
+"""
+Service helpers for sending Firebase Cloud Messaging (FCM) push notifications.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import Final, Sequence
+import uuid
+
+from firebase_admin import messaging
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.firebase import get_firebase_app, init_firebase
+from ..models.user_push_token import UserPushToken
+
+logger = logging.getLogger(__name__)
+
+# Firebase allows at most 500 tokens per multicast request.
+MAX_TOKENS_PER_BATCH: Final[int] = 500
+
+
+class FirebaseNotInitializedError(RuntimeError):
+    """Raised when Firebase Admin SDK is not available."""
+
+
+@dataclass(slots=True)
+class PushSendResult:
+    """Summarise push notification send statistics."""
+
+    requested_tokens: int
+    success: int
+    failed: int
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "requested_tokens": self.requested_tokens,
+            "success": self.success,
+            "failed": self.failed,
+        }
+
+
+async def _fetch_active_tokens(db: AsyncSession, user_ids: Iterable[uuid.UUID]) -> list[UserPushToken]:
+    """Retrieve active push tokens for the provided user IDs."""
+    if not user_ids:
+        return []
+
+    stmt = (
+        select(UserPushToken)
+        .where(UserPushToken.user_id.in_(tuple(user_ids)))
+        .where(UserPushToken.is_active.is_(True))
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def _send_multicast(tokens: Sequence[str], title: str, body: str) -> messaging.BatchResponse:
+    """
+    Execute firebase_admin.messaging.send_multicast in a background thread.
+
+    Firebase's Python SDK is synchronous; dispatch from the main event loop
+    to avoid blocking using asyncio.to_thread.
+    """
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(title=title, body=body),
+        tokens=list(tokens),
+    )
+
+    return await asyncio.to_thread(messaging.send_multicast, message)
+
+
+async def send_push_notification(
+    *,
+    db: AsyncSession,
+    user_ids: Sequence[uuid.UUID],
+    title: str,
+    body: str,
+) -> PushSendResult:
+    """
+    Send an FCM notification to all active tokens associated with the provided user IDs.
+
+    Raises
+    ------
+    FirebaseNotInitializedError
+        If Firebase Admin SDK is not initialised (missing credentials).
+    """
+
+    firebase_app = get_firebase_app() or init_firebase()
+    if firebase_app is None:
+        logger.warning("Attempt to send push notification without Firebase initialised.")
+        raise FirebaseNotInitializedError("Firebase not initialized")
+
+    tokens = await _fetch_active_tokens(db, user_ids)
+    if not tokens:
+        logger.info("No active FCM tokens for users=%s", [str(uid) for uid in user_ids])
+        return PushSendResult(requested_tokens=0, success=0, failed=0)
+
+    success_count = 0
+    failure_count = 0
+
+    # Process tokens in batches to respect Firebase limits.
+    for index in range(0, len(tokens), MAX_TOKENS_PER_BATCH):
+        chunk = tokens[index : index + MAX_TOKENS_PER_BATCH]
+        token_values = [token.token for token in chunk]
+        logger.debug("Sending push batch %s-%s (size=%s)", index, index + len(chunk), len(chunk))
+
+        try:
+            response = await _send_multicast(token_values, title, body)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to send FCM batch: %s", exc)
+            failure_count += len(chunk)
+            continue
+
+        # Evaluate per-token responses.
+        for token_model, send_response in zip(chunk, response.responses, strict=False):
+            if send_response.success:
+                success_count += 1
+                logger.info("Push notification sent successfully to token=%s", token_model.token[:12])
+                continue
+
+            failure_count += 1
+            code = getattr(send_response.exception, "code", "unknown")
+            logger.warning(
+                "Failed to send push notification to token=%s (code=%s)",
+                token_model.token[:12],
+                code,
+            )
+
+            if code in {"registration-token-not-registered", "invalid-registration-token"}:
+                token_model.is_active = False
+                logger.info("Marked token=%s as inactive due to %s", token_model.token[:12], code)
+
+    await db.commit()
+
+    return PushSendResult(
+        requested_tokens=len(tokens),
+        success=success_count,
+        failed=failure_count,
+    )
+
+

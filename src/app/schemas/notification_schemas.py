@@ -4,6 +4,7 @@ Notification Schemas
 Pydantic schemas for notification models.
 """
 from datetime import datetime
+from uuid import UUID
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -40,4 +41,14 @@ class NotificationResponse(NotificationBase):
     id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class AdminPushNotificationRequest(BaseModel):
+    """Payload for admin-triggered push notifications."""
+
+    user_ids: list[UUID] = Field(..., min_length=1, description="Target user IDs (UUID)")
+    title: str = Field(..., min_length=1, max_length=200, description="Notification title")
+    body: str = Field(..., min_length=1, description="Notification body")
+
+    model_config = ConfigDict(extra="forbid")
 
