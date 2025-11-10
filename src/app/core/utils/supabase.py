@@ -1,197 +1,114 @@
-"""Supabase client utility for file storage operations."""
+"""Utilities for interacting with Supabase Storage via direct HTTP calls."""
 
-import asyncio
 import uuid
 from pathlib import Path
-from typing import Optional
 
-from fastapi import UploadFile, HTTPException, status
 import httpx
-from supabase import create_client, Client
-from supabase import SupabaseException, StorageException
+from fastapi import HTTPException, UploadFile, status
 
 from ..config import settings
 
-# Use SupabaseException and StorageException from supabase module
-# These are the actual exception classes available in supabase-py
-APIError = SupabaseException  # Alias for compatibility
 
-# Global Supabase client instance
-_supabase_client: Optional[Client] = None
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
-def get_supabase_client() -> Client:
-    """
-    Get or create a Supabase client instance.
-
-    Returns
-    -------
-    Client
-        Supabase client instance.
-
-    Raises
-    ------
-    HTTPException
-        If Supabase credentials are not configured.
-    """
-    global _supabase_client
-
-    if _supabase_client is None:
-        if not settings.SUPABASE_URL:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Supabase URL is not configured",
-            )
-
-        # Prefer service role key when available (server-side privileged operations)
-        has_service_role = bool(
-            getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
-            and settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+def _resolve_supabase_credentials() -> tuple[str, str]:
+    """Return the Supabase URL and API key or raise if they are missing."""
+    supabase_url = settings.SUPABASE_URL
+    if not supabase_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Supabase URL is not configured",
         )
-        supabase_key = (
-            settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value() if has_service_role else settings.SUPABASE_KEY.get_secret_value()
+
+    has_service_role = bool(
+        getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
+        and settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+    )
+    supabase_key = (
+        settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
+        if has_service_role
+        else settings.SUPABASE_KEY.get_secret_value()
+    )
+    if not supabase_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Supabase API key is not configured",
         )
-        if not supabase_key:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Supabase API key is not configured",
-            )
 
-        # Debug line to confirm which key type is used (safe: does not print actual keys)
-        print(f"[SUPABASE] Using service role key: {has_service_role}")
-
-        _supabase_client = create_client(settings.SUPABASE_URL, supabase_key)
-
-    return _supabase_client
-
+    return supabase_url, supabase_key
 
 
 def get_file_extension(filename: str) -> str:
-    """
-    Extract file extension from filename.
-
-    Parameters
-    ----------
-    filename : str
-        The filename to extract extension from.
-
-    Returns
-    -------
-    str
-        The file extension (including the dot), or empty string if no extension.
-    """
+    """Extract the filename extension (including the dot) in lowercase."""
     return Path(filename).suffix.lower()
 
 
 def generate_unique_filename(original_filename: str) -> str:
-    """
-    Generate a unique filename with UUID and preserve original extension.
-
-    Parameters
-    ----------
-    original_filename : str
-        The original filename.
-
-    Returns
-    -------
-    str
-        A unique filename with UUID prefix.
-    """
+    """Return a UUID-based filename while preserving the original extension."""
     file_ext = get_file_extension(original_filename)
     unique_id = uuid.uuid4().hex
     return f"{unique_id}{file_ext}"
 
 
 async def upload_image_to_supabase(file: UploadFile, bucket_name: str = "questions-images") -> str:
-    """
-    Upload an image file to Supabase Storage and return the public URL.
-
-    Parameters
-    ----------
-    file : UploadFile
-        The image file to upload.
-    bucket_name : str, optional
-        The name of the Supabase Storage bucket, by default "question_images".
-
-    Returns
-    -------
-    str
-        The public URL of the uploaded image.
-
-    Raises
-    ------
-    HTTPException
-        If file validation fails, upload fails, or bucket operations fail.
-    """
-    # Validate file type
-    allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+    """Upload an image to Supabase Storage and return its public URL."""
     file_ext = get_file_extension(file.filename or "")
     content_type = file.content_type or ""
 
-    if file_ext not in allowed_extensions:
+    if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}",
+            detail=f"Invalid file type. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
 
-    # Validate content type
-    allowed_mime_types = {"image/jpeg", "image/png", "image/webp"}
-    if content_type not in allowed_mime_types:
+    if content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid content type. Allowed types: {', '.join(allowed_mime_types)}",
+            detail=f"Invalid content type. Allowed types: {', '.join(sorted(ALLOWED_MIME_TYPES))}",
         )
 
-    # Assume bucket already exists (no ensure here to avoid 403 with anon keys)
-
-    # Generate unique filename
     unique_filename = generate_unique_filename(file.filename or "image")
     file_path = f"{unique_filename}"
 
-    # Read file content
     try:
         file_content = await file.read()
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - IO edge cases
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error reading file: {str(e)}",
-        )
+            detail=f"Error reading file: {exc}",
+        ) from exc
 
-    # Prefer direct REST upload with service role to avoid RLS issues in client
+    supabase_url, supabase_key = _resolve_supabase_credentials()
+    upload_url = f"{supabase_url}/storage/v1/object/{bucket_name}/{file_path}"
+    headers = {
+        "Authorization": f"Bearer {supabase_key}",
+        "apikey": supabase_key,
+        "Content-Type": content_type,
+        "x-upsert": "true",
+    }
+
     try:
-        has_service_role = bool(
-            getattr(settings, "SUPABASE_SERVICE_ROLE_KEY", None)
-            and settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value()
-        )
-        api_key = (
-            settings.SUPABASE_SERVICE_ROLE_KEY.get_secret_value() if has_service_role else settings.SUPABASE_KEY.get_secret_value()
-        )
-
-        upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/{bucket_name}/{file_path}"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "apikey": api_key,
-            "Content-Type": content_type,
-            "x-upsert": "true",
-        }
-
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(upload_url, content=file_content, headers=headers)
-
-        if resp.status_code in (200, 201):
-            public_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{file_path}"
-            return public_url
-
-        # Try to parse error
-        try:
-            err = resp.json()
-        except Exception:
-            err = {"status": resp.status_code, "text": resp.text}
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error uploading file to Supabase: {err}")
-
-    except Exception as e:
+            response = await client.post(upload_url, content=file_content, headers=headers)
+    except httpx.HTTPError as exc:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error during upload: {str(e)}",
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Error connecting to Supabase: {exc}",
+        ) from exc
+
+    if response.status_code in (200, 201):
+        public_url = f"{supabase_url}/storage/v1/object/public/{bucket_name}/{file_path}"
+        return public_url
+
+    try:
+        error_detail = response.json()
+    except ValueError:  # pragma: no cover - non JSON responses
+        error_detail = {"status": response.status_code, "text": response.text}
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Error uploading file to Supabase: {error_detail}",
+    )
 
