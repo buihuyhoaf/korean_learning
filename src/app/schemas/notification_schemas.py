@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class NotificationBase(BaseModel):
     """Base schema for Notification"""
-    user_id: int = Field(..., description="User ID")
+    user_id: UUID = Field(..., description="User UUID")
     title: str = Field(..., max_length=200, description="Notification title")
     message: str = Field(..., description="Notification message")
     type: str = Field(..., max_length=50, description="Notification type: system, reminder, achievement")
