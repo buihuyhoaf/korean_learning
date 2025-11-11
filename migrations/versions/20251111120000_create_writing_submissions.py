@@ -36,9 +36,9 @@ def upgrade() -> None:
         sa.Column("user_id", pg.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("exercise_id", pg.UUID(as_uuid=True), sa.ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
-        sa.Column("status", writing_submission_status, nullable=False, server_default="submitted"),
         sa.Column("ai_score", sa.Float(), nullable=True),
         sa.Column("ai_feedback", sa.Text(), nullable=True),
+        sa.Column("status", writing_submission_status, nullable=False, server_default="submitted"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )

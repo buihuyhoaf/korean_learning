@@ -66,13 +66,13 @@ class WritingSubmission(Base):
         nullable=False,
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    ai_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ai_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[WritingSubmissionStatus] = mapped_column(
         SqlEnum(WritingSubmissionStatus, name="writing_submission_status"),
         nullable=False,
         default=WritingSubmissionStatus.SUBMITTED,
     )
-    ai_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    ai_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(UTC),
