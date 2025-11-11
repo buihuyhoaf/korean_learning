@@ -4,17 +4,26 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import ValidationError
 
 from ...api.dependencies import get_current_user, get_current_superuser
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException, ForbiddenException
 from ...models.exercise import Exercise, ExerciseType
 from ...models.course import Lesson
+from ...models.writing_submission import WritingSubmissionStatus
 from ...schemas.exercise import (
     ExerciseCreate, ExerciseUpdate, ExerciseRead, 
     ExerciseListResponse, ExerciseStatsResponse
 )
 from ...crud.exercise import ExerciseCRUD
+from ...crud.writing import WritingSubmissionCRUD
+from ...schemas.writing import (
+    WritingSubmissionCreate,
+    WritingSubmissionMode,
+    WritingSubmissionResponse,
+)
+from ...services.writing_ai import evaluate_writing_with_ai
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
@@ -254,12 +263,57 @@ async def submit_exercise(
         exp_earned = 20  # EXP for completing speaking exercise
         
     elif exercise.type == "writing":
-        # Writing exercises - save text response
-        text_response = submission_data.get("response")
-        submission_result["response"] = text_response
-        submission_result["score"] = 1.0
-        submission_result["feedback"] = "Your response has been saved."
+        # Writing exercises - Phase 1: capture submission + route by mode
+        try:
+            submission_payload = WritingSubmissionCreate.model_validate(submission_data)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid writing submission payload.",
+            ) from exc
+
+        submission = await WritingSubmissionCRUD.create_submission(
+            db=db,
+            user_id=user_id,
+            exercise_id=exercise.id,
+            text=submission_payload.text,
+            status=WritingSubmissionStatus.SUBMITTED,
+        )
+
+        submission_result["response"] = submission_payload.text
+        submission_result["mode"] = submission_payload.mode.value
         exp_earned = 20  # EXP for completing writing exercise
+
+        ai_result_payload: dict | None = None
+        if submission_payload.mode is WritingSubmissionMode.AI:
+            # TODO(Phase 2): replace stub with real LanguageTool integration.
+            ai_evaluation = await evaluate_writing_with_ai(submission_payload.text)
+            updated_submission = await WritingSubmissionCRUD.update_ai_result(
+                db=db,
+                submission_id=submission.id,
+                score=ai_evaluation.score,
+                feedback=ai_evaluation.feedback,
+                status=WritingSubmissionStatus.AI_GRADED,
+            )
+            if updated_submission is not None:
+                submission = updated_submission
+
+            ai_result_payload = {
+                "score": ai_evaluation.score,
+                "feedback": ai_evaluation.feedback,
+            }
+            submission_result["status"] = WritingSubmissionStatus.AI_GRADED.value
+            submission_result["feedback"] = ai_evaluation.feedback
+            submission_result["message"] = "AI grading completed."
+        else:
+            submission_result["status"] = WritingSubmissionStatus.SUBMITTED.value
+            submission_result["feedback"] = "Bài đã gửi giáo viên chấm."
+            submission_result["message"] = "Bài đã gửi giáo viên chấm."
+
+        submission_response = WritingSubmissionResponse.model_validate(submission)
+        submission_result["submission"] = submission_response.model_dump()
+        if ai_result_payload is not None:
+            submission_result["ai_result"] = ai_result_payload
     
     # Update user EXP and log activity
     if exp_earned > 0:

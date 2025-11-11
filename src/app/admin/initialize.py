@@ -1,4 +1,4 @@
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Any
 from pathlib import Path
 
 from crudadmin import CRUDAdmin
@@ -43,13 +43,44 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
 
     if settings.CRUD_ADMIN_REDIS_ENABLED:
         session_backend = "redis"
-        redis_config = {
-            "host": settings.CRUD_ADMIN_REDIS_HOST,
-            "port": settings.CRUD_ADMIN_REDIS_PORT,
-            "db": settings.CRUD_ADMIN_REDIS_DB,
-            "password": settings.CRUD_ADMIN_REDIS_PASSWORD if settings.CRUD_ADMIN_REDIS_PASSWORD != "None" else None,
-            "ssl": settings.CRUD_ADMIN_REDIS_SSL,
-        }
+        redis_config = {}
+
+        redis_url = settings.CRUD_ADMIN_REDIS_URL
+        raw_password = settings.CRUD_ADMIN_REDIS_PASSWORD
+        password_clean: str | None
+        if isinstance(raw_password, str):
+            password_clean = raw_password.strip()
+            if not password_clean or password_clean.lower() == "none":
+                password_clean = None
+        else:
+            password_clean = str(raw_password) if raw_password else None
+
+        if isinstance(redis_url, str) and redis_url.strip() and redis_url.lower() != "none":
+            redis_config["url"] = redis_url.strip()
+        else:
+            redis_config.update(
+                {
+                    "host": settings.CRUD_ADMIN_REDIS_HOST,
+                    "port": settings.CRUD_ADMIN_REDIS_PORT,
+                    "db": settings.CRUD_ADMIN_REDIS_DB,
+                }
+            )
+            if password_clean is not None:
+                redis_config["password"] = password_clean
+
+        if settings.CRUD_ADMIN_REDIS_SSL:
+            if "url" in redis_config:
+                redis_config["url"] = redis_config["url"].replace("redis://", "rediss://", 1)
+            else:
+                from urllib.parse import quote
+
+                password = password_clean or ""
+                auth_segment = f"default:{quote(password)}@" if password else ""
+                redis_config["url"] = (
+                    f"rediss://{auth_segment}"
+                    f"{settings.CRUD_ADMIN_REDIS_HOST}:{settings.CRUD_ADMIN_REDIS_PORT}/"
+                    f"{settings.CRUD_ADMIN_REDIS_DB}"
+                )
 
     # Only set initial_admin if explicitly provided via env vars (not defaults)
     # This prevents CRUDAdmin from trying to seed admin on every request
