@@ -11,10 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...dependencies import get_current_user
-from ...core.db.database import async_get_db
-from ...core.exceptions.http_exceptions import ForbiddenException
-from ...schemas.notification_schemas import AdminPushNotificationRequest
-from ...services.push_service import FirebaseNotInitializedError, PushSendResult, send_push_notification
+from ....core.db.database import async_get_db
+from ....core.exceptions.http_exceptions import ForbiddenException
+from ....schemas.notification_schemas import AdminPushNotificationRequest
+from ....services.push_service import FirebaseNotInitializedError, PushSendResult, send_push_notification
 
 logger = logging.getLogger(__name__)
 
