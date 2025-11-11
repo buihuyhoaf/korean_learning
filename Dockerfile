@@ -28,6 +28,7 @@ FROM python:3.11-slim
 
 # Update package lists and install basic dependencies
 RUN apt-get update && apt-get install -y \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
@@ -36,6 +37,9 @@ RUN groupadd --gid 1000 app \
 
 # Copy the virtual environment from the builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
+
+# Ensure runtime dependencies are present even if optional extras were skipped
+RUN /app/.venv/bin/pip install --no-cache-dir "tflite-runtime==2.16.1"
 
 # Copy source code from builder stage
 COPY --from=builder --chown=app:app /app/src /code/src
