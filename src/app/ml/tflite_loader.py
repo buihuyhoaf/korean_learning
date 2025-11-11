@@ -69,7 +69,7 @@ def load_tflite_model(model_path: Optional[str] = None, allow_mock: bool = True)
     
     # Get model path from env var or use default
     if model_path is None:
-        from ...core.config import settings
+        from ..core.config import settings
         model_path = settings.STROKE_MODEL_PATH
         
         if model_path is None:

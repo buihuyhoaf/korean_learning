@@ -1,5 +1,6 @@
 from typing import Optional, Annotated, Any
 from pathlib import Path
+from urllib.parse import quote, urlparse, urlunparse
 
 from crudadmin import CRUDAdmin
 from crudadmin.core.db import get_default_db_path
@@ -69,11 +70,51 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 redis_config["password"] = password_clean
 
         if settings.CRUD_ADMIN_REDIS_SSL:
-            if "url" in redis_config:
-                redis_config["url"] = redis_config["url"].replace("redis://", "rediss://", 1)
-            else:
-                from urllib.parse import quote
+            # Ensure TLS flags are respected even when the upstream client ignores the URL scheme
+            redis_config.setdefault("ssl", True)
+            # Upstash instances may use self-signed certificates; skipping cert validation mirrors redis-cli --tls defaults
+            redis_config.setdefault("ssl_cert_reqs", None)
 
+            if "url" in redis_config:
+                parsed = urlparse(redis_config["url"])
+
+                scheme = "rediss"
+                hostname = parsed.hostname or settings.CRUD_ADMIN_REDIS_HOST
+                port = parsed.port or settings.CRUD_ADMIN_REDIS_PORT
+                path = parsed.path or f"/{settings.CRUD_ADMIN_REDIS_DB}"
+
+                username = parsed.username or ("default" if password_clean else None)
+                password_in_url = parsed.password or password_clean
+
+                if password_in_url:
+                    password_in_url = quote(password_in_url)
+
+                netloc_parts: list[str] = []
+                if username:
+                    creds = username
+                    if password_in_url is not None:
+                        creds = f"{creds}:{password_in_url}"
+                    netloc_parts.append(f"{creds}@")
+                elif password_in_url is not None:
+                    netloc_parts.append(f":{password_in_url}@")
+
+                if hostname:
+                    netloc_parts.append(hostname)
+
+                if port:
+                    netloc_parts.append(f":{port}")
+
+                redis_config["url"] = urlunparse(
+                    (
+                        scheme,
+                        "".join(netloc_parts),
+                        path if path else f"/{settings.CRUD_ADMIN_REDIS_DB}",
+                        "",
+                        "",
+                        "",
+                    )
+                )
+            else:
                 password = password_clean or ""
                 auth_segment = f"default:{quote(password)}@" if password else ""
                 redis_config["url"] = (
