@@ -7,22 +7,28 @@ extend it with additional CRUD and reporting handlers.
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...api.dependencies import get_current_user
+from ...api.dependencies import get_current_admin_or_teacher, get_current_user
 from ...core.db.database import async_get_db
 from ...crud.writing import WritingSubmissionCRUD
 from ...models.writing_submission import WritingSubmissionStatus
 from ...schemas.writing import (
     TeacherGradeSchema,
     TeacherGradeResponseSchema,
+    WritingLessonResultItem,
+    WritingLessonResultsResponse,
+    WritingSubmissionMode,
 )
 
 router = APIRouter(prefix="/writing", tags=["writing"])
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/grade/{submission_id}", response_model=TeacherGradeResponseSchema)
@@ -30,7 +36,7 @@ async def grade_writing_submission(
     submission_id: UUID,
     payload: TeacherGradeSchema,
     db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_user)],
+    current_user: Annotated[dict, Depends(get_current_admin_or_teacher)],
 ) -> TeacherGradeResponseSchema:
     """
     Record teacher grading results for a writing submission.
@@ -71,6 +77,9 @@ async def grade_writing_submission(
         # Safety net: record could have been deleted concurrently.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found.")
 
+    await db.commit()
+    await db.refresh(updated_submission)
+
     # TODO(Phase 6): Call notification service (FCM + persist notification record).
 
     return TeacherGradeResponseSchema(
@@ -78,5 +87,59 @@ async def grade_writing_submission(
         feedback=payload.feedback,
         status=updated_submission.status,
     )
+
+
+@router.get("/results/{lesson_id}", response_model=WritingLessonResultsResponse)
+async def list_writing_results(
+    lesson_id: UUID,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> WritingLessonResultsResponse:
+    """Return all writing submissions for the current user within a lesson."""
+
+    user_id = UUID(str(current_user["id"]))
+    submissions = await WritingSubmissionCRUD.list_for_lesson(
+        db=db,
+        user_id=user_id,
+        lesson_id=lesson_id,
+    )
+
+    items = [
+        WritingLessonResultItem(
+            submission_id=submission.id,
+            exercise_id=submission.exercise_id,
+            mode=_infer_submission_mode(submission),
+            status=submission.status,
+            ai_score=submission.ai_score,
+            ai_feedback=submission.ai_feedback,
+            teacher_spelling_score=submission.teacher_spelling_score,
+            teacher_grammar_score=submission.teacher_grammar_score,
+            teacher_structure_score=submission.teacher_structure_score,
+            teacher_vocabulary_score=submission.teacher_vocabulary_score,
+            teacher_feedback=submission.teacher_feedback,
+            final_score=submission.final_score,
+            submitted_at=submission.created_at,
+            updated_at=submission.updated_at,
+        )
+        for submission in submissions
+    ]
+
+    return WritingLessonResultsResponse(
+        lesson_id=lesson_id,
+        submissions=items,
+    )
+
+
+def _infer_submission_mode(submission) -> WritingSubmissionMode:
+    """Best-effort classification of submission mode."""
+
+    if submission.final_score is not None or submission.status == WritingSubmissionStatus.TEACHER_GRADED:
+        return WritingSubmissionMode.TEACHER
+
+    if submission.status == WritingSubmissionStatus.AI_GRADED or submission.ai_score is not None:
+        return WritingSubmissionMode.AI
+
+    # Default to teacher when waiting for manual grading.
+    return WritingSubmissionMode.TEACHER
 
 

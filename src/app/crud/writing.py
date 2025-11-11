@@ -13,6 +13,7 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..models.exercise import Exercise
 from ..models.writing_submission import WritingSubmission, WritingSubmissionStatus
 
 
@@ -74,8 +75,10 @@ class WritingSubmissionCRUD:
         if not submission:
             return None
 
-        submission.ai_score = score
-        submission.ai_feedback = feedback
+        if score is not None:
+            submission.ai_score = score
+        if feedback is not None:
+            submission.ai_feedback = feedback
         submission.status = status
         await db.flush()
         return submission
@@ -147,6 +150,27 @@ class WritingSubmissionCRUD:
         if exercise_id is not None:
             query = query.where(WritingSubmission.exercise_id == exercise_id)
 
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    @staticmethod
+    async def list_for_lesson(
+        db: AsyncSession,
+        *,
+        user_id: uuid.UUID,
+        lesson_id: uuid.UUID,
+    ) -> Sequence[WritingSubmission]:
+        """Fetch all submissions for a lesson belonging to a user."""
+
+        query = (
+            select(WritingSubmission)
+            .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
+            .where(
+                WritingSubmission.user_id == user_id,
+                Exercise.lesson_id == lesson_id,
+            )
+            .order_by(WritingSubmission.created_at.desc())
+        )
         result = await db.execute(query)
         return result.scalars().all()
 

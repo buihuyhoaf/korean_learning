@@ -25,6 +25,10 @@ from ...schemas.writing import (
 )
 from ...services.writing_ai import evaluate_writing_with_ai
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 
 
@@ -286,25 +290,44 @@ async def submit_exercise(
 
         ai_result_payload: dict | None = None
         if submission_payload.mode is WritingSubmissionMode.AI:
-            # TODO(Phase 2): replace stub with real LanguageTool integration.
             ai_evaluation = await evaluate_writing_with_ai(submission_payload.text)
-            updated_submission = await WritingSubmissionCRUD.update_ai_result(
-                db=db,
-                submission_id=submission.id,
-                score=ai_evaluation.score,
-                feedback=ai_evaluation.feedback,
-                status=WritingSubmissionStatus.AI_GRADED,
-            )
-            if updated_submission is not None:
-                submission = updated_submission
+            if ai_evaluation.score is not None:
+                updated_submission = await WritingSubmissionCRUD.update_ai_result(
+                    db=db,
+                    submission_id=submission.id,
+                    score=ai_evaluation.score,
+                    feedback=ai_evaluation.feedback,
+                    status=WritingSubmissionStatus.AI_GRADED,
+                )
+                if updated_submission is not None:
+                    submission = updated_submission
 
-            ai_result_payload = {
-                "score": ai_evaluation.score,
-                "feedback": ai_evaluation.feedback,
-            }
-            submission_result["status"] = WritingSubmissionStatus.AI_GRADED.value
-            submission_result["feedback"] = ai_evaluation.feedback
-            submission_result["message"] = "AI grading completed."
+                ai_result_payload = {
+                    "score": ai_evaluation.score,
+                    "spelling_score": ai_evaluation.spelling_score,
+                    "grammar_score": ai_evaluation.grammar_score,
+                    "feedback": ai_evaluation.feedback,
+                    "corrected_text": ai_evaluation.corrected_text,
+                }
+                submission_result["status"] = WritingSubmissionStatus.AI_GRADED.value
+                submission_result["feedback"] = ai_evaluation.feedback
+                submission_result["message"] = "AI grading completed."
+            else:
+                # AI service failed; keep submission in submitted state.
+                await WritingSubmissionCRUD.update_ai_result(
+                    db=db,
+                    submission_id=submission.id,
+                    score=None,
+                    feedback=ai_evaluation.feedback,
+                    status=WritingSubmissionStatus.SUBMITTED,
+                )
+                logger.warning(
+                    "AI grading failed for submission %s; returning fallback feedback.",
+                    submission.id,
+                )
+                submission_result["status"] = WritingSubmissionStatus.SUBMITTED.value
+                submission_result["feedback"] = ai_evaluation.feedback
+                submission_result["message"] = "Không thể chấm tự động. Vui lòng thử lại sau."
         else:
             submission_result["status"] = WritingSubmissionStatus.SUBMITTED.value
             submission_result["feedback"] = "Bài đã gửi giáo viên chấm."

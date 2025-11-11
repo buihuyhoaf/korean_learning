@@ -73,10 +73,10 @@ class WritingSubmissionResponse(BaseModel):
 class TeacherGradeSchema(BaseModel):
     """Payload submitted by teachers when grading a writing submission."""
 
-    spelling_score: float = Field(..., ge=0.0, description="Spelling rubric score.")
-    grammar_score: float = Field(..., ge=0.0, description="Grammar rubric score.")
-    structure_score: float = Field(..., ge=0.0, description="Sentence structure rubric score.")
-    vocabulary_score: float = Field(..., ge=0.0, description="Vocabulary rubric score.")
+    spelling_score: float = Field(..., ge=0.0, le=10.0, description="Spelling rubric score (0-10).")
+    grammar_score: float = Field(..., ge=0.0, le=10.0, description="Grammar rubric score (0-10).")
+    structure_score: float = Field(..., ge=0.0, le=10.0, description="Sentence structure rubric score (0-10).")
+    vocabulary_score: float = Field(..., ge=0.0, le=10.0, description="Vocabulary rubric score (0-10).")
     feedback: str = Field(..., min_length=1, description="Teacher feedback for the learner.")
 
 
@@ -86,5 +86,31 @@ class TeacherGradeResponseSchema(BaseModel):
     final_score: float
     feedback: str
     status: WritingSubmissionStatus
+
+
+class WritingLessonResultItem(BaseModel):
+    """Single submission entry in lesson-level results."""
+
+    submission_id: uuid.UUID
+    exercise_id: uuid.UUID
+    mode: WritingSubmissionMode
+    status: WritingSubmissionStatus
+    ai_score: float | None = None
+    ai_feedback: str | None = None
+    teacher_spelling_score: float | None = None
+    teacher_grammar_score: float | None = None
+    teacher_structure_score: float | None = None
+    teacher_vocabulary_score: float | None = None
+    teacher_feedback: str | None = None
+    final_score: float | None = None
+    submitted_at: datetime
+    updated_at: datetime
+
+
+class WritingLessonResultsResponse(BaseModel):
+    """Aggregated writing submissions for a lesson."""
+
+    lesson_id: uuid.UUID
+    submissions: list[WritingLessonResultItem] = Field(default_factory=list)
 
 
