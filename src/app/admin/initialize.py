@@ -70,11 +70,6 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 redis_config["password"] = password_clean
 
         if settings.CRUD_ADMIN_REDIS_SSL:
-            # Ensure TLS flags are respected even when the upstream client ignores the URL scheme
-            redis_config.setdefault("ssl", True)
-            # Upstash instances may use self-signed certificates; skipping cert validation mirrors redis-cli --tls defaults
-            redis_config.setdefault("ssl_cert_reqs", None)
-
             if "url" in redis_config:
                 parsed = urlparse(redis_config["url"])
 
