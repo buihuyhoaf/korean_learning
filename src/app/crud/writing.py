@@ -81,6 +81,43 @@ class WritingSubmissionCRUD:
         return submission
 
     @staticmethod
+    async def update_teacher_result(
+        db: AsyncSession,
+        *,
+        submission_id: uuid.UUID,
+        spelling_score: float,
+        grammar_score: float,
+        structure_score: float,
+        vocabulary_score: float,
+        feedback: str,
+        final_score: float,
+        status: WritingSubmissionStatus = WritingSubmissionStatus.TEACHER_GRADED,
+    ) -> WritingSubmission | None:
+        """
+        Persist teacher-provided evaluation metrics.
+
+        Intended to be called from the admin grading endpoint once a teacher
+        submits the rubric. Returns the updated submission or ``None`` if the
+        record cannot be found.
+        """
+
+        query = select(WritingSubmission).where(WritingSubmission.id == submission_id)
+        result = await db.execute(query)
+        submission = result.scalar_one_or_none()
+        if not submission:
+            return None
+
+        submission.teacher_spelling_score = spelling_score
+        submission.teacher_grammar_score = grammar_score
+        submission.teacher_structure_score = structure_score
+        submission.teacher_vocabulary_score = vocabulary_score
+        submission.teacher_feedback = feedback
+        submission.final_score = final_score
+        submission.status = status
+        await db.flush()
+        return submission
+
+    @staticmethod
     async def get_submission(
         db: AsyncSession,
         submission_id: uuid.UUID,

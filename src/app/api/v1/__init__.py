@@ -26,6 +26,7 @@ from .grade import router as grade_router
 from .pronunciation import router as pronunciation_router
 from .routes.notification import router as notification_router
 from .push_tokens import router as push_tokens_router
+from .writing import router as writing_router
 
 router = APIRouter(prefix="/v1")
 
@@ -53,3 +54,4 @@ router.include_router(grade_router)
 router.include_router(pronunciation_router)
 router.include_router(push_tokens_router)
 router.include_router(notification_router)
+router.include_router(writing_router)

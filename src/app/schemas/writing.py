@@ -60,7 +60,31 @@ class WritingSubmissionResponse(BaseModel):
     status: WritingSubmissionStatus
     ai_score: float | None = None
     ai_feedback: str | None = None
+    teacher_spelling_score: float | None = None
+    teacher_grammar_score: float | None = None
+    teacher_structure_score: float | None = None
+    teacher_vocabulary_score: float | None = None
+    teacher_feedback: str | None = None
+    final_score: float | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TeacherGradeSchema(BaseModel):
+    """Payload submitted by teachers when grading a writing submission."""
+
+    spelling_score: float = Field(..., ge=0.0, description="Spelling rubric score.")
+    grammar_score: float = Field(..., ge=0.0, description="Grammar rubric score.")
+    structure_score: float = Field(..., ge=0.0, description="Sentence structure rubric score.")
+    vocabulary_score: float = Field(..., ge=0.0, description="Vocabulary rubric score.")
+    feedback: str = Field(..., min_length=1, description="Teacher feedback for the learner.")
+
+
+class TeacherGradeResponseSchema(BaseModel):
+    """Response returned to admin clients after grading."""
+
+    final_score: float
+    feedback: str
+    status: WritingSubmissionStatus
 
 

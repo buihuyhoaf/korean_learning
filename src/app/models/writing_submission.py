@@ -68,6 +68,12 @@ class WritingSubmission(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     ai_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     ai_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    teacher_spelling_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    teacher_grammar_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    teacher_structure_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    teacher_vocabulary_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    teacher_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    final_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[WritingSubmissionStatus] = mapped_column(
         SqlEnum(WritingSubmissionStatus, name="writing_submission_status"),
         nullable=False,

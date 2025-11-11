@@ -411,6 +411,28 @@ def register_admin_views(admin: CRUDAdmin) -> None:
     )
 
     # ============================================================================
+    # Writing Evaluation (Teacher Grading) - Skeleton
+    # ============================================================================
+    #
+    # Future admin screen should:
+    #   * Fetch `WritingSubmission` rows where status in {"submitted", "ai_graded"}.
+    #   * Render a grading form with fields from `TeacherGradeSchema`.
+    #   * Submit the form to POST /api/v1/writing/grade/{submission_id}.
+    #   * Refresh the list when status transitions to `teacher_graded`.
+    #
+    # Compose / React admin clients can hook into this router by building a custom
+    # page; CRUDAdmin view registration is omitted intentionally until design is ready.
+    #
+    # Example (pseudocode):
+    #
+    # admin.add_custom_view(
+    #     name="Writing Submissions",
+    #     path="/writing-submissions",
+    #     template="writing_submissions.html",
+    # )
+    #
+
+    # ============================================================================
     # Social Features (View-only)
     # ============================================================================
     
