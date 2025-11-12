@@ -202,10 +202,30 @@ def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
     # Get output
     output_index = _output_details[0]['index']
     predictions = interpreter.get_tensor(output_index)
+    predictions = np.asarray(predictions)
+    if predictions.ndim == 0:
+        predictions = predictions.reshape(1)
+    if predictions.ndim == 1:
+        predictions = np.expand_dims(predictions, axis=0)
     
     # Get top prediction
     predicted_idx = int(np.argmax(predictions[0]))
-    confidence = float(predictions[0][predicted_idx])
+    raw_confidence = float(predictions[0][predicted_idx])
+    if predictions.shape[1] > 1:
+        confidences = predictions[0]
+        min_val = float(np.min(confidences))
+        max_val = float(np.max(confidences))
+        if max_val > min_val:
+            confidence = (raw_confidence - min_val) / (max_val - min_val)
+        else:
+            confidence = 1.0
+    else:
+        confidence = raw_confidence
+
+    # Clamp to [0, 1] to avoid validation errors
+    if np.isnan(confidence) or np.isinf(confidence):
+        confidence = 0.0
+    confidence = float(max(0.0, min(1.0, confidence)))
     
     # Map to Hangul character
     if predicted_idx < len(HANGUL_CHARS):
