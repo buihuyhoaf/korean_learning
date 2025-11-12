@@ -26,7 +26,6 @@ exec gunicorn src.app.main:app \
   -w "${WORKERS}" \
   -k uvicorn.workers.UvicornWorker \
   --forwarded-allow-ips="*" \
-  --proxy-headers \
   -b "0.0.0.0:${PORT:-8000}"
 
 
