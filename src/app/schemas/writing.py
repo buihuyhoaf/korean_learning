@@ -93,6 +93,7 @@ class WritingLessonResultItem(BaseModel):
 
     submission_id: uuid.UUID
     exercise_id: uuid.UUID
+    text: str
     mode: WritingSubmissionMode
     status: WritingSubmissionStatus
     ai_score: float | None = None

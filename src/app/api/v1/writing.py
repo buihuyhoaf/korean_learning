@@ -244,6 +244,7 @@ async def list_writing_results(
         WritingLessonResultItem(
             submission_id=submission.id,
             exercise_id=submission.exercise_id,
+            text=submission.text,
             mode=_infer_submission_mode(submission),
             status=submission.status,
             ai_score=submission.ai_score,

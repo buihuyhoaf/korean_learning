@@ -437,23 +437,3 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         )
 
     return admin
-
-                final_parsed = urlparse(redis_tls_url)
-                redis_config["host"] = final_parsed.hostname or settings.CRUD_ADMIN_REDIS_HOST
-                redis_config["port"] = final_parsed.port or tls_port
-                if final_parsed.path and final_parsed.path != "/":
-                    try:
-                        redis_config["db"] = int(final_parsed.path.lstrip("/"))
-                    except ValueError:
-                        redis_config["db"] = settings.CRUD_ADMIN_REDIS_DB
-                else:
-                    redis_config["db"] = settings.CRUD_ADMIN_REDIS_DB
-
-                final_username = final_parsed.username or ("default" if (final_parsed.password or password_clean) else None)
-                final_password = final_parsed.password or password_clean
-
-                if final_username:
-                    redis_config["username"] = final_username
-                if final_password:
-                    redis_config["password"] = final_password
-                redis_tls_url = redis_config["url"]
