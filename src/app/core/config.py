@@ -253,6 +253,7 @@ class SupabaseSettings(BaseSettings):
 
 class MLModelSettings(BaseSettings):
     STROKE_MODEL_PATH: str | None = config("STROKE_MODEL_PATH", default=None)
+    STROKE_LABEL_PATH: str | None = config("STROKE_LABEL_PATH", default=None)
     PRONUNCIATION_SCORE_THRESHOLD: float = config("PRONUNCIATION_SCORE_THRESHOLD", default=0.6)
 
 

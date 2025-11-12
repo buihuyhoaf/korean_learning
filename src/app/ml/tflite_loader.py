@@ -22,9 +22,12 @@ _loading = False
 _load_lock = Lock()  # Thread-safe lock for model loading
 _input_details = None
 _output_details = None
+_labels_path: Optional[str] = None
+_labels_loaded = False
+_labels_lock = Lock()
 
-# Hangul character labels (should match model training)
-HANGUL_CHARS = [
+# Hangul character labels (default fallback, should match model training)
+_DEFAULT_HANGUL_CHARS = [
     "가", "나", "다", "라", "마", "바", "사", "아", "자", "차",
     "카", "타", "파", "하", "거", "너", "더", "러", "머", "버",
     "서", "어", "저", "처", "커", "터", "퍼", "허", "고", "노",
@@ -37,6 +40,7 @@ HANGUL_CHARS = [
     "ㅜ", "ㅠ", "ㅡ", "ㅣ", "ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ",
     "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
 ]
+HANGUL_CHARS = _DEFAULT_HANGUL_CHARS.copy()
 
 
 def load_tflite_model(model_path: Optional[str] = None, allow_mock: bool = True):
@@ -131,6 +135,8 @@ def load_tflite_model(model_path: Optional[str] = None, allow_mock: bool = True)
                 logger.info(f"TFLite model loaded successfully")
                 logger.info(f"Input shape: {_input_details[0]['shape']}")
                 logger.info(f"Output shape: {_output_details[0]['shape']}")
+
+                _ensure_labels_loaded()
                 
                 _loaded_interpreter = interpreter
                 _model_path = model_path
@@ -213,12 +219,102 @@ def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
 
 def clear_cache():
     """Clear the TFLite model cache (useful for testing or reloading). Thread-safe."""
-    global _loaded_interpreter, _model_path, _loading, _input_details, _output_details
+    global (
+        _loaded_interpreter,
+        _model_path,
+        _loading,
+        _input_details,
+        _output_details,
+        _labels_loaded,
+        _labels_path,
+    )
     with _load_lock:
         _loaded_interpreter = None
         _model_path = None
         _loading = False
         _input_details = None
         _output_details = None
+    with _labels_lock:
+        _labels_loaded = False
+        _labels_path = None
+        HANGUL_CHARS[:] = _DEFAULT_HANGUL_CHARS
     logger.info("TFLite model cache cleared")
+
+
+def _ensure_labels_loaded(label_path: Optional[str] = None):
+    """
+    Ensure stroke labels are loaded from file if provided; fall back to defaults.
+    Thread-safe with its own lock.
+    """
+    global HANGUL_CHARS, _labels_loaded, _labels_path
+
+    if _labels_loaded and (label_path is None or _labels_path == label_path):
+        return
+
+    with _labels_lock:
+        if _labels_loaded and (label_path is None or _labels_path == label_path):
+            return
+
+        from ..core.config import settings
+
+        resolved_path: Optional[str] = label_path or settings.STROKE_LABEL_PATH
+        if resolved_path is None:
+            default_path = Path(__file__).parent.parent / "models" / "hangul_labels.txt"
+            resolved_path = str(default_path)
+
+        if not resolved_path:
+            logger.debug("No stroke label path configured; using default labels.")
+            HANGUL_CHARS[:] = _DEFAULT_HANGUL_CHARS
+            _labels_path = None
+            _labels_loaded = True
+            return
+
+        try:
+            label_file = Path(resolved_path)
+            if not label_file.exists():
+                logger.warning(
+                    "Stroke label file not found at %s. Using default labels.", resolved_path
+                )
+                HANGUL_CHARS[:] = _DEFAULT_HANGUL_CHARS
+                _labels_path = None
+                _labels_loaded = True
+                return
+
+            content = label_file.read_text(encoding="utf-8")
+            if not content.strip():
+                raise ValueError("Label file is empty")
+
+            lines = [line.strip() for line in content.replace("\r", "").splitlines() if line.strip()]
+            if len(lines) == 1 and "," in lines[0]:
+                labels = [item.strip() for item in lines[0].split(",") if item.strip()]
+            else:
+                labels = lines
+
+            if not labels:
+                raise ValueError("No labels parsed from file")
+
+            HANGUL_CHARS[:] = labels
+            _labels_path = resolved_path
+            _labels_loaded = True
+            logger.info(
+                "Loaded %d stroke labels from %s.", len(labels), resolved_path
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to load stroke labels from %s: %s. Using default labels.",
+                resolved_path,
+                exc,
+            )
+            HANGUL_CHARS[:] = _DEFAULT_HANGUL_CHARS
+            _labels_path = None
+            _labels_loaded = True
+
+
+def load_labels(label_path: Optional[str] = None) -> list[str]:
+    """
+    Public helper to ensure stroke labels are loaded from disk.
+    Returns the current label list.
+    """
+    _ensure_labels_loaded(label_path)
+    return HANGUL_CHARS
 

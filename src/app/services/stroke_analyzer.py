@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Optional, Tuple, List
 from threading import Lock
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 from PIL import Image, ImageDraw
 import io
 import base64
@@ -40,6 +40,8 @@ class StrokeAnalyzer:
         self.model_loaded = False
         self.inference_times = []
         self._use_mock = False
+        self.image_size: Tuple[int, int] = (28, 28)  # (width, height)
+        self.input_channels: int = 1
     
     def load_model(self, model_path: Optional[str] = None):
         """
@@ -62,6 +64,24 @@ class StrokeAnalyzer:
                 self._use_mock = False
                 self.model_loaded = True
                 logger.info("TFLite model loaded successfully")
+                try:
+                    input_details = self.interpreter.get_input_details()
+                    if input_details:
+                        shape = input_details[0].get("shape")
+                        if shape is not None and len(shape) >= 3:
+                            height = int(shape[1]) if int(shape[1]) > 0 else self.image_size[1]
+                            width = int(shape[2]) if int(shape[2]) > 0 else self.image_size[0]
+                            self.image_size = (width, height)
+                        if shape is not None and len(shape) >= 4 and int(shape[3]) > 0:
+                            self.input_channels = int(shape[3])
+                    logger.info(
+                        "Configured stroke analyzer input: %sx%s (channels=%s)",
+                        self.image_size[0],
+                        self.image_size[1],
+                        self.input_channels,
+                    )
+                except Exception as shape_error:
+                    logger.warning("Could not determine TFLite input shape: %s", shape_error)
                 
         except Exception as e:
             logger.error(f"Failed to load TFLite model: {e}")
@@ -72,7 +92,7 @@ class StrokeAnalyzer:
     def preprocess_points(
         self,
         points: List[List[float]],
-        image_size: Tuple[int, int] = (28, 28)
+        image_size: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         """
         Preprocess stroke points into normalized image
@@ -84,8 +104,11 @@ class StrokeAnalyzer:
         Returns:
             Normalized grayscale image as numpy array (28, 28, 1)
         """
+        size = image_size or self.image_size
+        width, height = size
+
         if not points or len(points) < 2:
-            return np.zeros((*image_size, 1), dtype=np.float32)
+            return np.zeros((height, width, self.input_channels), dtype=np.float32)
         
         # Convert to numpy array
         points_array = np.array(points, dtype=np.float32)
@@ -107,14 +130,14 @@ class StrokeAnalyzer:
         ])
         
         # Create image
-        img = Image.new('L', image_size, 0)  # Black background
+        img = Image.new('L', size, 0)  # Black background
         draw = ImageDraw.Draw(img)
         
         # Scale to image size
         scaled_points = [
             (
-                int(p[0] * image_size[0]),
-                int(p[1] * image_size[1])
+                min(max(int(p[0] * width), 0), width - 1),
+                min(max(int(p[1] * height), 0), height - 1),
             )
             for p in normalized_points
         ]
@@ -130,8 +153,12 @@ class StrokeAnalyzer:
         # Convert to numpy array and normalize to [0, 1]
         img_array = np.array(img, dtype=np.float32) / 255.0
         
-        # Reshape for model input (28, 28, 1)
-        return img_array.reshape(*image_size, 1)
+        if self.input_channels > 1:
+            img_array = np.stack([img_array] * self.input_channels, axis=-1)
+        else:
+            img_array = img_array.reshape(height, width, 1)
+        
+        return img_array.astype(np.float32)
     
     def preprocess_image_base64(self, image_base64: str) -> np.ndarray:
         """
@@ -152,17 +179,29 @@ class StrokeAnalyzer:
             if img.mode != 'L':
                 img = img.convert('L')
             
-            # Resize to 28x28
-            img = img.resize((28, 28), Image.Resampling.LANCZOS)
+            # Resize to expected input size
+            img = img.resize(self.image_size, Image.Resampling.LANCZOS)
             
             # Convert to numpy array and normalize
             img_array = np.array(img, dtype=np.float32) / 255.0
             
-            # Reshape for model input
-            return img_array.reshape(28, 28, 1)
+            if self.input_channels > 1:
+                if img_array.ndim == 2:
+                    img_array = np.stack([img_array] * self.input_channels, axis=-1)
+                elif img_array.shape[-1] != self.input_channels:
+                    img_array = np.repeat(img_array[..., :1], self.input_channels, axis=-1)
+            else:
+                if img_array.ndim == 2:
+                    img_array = img_array.reshape(self.image_size[1], self.image_size[0], 1)
+                else:
+                    img_array = img_array[..., :1]
+            
+            return img_array.astype(np.float32)
         except Exception as e:
             logger.error(f"Error preprocessing base64 image: {e}")
-            return np.zeros((28, 28, 1), dtype=np.float32)
+            height = self.image_size[1]
+            width = self.image_size[0]
+            return np.zeros((height, width, self.input_channels), dtype=np.float32)
     
     def predict(self, input_data: np.ndarray) -> Tuple[str, float]:
         """
