@@ -39,11 +39,6 @@ class StrokeResult(BaseModel):
     """Output schema for stroke analysis"""
 
     predicted_char: str = Field(description="Predicted Hangul syllable")
-    predicted_choseong: str = Field(description="Leading consonant (초성)")
-    predicted_jungseong: str = Field(description="Vowel (중성)")
-    predicted_jongseong: str = Field(description="Trailing consonant (종성), empty if none")
-    matches_target: bool = Field(description="Whether the relevant jamo matches the target")
-    target_category: str = Field(description="Type of target comparison")
     confidence: float = Field(
         ge=0.0,
         le=1.0,
@@ -59,17 +54,17 @@ class StrokeResult(BaseModel):
         json_schema_extra = {
             "example": {
                 "predicted_char": "헹",
-                "predicted_choseong": "ㅎ",
-                "predicted_jungseong": "ㅐ",
-                "predicted_jongseong": "ㅇ",
-                "matches_target": False,
-                "target_category": "jungseong",
                 "confidence": 0.12,
-                "message": "Predicted syllable 헹 (ㅎㅐㅇ). Target was ㅏ. Let's try that again!",
+                "message": "Predicted syllable 헹. Hãy tô nét rõ hơn để tăng độ tin cậy.",
                 "top_predictions": [
                     {"index": 1234, "char": "헹", "confidence": 0.12},
                     {"index": 432, "char": "행", "confidence": 0.08}
                 ]
             }
         }
+
+
+class StrokeResponse(BaseModel):
+    result: StrokeResult
+    inference_time_ms: float
 

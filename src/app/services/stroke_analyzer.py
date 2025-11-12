@@ -13,7 +13,7 @@ import numpy as np  # type: ignore[import-not-found]
 from PIL import Image, ImageDraw
 
 from ..ml.tflite_loader import predict_top_k
-from ..utils.hangul import HangulSplit, classify_target_char, split_hangul
+from ..utils.hangul import split_hangul
 
 logger = logging.getLogger(__name__)
 
@@ -227,111 +227,50 @@ class StrokeAnalyzer:
         else:
             return {
                 "predicted_char": "?",
-                "predicted_choseong": "",
-                "predicted_jungseong": "",
-                "predicted_jongseong": "",
-                "matches_target": False,
-                "target_category": "unknown",
                 "confidence": 0.0,
                 "message": "No input data provided",
                 "top_predictions": [],
             }
 
-        return self.predict_and_describe(input_data, target_char)
+        return self.predict_and_describe(input_data)
 
     def predict_and_describe(
         self,
         input_data: np.ndarray,
-        target_char: Optional[str],
     ) -> dict[str, object]:
         predicted_char, confidence, top_predictions = self.predict(input_data)
         split = split_hangul(predicted_char)
-        target_category = classify_target_char(target_char)
-        matches_target = self._evaluate_match(split, predicted_char, target_char, target_category)
         message = self._generate_message(
             predicted_char=predicted_char,
             confidence=confidence,
-            split=split,
-            matches=matches_target,
-            target_char=target_char,
-            target_category=target_category,
+            choseong=split.choseong,
+            jungseong=split.jungseong,
+            jongseong=split.jongseong,
         )
 
         return {
             "predicted_char": predicted_char,
-            "predicted_choseong": split.choseong,
-            "predicted_jungseong": split.jungseong,
-            "predicted_jongseong": split.jongseong,
-            "matches_target": matches_target,
-            "target_category": target_category,
             "confidence": confidence,
             "message": message,
             "top_predictions": top_predictions,
         }
 
-    def _evaluate_match(
-        self,
-        split: HangulSplit,
-        predicted_char: str,
-        target_char: Optional[str],
-        target_category: str,
-    ) -> bool:
-        if not target_char:
-            return False
-
-        if target_category == "syllable":
-            return predicted_char == target_char
-        if target_category == "choseong":
-            return split.choseong == target_char
-        if target_category == "jungseong":
-            return split.jungseong == target_char
-        if target_category == "jongseong":
-            return split.jongseong == target_char
-        return predicted_char == target_char
-
     def _generate_message(
         self,
         predicted_char: str,
         confidence: float,
-        split: HangulSplit,
-        matches: bool,
-        target_char: Optional[str],
-        target_category: str,
+        choseong: str,
+        jungseong: str,
+        jongseong: str,
     ) -> str:
-        if not target_char:
-            return self._message_without_target(confidence)
-
-        detail = self._match_detail(target_category, split)
-        if matches:
-            if confidence >= 0.9:
-                return f"Excellent! {detail} matches perfectly."
-            if confidence >= 0.75:
-                return f"Good job! {detail} looks correct."
-            return f"Correct {detail}, try refining the strokes for higher confidence."
-
-        syllable_breakdown = f"{split.choseong}{split.jungseong}{split.jongseong}".strip()
-        return (
-            f"Predicted syllable {predicted_char} ({syllable_breakdown}). "
-            f"Target was {target_char}. Let's try that again!"
-        )
-
-    def _match_detail(self, target_category: str, split: HangulSplit) -> str:
-        if target_category == "choseong":
-            return f"initial consonant {split.choseong or '∅'}"
-        if target_category == "jungseong":
-            return f"vowel {split.jungseong or '∅'}"
-        if target_category == "jongseong":
-            return f"final consonant {split.jongseong or '없음'}"
-        return f"syllable {split.choseong}{split.jungseong}{split.jongseong}".strip()
-
-    def _message_without_target(self, confidence: float) -> str:
+        syllable_breakdown = f"{choseong}{jungseong}{jongseong}".strip()
         if confidence >= 0.9:
-            return "High confidence prediction."
+            return f"Mô hình rất tự tin đây là {predicted_char} ({syllable_breakdown})."
         if confidence >= 0.75:
-            return "Good confidence prediction."
+            return f"Khá chắc chắn: {predicted_char}."
         if confidence >= 0.5:
-            return "Moderate confidence. Try drawing more clearly."
-        return "Low confidence. Please draw more clearly."
+            return f"Dự đoán {predicted_char}. Hãy tô nét rõ hơn để tăng độ tin cậy."
+        return "Độ tin cậy thấp, hãy thử lại với nét to và đều hơn."
 
 
 _stroke_analyzer: Optional[StrokeAnalyzer] = None
