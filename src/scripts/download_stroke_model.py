@@ -13,6 +13,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 
@@ -26,7 +27,25 @@ logging.basicConfig(
 def _resolve_target_path() -> Path:
     default_path = Path("/code/src/app/models/hangul_stroke_model.tflite")
     raw_path = os.getenv("STROKE_MODEL_PATH")
-    target = Path(raw_path) if raw_path else default_path
+
+    if not raw_path:
+        target = default_path
+    else:
+        parsed = urlparse(raw_path)
+        if parsed.scheme in {"http", "https"}:
+            logger.info(
+                "STROKE_MODEL_PATH is a URL; treating it as download source "
+                "and using default local path %s",
+                default_path,
+            )
+            if not os.getenv("STROKE_MODEL_URL"):
+                os.environ["STROKE_MODEL_URL"] = raw_path
+            target = default_path
+        else:
+            target = Path(raw_path)
+            if not target.is_absolute():
+                target = default_path.parent / target
+
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -119,7 +138,7 @@ def main() -> int:
     path = ensure_model()
     if path is None:
         logger.warning("TFLite model is not available after download attempt.")
-        return 0  # Do not block deployment; fallback logic will handle absence.
+        return 1  # Non-zero so deploy script can surface the warning.
     logger.info("TFLite model ensured at %s", path)
     return 0
 
