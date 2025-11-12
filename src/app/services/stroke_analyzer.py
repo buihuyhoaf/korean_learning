@@ -286,6 +286,10 @@ class StrokeAnalyzer:
         Returns:
             Tuple of (predicted_char, confidence, message)
         """
+        # Ensure model is loaded before preprocessing to know expected input shape
+        if not self.model_loaded and self.interpreter is None:
+            self.load_model()
+
         # Preprocess input
         if points:
             input_data = self.preprocess_points(points)
