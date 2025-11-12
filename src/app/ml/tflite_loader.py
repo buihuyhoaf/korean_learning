@@ -221,11 +221,15 @@ def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
     else:
         probabilities = exp_logits / sum_exp
 
-    confidence = float(probabilities[predicted_idx])
+    top_prob = float(probabilities[predicted_idx])
+    num_classes = float(probabilities.size)
+    baseline_prob = 1.0 / num_classes if num_classes > 0 else 0.0
+
+    confidence = (top_prob - baseline_prob) / max(1e-6, 1.0 - baseline_prob)
     if probabilities.size > 1:
         sorted_probs = np.sort(probabilities)[::-1]
         gap = float(sorted_probs[0] - sorted_probs[1])
-        confidence = float(max(confidence, gap))
+        confidence = max(confidence, gap)
 
     if np.isnan(confidence) or np.isinf(confidence):
         confidence = 0.0
