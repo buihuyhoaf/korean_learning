@@ -4,19 +4,6 @@ set -euo pipefail
 echo "[deploy] Running database migrations..."
 alembic upgrade head
 
-MODEL_DIR="/code/src/app/models"
-mkdir -p "${MODEL_DIR}"
-
-if [[ -n "${STROKE_MODEL_URL:-}" ]]; then
-  echo "[deploy] Downloading stroke model..."
-  curl -fSL "${STROKE_MODEL_URL}" -o "${MODEL_DIR}/hangul_stroke_model.tflite"
-fi
-
-if [[ -n "${STROKE_LABEL_URL:-}" ]]; then
-  echo "[deploy] Downloading stroke labels..."
-  curl -fSL "${STROKE_LABEL_URL}" -o "${MODEL_DIR}/2350-common-hangul.txt"
-fi
-
 if [[ -n "${FIREBASE_SERVICE_ACCOUNT_B64:-}" ]]; then
   FIREBASE_CREDENTIALS_PATH="/code/firebase-service-account.json"
   echo "[deploy] Writing Firebase service account to ${FIREBASE_CREDENTIALS_PATH}"

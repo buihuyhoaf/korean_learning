@@ -80,7 +80,37 @@ async def grade_writing_submission(
     await db.commit()
     await db.refresh(updated_submission)
 
-    # TODO(Phase 6): Call notification service (FCM + persist notification record).
+    # Send FCM notification and save notification record
+    try:
+        from ...services.writing_notifications import notify_writing_graded
+        from ...models.exercise import Exercise
+        from sqlalchemy import select
+        
+        # Get lesson_id from exercise
+        exercise_query = select(Exercise).where(Exercise.id == updated_submission.exercise_id)
+        exercise_result = await db.execute(exercise_query)
+        exercise = exercise_result.scalar_one_or_none()
+        
+        if exercise:
+            await notify_writing_graded(
+                db=db,
+                user_id=updated_submission.user_id,
+                submission_id=updated_submission.id,
+                lesson_id=exercise.lesson_id,
+                title="Bài viết đã được chấm",
+                body="Giáo viên đã chấm bài viết của bạn",
+            )
+            await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        # Log error but don't fail the grading request
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(
+            "Failed to send writing graded notification (submission_id=%s): %s",
+            updated_submission.id,
+            exc,
+            exc_info=True,
+        )
 
     return TeacherGradeResponseSchema(
         final_score=final_score,
