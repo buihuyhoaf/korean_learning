@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 import language_tool_python
+from language_tool_python import LanguageToolErrorException as LanguageToolError
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ async def evaluate_writing_with_ai(text: str) -> WritingAiEvaluationResult:
             grammar_score=grammar_score,
             corrected_text=corrected_text if corrected_text != text else None,
         )
-    except language_tool_python.LanguageToolError as exc:  # type: ignore[attr-defined]
+    except LanguageToolError as exc:
         logger.warning("LanguageTool evaluation failed: %s", exc)
         return WritingAiEvaluationResult(
             score=None,

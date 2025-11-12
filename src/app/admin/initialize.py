@@ -43,6 +43,8 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         return None
 
     session_backend = "memory"
+    redis_tls_url: str | None = None
+    redis_tls_verify = os.getenv("CRUD_ADMIN_REDIS_TLS_VERIFY", "true").lower() == "true"
     redis_config = None
 
     if settings.CRUD_ADMIN_REDIS_ENABLED:
@@ -134,6 +136,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                         "",
                     )
                 )
+                redis_tls_url = redis_config["url"]
             else:
                 password = password_clean or ""
                 auth_segment = f"default:{quote(password)}@" if password else ""
@@ -142,6 +145,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                     f"{settings.CRUD_ADMIN_REDIS_HOST}:{tls_port}/"
                     f"{settings.CRUD_ADMIN_REDIS_DB}"
                 )
+                redis_tls_url = redis_config["url"]
 
 
         if redis_config:
@@ -213,6 +217,47 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         track_sessions_in_db=settings.CRUD_ADMIN_TRACK_SESSIONS,
         initial_admin=initial_admin,
     )
+
+    # Ensure Redis TLS client uses proper SSL configuration when required
+    if settings.CRUD_ADMIN_REDIS_ENABLED and settings.CRUD_ADMIN_REDIS_SSL and redis_tls_url:
+        try:
+            from redis import asyncio as redis_asyncio
+            from redis.exceptions import RedisError
+
+            storage = admin.session_manager.storage
+            redis_storage = None
+            if hasattr(storage, "redis_storage"):
+                redis_storage = storage.redis_storage
+            elif hasattr(storage, "client"):
+                redis_storage = storage
+
+            if redis_storage and hasattr(redis_storage, "client"):
+                existing_client = getattr(redis_storage, "client", None)
+                connection_pool = getattr(existing_client, "connection_pool", None)
+                max_connections = getattr(connection_pool, "max_connections", None)
+                pool_kwargs = getattr(connection_pool, "connection_kwargs", {}) if connection_pool else {}
+
+                socket_timeout = pool_kwargs.get("socket_timeout")
+                socket_connect_timeout = pool_kwargs.get("socket_connect_timeout")
+
+                ssl_cert_reqs = "required" if redis_tls_verify else None
+                new_client = redis_asyncio.from_url(
+                    redis_tls_url,
+                    decode_responses=False,
+                    max_connections=max_connections,
+                    socket_timeout=socket_timeout,
+                    socket_connect_timeout=socket_connect_timeout,
+                    socket_keepalive=True,
+                    retry_on_timeout=True,
+                    ssl_cert_reqs=ssl_cert_reqs,
+                )
+
+                redis_storage.client = new_client
+                if RedisError:
+                    redis_storage.RedisError = RedisError
+                logger.info("[ADMIN_INIT] Redis TLS client configured via redis.asyncio.from_url")
+        except Exception as exc:
+            logger.error("[ADMIN_INIT] Failed to configure Redis TLS client: %s", exc)
 
     # Mount static files for widgets in admin app
     custom_static_dir = Path(__file__).parent.parent / "static"

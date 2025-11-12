@@ -5,6 +5,7 @@ from functools import lru_cache
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import language_tool_python
+from language_tool_python import LanguageToolErrorException as LanguageToolError
 
 # Khởi tạo router riêng cho chức năng chấm điểm
 router = APIRouter(prefix="/grade", tags=["grading"])
@@ -97,7 +98,7 @@ async def grade_korean_text(payload: KoreanTextPayload) -> KoreanGradingResponse
     try:
         matches = tool.check(text)
         corrected_text = tool.correct(text)
-    except language_tool_python.LanguageToolError as exc:  # type: ignore[attr-defined]
+    except LanguageToolError as exc:
         raise HTTPException(
             status_code=502,
             detail=f"Không thể kết nối tới dịch vụ kiểm tra ngôn ngữ: {exc}",
