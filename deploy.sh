@@ -22,6 +22,11 @@ fi
 echo "[deploy] Starting application server..."
 WORKERS="${WEB_CONCURRENCY:-2}"
 echo "[deploy] Using ${WORKERS} worker(s)"
-exec gunicorn src.app.main:app -w "${WORKERS}" -k uvicorn.workers.UvicornWorker -b "0.0.0.0:${PORT:-8000}"
+exec gunicorn src.app.main:app \
+  -w "${WORKERS}" \
+  -k uvicorn.workers.UvicornWorker \
+  --forwarded-allow-ips="*" \
+  --proxy-headers \
+  -b "0.0.0.0:${PORT:-8000}"
 
 
