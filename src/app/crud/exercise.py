@@ -1,4 +1,5 @@
 from typing import List, Optional
+import uuid
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -37,17 +38,14 @@ class ExerciseCRUD:
         return result.scalars().all()
     
     @staticmethod
-    async def get_exercise_by_id(db: AsyncSession, exercise_id: int) -> Optional[Exercise]:
+    async def get_exercise_by_id(db: AsyncSession, exercise_id: uuid.UUID) -> Optional[Exercise]:
         """Get a single exercise by ID with questions and options"""
-        query = (
-            select(Exercise)
-            .options(
-                selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)
-            )
-            .where(Exercise.id == exercise_id)
+        exercise = await db.get(
+            Exercise,
+            exercise_id,
+            options=[selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)],
         )
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
+        return exercise
     
     @staticmethod
     async def create_exercise(db: AsyncSession, exercise_data: ExerciseCreate) -> Exercise:
