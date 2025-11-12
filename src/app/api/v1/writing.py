@@ -41,19 +41,20 @@ logger = logging.getLogger(__name__)
 @router.post("/{exercise_id}/submit", status_code=status.HTTP_200_OK)
 async def submit_writing_exercise(
     exercise_id: UUID,
-    payload: WritingSubmissionCreate,
+    submission: WritingSubmissionCreate,
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
     """
-    Submit a writing exercise. This forwards the request to the generic exercise
-    submission handler but ensures the payload structure aligns with writing requirements.
+    Submit a writing exercise. Forwards to the generic exercise handler while
+    normalising the payload structure required for writing submissions.
     """
 
     submission_data = {
-        "text": payload.text,
-        "mode": payload.mode.value,
-        "response": payload.text,  # Backward compatibility for older clients
+        "text": submission.text,
+        "mode": submission.mode.value,
+        # Preserve compatibility with legacy clients that expect "response"
+        "response": submission.text,
     }
 
     from .exercises import submit_exercise as submit_exercise_handler

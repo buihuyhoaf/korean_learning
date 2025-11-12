@@ -49,6 +49,14 @@ class WritingSubmissionCRUD:
             exercise_id=exercise_id,
             text=text,
             status=status,
+            ai_score=None,
+            ai_feedback=None,
+            teacher_spelling_score=None,
+            teacher_grammar_score=None,
+            teacher_structure_score=None,
+            teacher_vocabulary_score=None,
+            teacher_feedback=None,
+            final_score=None,
         )
         db.add(submission)
         await db.flush()
