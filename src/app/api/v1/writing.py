@@ -19,7 +19,7 @@ from ...api.dependencies import get_current_admin_or_teacher, get_current_user
 from ...core.db.database import async_get_db
 from ...crud.writing import WritingSubmissionCRUD
 from ...models.exercise import Exercise
-from ...models.lesson import Lesson
+from ...models.course import Lesson
 from ...models.user import User
 from ...models.writing_submission import WritingSubmission, WritingSubmissionStatus
 from ...schemas.writing import (
