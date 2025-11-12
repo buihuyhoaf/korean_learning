@@ -4,6 +4,11 @@ set -euo pipefail
 echo "[deploy] Running database migrations..."
 alembic upgrade head
 
+echo "[deploy] Ensuring TFLite stroke model is available..."
+python -m scripts.download_stroke_model || {
+  echo "[deploy] WARNING: Failed to download TFLite model." >&2
+}
+
 if [[ -n "${FIREBASE_SERVICE_ACCOUNT_B64:-}" ]]; then
   FIREBASE_CREDENTIALS_PATH="/code/firebase-service-account.json"
   echo "[deploy] Writing Firebase service account to ${FIREBASE_CREDENTIALS_PATH}"
