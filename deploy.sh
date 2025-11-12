@@ -5,7 +5,7 @@ echo "[deploy] Running database migrations..."
 alembic upgrade head
 
 echo "[deploy] Ensuring TFLite stroke model is available..."
-python -m scripts.download_stroke_model || {
+python /code/src/scripts/download_stroke_model.py || {
   echo "[deploy] WARNING: Failed to download TFLite model." >&2
 }
 

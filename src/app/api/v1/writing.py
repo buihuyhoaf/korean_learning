@@ -11,16 +11,22 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.dependencies import get_current_admin_or_teacher, get_current_user
 from ...core.db.database import async_get_db
 from ...crud.writing import WritingSubmissionCRUD
-from ...models.writing_submission import WritingSubmissionStatus
+from ...models.exercise import Exercise
+from ...models.lesson import Lesson
+from ...models.user import User
+from ...models.writing_submission import WritingSubmission, WritingSubmissionStatus
 from ...schemas.writing import (
     TeacherGradeSchema,
     TeacherGradeResponseSchema,
+    WritingAdminPendingResponse,
+    WritingAdminSubmissionItem,
     WritingLessonResultItem,
     WritingLessonResultsResponse,
     WritingSubmissionMode,
@@ -117,6 +123,76 @@ async def grade_writing_submission(
         feedback=payload.feedback,
         status=updated_submission.status,
     )
+
+
+@router.get("/admin/pending", response_model=WritingAdminPendingResponse)
+async def list_pending_submissions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Annotated[AsyncSession, Depends(async_get_db)] = None,
+    current_user: Annotated[dict, Depends(get_current_admin_or_teacher)] = None,
+) -> WritingAdminPendingResponse:
+    """
+    Retrieve writing submissions awaiting teacher grading.
+
+    Returns learner/exercise context so the admin interface can render a queue
+    without issuing additional API calls.
+    """
+
+    status_filter = WritingSubmission.status.in_(
+        (
+            WritingSubmissionStatus.SUBMITTED,
+            WritingSubmissionStatus.AI_GRADED,
+        )
+    )
+
+    total_query = (
+        select(func.count())
+        .select_from(WritingSubmission)
+        .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
+        .where(status_filter)
+    )
+    total = (await db.execute(total_query)).scalar_one()
+
+    if total == 0:
+        return WritingAdminPendingResponse(total=0, submissions=[])
+
+    pending_query = (
+        select(WritingSubmission, Exercise, Lesson, User)
+        .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
+        .join(Lesson, Exercise.lesson_id == Lesson.id)
+        .join(User, WritingSubmission.user_id == User.id)
+        .where(status_filter)
+        .order_by(WritingSubmission.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+
+    rows = (await db.execute(pending_query)).all()
+
+    submissions: list[WritingAdminSubmissionItem] = []
+    for submission, exercise, lesson, user in rows:
+        submissions.append(
+            WritingAdminSubmissionItem(
+                submission_id=submission.id,
+                user_id=user.id,
+                learner_name=getattr(user, "username", None),
+                learner_email=getattr(user, "email", None),
+                exercise_id=exercise.id,
+                exercise_title=exercise.title or "",
+                lesson_id=lesson.id,
+                lesson_title=lesson.title,
+                text=submission.text,
+                status=submission.status,
+                mode=_infer_submission_mode(submission),
+                ai_score=submission.ai_score,
+                ai_feedback=submission.ai_feedback,
+                created_at=submission.created_at,
+                updated_at=submission.updated_at,
+            )
+        )
+
+    return WritingAdminPendingResponse(total=total, submissions=submissions)
 
 
 @router.get("/results/{lesson_id}", response_model=WritingLessonResultsResponse)

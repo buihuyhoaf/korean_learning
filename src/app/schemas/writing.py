@@ -114,3 +114,30 @@ class WritingLessonResultsResponse(BaseModel):
     submissions: list[WritingLessonResultItem] = Field(default_factory=list)
 
 
+class WritingAdminSubmissionItem(BaseModel):
+    """Detailed submission entry for admin grading workflows."""
+
+    submission_id: uuid.UUID
+    user_id: uuid.UUID
+    learner_name: str | None = None
+    learner_email: str | None = None
+    exercise_id: uuid.UUID
+    exercise_title: str
+    lesson_id: uuid.UUID
+    lesson_title: str | None = None
+    text: str
+    status: WritingSubmissionStatus
+    mode: WritingSubmissionMode
+    ai_score: float | None = None
+    ai_feedback: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WritingAdminPendingResponse(BaseModel):
+    """Paginated list of submissions awaiting teacher grading."""
+
+    total: int
+    submissions: list[WritingAdminSubmissionItem] = Field(default_factory=list)
+
+

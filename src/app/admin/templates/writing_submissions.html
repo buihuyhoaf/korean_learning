@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Writing Submissions Queue</title>
+    <link rel="stylesheet" href="{{ admin_mount }}/custom.css" />
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #f6f7fb;
+        color: #1f2937;
+      }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 2.5rem 1.75rem 3.5rem;
+        display: grid;
+        gap: 1.75rem;
+      }
+      .card {
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 24px 68px rgba(15, 23, 42, 0.08);
+        padding: 2rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 2.1rem;
+        font-weight: 700;
+      }
+      p.lead {
+        margin: 0.6rem 0 0;
+        color: #607089;
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        border: none;
+        border-radius: 12px;
+        padding: 0.65rem 1.4rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.2s ease;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #ff6b6b, #ff8585);
+        color: #fff;
+      }
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .btn-primary:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 28px rgba(255, 107, 107, 0.3);
+      }
+      .btn-secondary {
+        background: rgba(15, 23, 42, 0.08);
+        color: #1f2933;
+      }
+      .btn-secondary:hover {
+        background: rgba(15, 23, 42, 0.12);
+      }
+      .submissions-list {
+        display: grid;
+        gap: 1.25rem;
+      }
+      .submission-card {
+        border: 1px solid rgba(15, 23, 42, 0.06);
+        border-radius: 16px;
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
+        display: grid;
+        gap: 0.9rem;
+      }
+      .submission-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .submission-meta {
+        display: grid;
+        gap: 0.35rem;
+      }
+      .submission-meta strong {
+        font-size: 1.05rem;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .badge-status {
+        background: rgba(59, 130, 246, 0.16);
+        color: #1d4ed8;
+      }
+      .badge-mode {
+        background: rgba(16, 185, 129, 0.16);
+        color: #047857;
+      }
+      .submission-text {
+        background: rgba(15, 23, 42, 0.035);
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6b7280;
+        font-size: 1.05rem;
+      }
+      .alert {
+        border-radius: 12px;
+        padding: 0.9rem 1.1rem;
+        font-size: 0.95rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .alert-success {
+        background: rgba(56, 178, 172, 0.15);
+        color: #0f766e;
+      }
+      .alert-error {
+        background: rgba(239, 68, 68, 0.15);
+        color: #b91c1c;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: grid;
+        place-items: center;
+        z-index: 2000;
+        padding: 1.5rem;
+      }
+      .modal {
+        background: #fff;
+        border-radius: 18px;
+        max-width: 640px;
+        width: min(640px, 100%);
+        box-shadow: 0 30px 70px rgba(15, 23, 42, 0.25);
+        display: grid;
+        gap: 1.35rem;
+        padding: 2rem;
+      }
+      .modal h2 {
+        margin: 0;
+        font-size: 1.45rem;
+      }
+      .modal form {
+        display: grid;
+        gap: 1rem;
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+      }
+      input[type="number"],
+      textarea {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid #d4dbe5;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.95rem;
+        transition: border 0.2s ease, box-shadow 0.2s ease;
+      }
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+      }
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+      .score-grid {
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+      }
+      @media (max-width: 760px) {
+        .page {
+          padding: 2rem 1.15rem 3rem;
+        }
+        .submission-header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .modal {
+          padding: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <h1>Writing Submissions Queue</h1>
+        <p class="lead">
+          Duyệt các bài viết đang chờ giáo viên chấm. Nhấn “Chấm điểm” để nhập 4 tiêu chí và feedback cho học viên.
+        </p>
+        <div class="toolbar">
+          <div>
+            <button id="refresh-btn" class="btn btn-secondary" type="button">Làm mới danh sách</button>
+          </div>
+          <div id="queue-stats" class="badge badge-status hidden"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div id="alert-container" class="hidden"></div>
+        <div id="submissions-container" class="submissions-list"></div>
+        <div id="empty-state" class="empty-state hidden">
+          Hiện chưa có bài viết nào đang chờ giáo viên chấm. Vui lòng quay lại sau.
+        </div>
+      </section>
+    </main>
+
+    <div id="grade-modal-backdrop" class="modal-backdrop hidden">
+      <div class="modal">
+        <h2 id="grade-modal-title">Chấm điểm bài viết</h2>
+        <div class="submission-text" id="modal-submission-text"></div>
+        <form id="grade-form">
+          <div class="score-grid">
+            <div>
+              <label for="spelling-score">Chính tả (0-10)</label>
+              <input type="number" id="spelling-score" name="spelling_score" min="0" max="10" step="0.1" required />
+            </div>
+            <div>
+              <label for="grammar-score">Ngữ pháp (0-10)</label>
+              <input type="number" id="grammar-score" name="grammar_score" min="0" max="10" step="0.1" required />
+            </div>
+            <div>
+              <label for="structure-score">Cấu trúc (0-10)</label>
+              <input type="number" id="structure-score" name="structure_score" min="0" max="10" step="0.1" required />
+            </div>
+            <div>
+              <label for="vocabulary-score">Từ vựng (0-10)</label>
+              <input type="number" id="vocabulary-score" name="vocabulary_score" min="0" max="10" step="0.1" required />
+            </div>
+          </div>
+          <div>
+            <label for="feedback-input">Feedback cho học viên</label>
+            <textarea id="feedback-input" name="feedback" placeholder="Nhập nhận xét chi tiết cho học viên" required></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-grade-btn">Hủy</button>
+            <button type="submit" class="btn btn-primary" id="submit-grade-btn">Gửi kết quả</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const adminMount = "{{ admin_mount }}".replace(/\/$/, "");
+      const pendingEndpoint = `${adminMount}/writing-submissions/api/pending`;
+      const gradeEndpointBase = `${adminMount}/writing-submissions/api/grade`;
+
+      const submissionsContainer = document.getElementById("submissions-container");
+      const emptyStateEl = document.getElementById("empty-state");
+      const alertContainer = document.getElementById("alert-container");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const queueStats = document.getElementById("queue-stats");
+
+      const modalBackdrop = document.getElementById("grade-modal-backdrop");
+      const submissionTextEl = document.getElementById("modal-submission-text");
+      const gradeForm = document.getElementById("grade-form");
+      const cancelGradeBtn = document.getElementById("cancel-grade-btn");
+      const submitGradeBtn = document.getElementById("submit-grade-btn");
+
+      let currentSubmission = null;
+
+      function showAlert(type, message) {
+        alertContainer.className = `alert alert-${type}`;
+        alertContainer.textContent = message;
+        alertContainer.classList.remove("hidden");
+        setTimeout(() => {
+          alertContainer.classList.add("hidden");
+        }, 4000);
+      }
+
+      function formatDate(value) {
+        if (!value) return "—";
+        try {
+          const date = new Date(value);
+          return date.toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        } catch (err) {
+          return value;
+        }
+      }
+
+      function renderSubmissions(data) {
+        submissionsContainer.innerHTML = "";
+        const submissions = data.submissions ?? [];
+
+        if (!submissions.length) {
+          emptyStateEl.classList.remove("hidden");
+          queueStats.classList.add("hidden");
+          return;
+        }
+
+        emptyStateEl.classList.add("hidden");
+        queueStats.textContent = `Tổng số bài chờ chấm: ${data.total}`;
+        queueStats.classList.remove("hidden");
+
+        submissions.forEach((submission) => {
+          const card = document.createElement("article");
+          card.className = "submission-card";
+
+          const modeBadgeClass = submission.mode === "Teacher" ? "badge-mode" : "badge-status";
+
+          card.innerHTML = `
+            <div class="submission-header">
+              <div class="submission-meta">
+                <strong>${submission.learner_name || "Học viên ẩn danh"}</strong>
+                <span>${submission.learner_email || "Không có email"}</span>
+                <div>
+                  <span class="badge badge-status">${submission.status}</span>
+                  <span class="badge ${modeBadgeClass}">Mode: ${submission.mode}</span>
+                </div>
+              </div>
+              <div class="submission-meta" style="text-align: right;">
+                <span><strong>Bài tập:</strong> ${submission.exercise_title}</span>
+                <span><strong>Bài học:</strong> ${submission.lesson_title || "—"}</span>
+                <span><strong>Thời gian:</strong> ${formatDate(submission.created_at)}</span>
+              </div>
+            </div>
+            <div class="submission-text">${submission.text || "(Không có nội dung)"}</div>
+            <div style="display:flex; justify-content:flex-end;">
+              <button class="btn btn-primary" data-grade-id="${submission.submission_id}">Chấm điểm</button>
+            </div>
+          `;
+
+          card.querySelector("button[data-grade-id]").addEventListener("click", () => openGradeModal(submission));
+
+          submissionsContainer.appendChild(card);
+        });
+      }
+
+      async function loadSubmissions() {
+        refreshBtn.disabled = true;
+        queueStats.classList.add("hidden");
+        try {
+          const response = await fetch(`${pendingEndpoint}?skip=0&limit=100`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+          });
+          if (!response.ok) {
+            throw new Error("Không thể tải danh sách submissions");
+          }
+          const data = await response.json();
+          renderSubmissions(data);
+        } catch (error) {
+          console.error(error);
+          showAlert("error", error.message || "Đã xảy ra lỗi khi tải danh sách.");
+        } finally {
+          refreshBtn.disabled = false;
+        }
+      }
+
+      function openGradeModal(submission) {
+        currentSubmission = submission;
+        document.getElementById("grade-modal-title").textContent = `Chấm điểm - ${submission.learner_name || "Học viên"}`;
+        submissionTextEl.textContent = submission.text || "";
+        gradeForm.reset();
+        modalBackdrop.classList.remove("hidden");
+      }
+
+      function closeGradeModal() {
+        currentSubmission = null;
+        modalBackdrop.classList.add("hidden");
+      }
+
+      function parseScore(input) {
+        const value = parseFloat(input.value);
+        if (Number.isNaN(value)) {
+          throw new Error("Vui lòng nhập đầy đủ điểm (0-10).");
+        }
+        if (value < 0 || value > 10) {
+          throw new Error("Điểm phải nằm trong khoảng 0-10.");
+        }
+        return Math.round(value * 10) / 10;
+      }
+
+      gradeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!currentSubmission) {
+          showAlert("error", "Không xác định được submission cần chấm.");
+          return;
+        }
+
+        try {
+          const payload = {
+            spelling_score: parseScore(document.getElementById("spelling-score")),
+            grammar_score: parseScore(document.getElementById("grammar-score")),
+            structure_score: parseScore(document.getElementById("structure-score")),
+            vocabulary_score: parseScore(document.getElementById("vocabulary-score")),
+            feedback: document.getElementById("feedback-input").value.trim(),
+          };
+
+          if (!payload.feedback) {
+            throw new Error("Vui lòng nhập feedback cho học viên.");
+          }
+
+          submitGradeBtn.disabled = true;
+
+          const response = await fetch(`${gradeEndpointBase}/${currentSubmission.submission_id}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const detail = errorData.detail || "Không thể chấm bài. Vui lòng thử lại.";
+            throw new Error(detail);
+          }
+
+          showAlert("success", "Đã chấm bài thành công và gửi thông báo cho học viên.");
+          closeGradeModal();
+          await loadSubmissions();
+        } catch (error) {
+          console.error(error);
+          showAlert("error", error.message || "Chấm bài thất bại. Vui lòng thử lại.");
+        } finally {
+          submitGradeBtn.disabled = false;
+        }
+      });
+
+      cancelGradeBtn.addEventListener("click", () => closeGradeModal());
+      modalBackdrop.addEventListener("click", (event) => {
+        if (event.target === modalBackdrop) {
+          closeGradeModal();
+        }
+      });
+
+      refreshBtn.addEventListener("click", () => loadSubmissions());
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadSubmissions();
+      });
+    </script>
+  </body>
+</html>
+

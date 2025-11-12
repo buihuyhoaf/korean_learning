@@ -25,6 +25,8 @@ from ..schemas.progress_tracking import ExpSeriesResponse
 from ..core.exceptions.http_exceptions import NotFoundException
 from ..schemas.user import UserSummary
 from ..schemas.notification_schemas import AdminPushNotificationRequest
+from ..schemas.writing import TeacherGradeSchema
+from ..api.v1 import writing as writing_api
 from ..services.push_service import FirebaseNotInitializedError, PushSendResult, send_push_notification
 
 logger = logging.getLogger(__name__)
@@ -232,6 +234,50 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             raise NotFoundException("One or more user IDs are invalid") from exc
 
         return await build_exp_series_response(db=db, target_ids=target_ids, days=days)
+
+    @admin.app.get("/writing-submissions", response_class=HTMLResponse)
+    async def admin_writing_submissions_page(
+        request: Request,
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
+    ) -> HTMLResponse:
+        admin_mount = settings.CRUD_ADMIN_MOUNT_PATH.rstrip("/") or "/admin"
+        return templates.TemplateResponse(
+            "writing_submissions.html",
+            {
+                "request": request,
+                "admin_mount": admin_mount,
+            },
+        )
+
+    @admin.app.get("/writing-submissions/api/pending")
+    async def admin_writing_submissions_pending(
+        skip: int = Query(0, ge=0),
+        limit: int = Query(50, ge=1, le=200),
+        db: AsyncSession = Depends(async_get_db),
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
+    ) -> JSONResponse:
+        response = await writing_api.list_pending_submissions(
+            skip=skip,
+            limit=limit,
+            db=db,
+            current_user=current_admin,
+        )
+        return JSONResponse(status_code=status.HTTP_200_OK, content=response.model_dump())
+
+    @admin.app.post("/writing-submissions/api/grade/{submission_id}")
+    async def admin_writing_submission_grade(
+        submission_id: UUID,
+        payload: TeacherGradeSchema,
+        db: AsyncSession = Depends(async_get_db),
+        current_admin: dict = Depends(admin.admin_authentication.get_current_user),
+    ) -> JSONResponse:
+        result = await writing_api.grade_writing_submission(
+            submission_id=submission_id,
+            payload=payload,
+            db=db,
+            current_user=current_admin,
+        )
+        return JSONResponse(status_code=status.HTTP_200_OK, content=result.model_dump())
 
     @admin.app.get("/push-notifications", response_class=HTMLResponse)
     async def admin_push_notifications_page(

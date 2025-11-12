@@ -1,5 +1,7 @@
 import os
 from enum import Enum
+from typing import Any
+from urllib.parse import urlparse
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings
@@ -77,7 +79,45 @@ class TestSettings(BaseSettings): ...
 class RedisCacheSettings(BaseSettings):
     REDIS_CACHE_HOST: str = config("REDIS_CACHE_HOST", default="localhost")
     REDIS_CACHE_PORT: int = config("REDIS_CACHE_PORT", default=6379)
-    REDIS_CACHE_URL: str = f"redis://{REDIS_CACHE_HOST}:{REDIS_CACHE_PORT}"
+    REDIS_CACHE_USERNAME: str | None = config("REDIS_CACHE_USERNAME", default=None)
+    REDIS_CACHE_PASSWORD: SecretStr | None = config("REDIS_CACHE_PASSWORD", default=None, cast=SecretStr)
+    REDIS_CACHE_SSL: bool = config("REDIS_CACHE_SSL", default=False)
+    REDIS_CACHE_URL: str | None = config("REDIS_CACHE_URL", default=None)
+    REDIS_URL: str | None = config("REDIS_URL", default=None)
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        selected_url = self.REDIS_CACHE_URL or self.REDIS_URL
+        if selected_url:
+            parsed = urlparse(selected_url)
+            hostname = parsed.hostname or self.REDIS_CACHE_HOST
+            port = parsed.port or self.REDIS_CACHE_PORT
+            username = parsed.username or self.REDIS_CACHE_USERNAME
+            password = parsed.password or (
+                self.REDIS_CACHE_PASSWORD.get_secret_value() if self.REDIS_CACHE_PASSWORD else None
+            )
+            ssl_enabled = parsed.scheme == "rediss" or self.REDIS_CACHE_SSL
+
+            object.__setattr__(self, "REDIS_CACHE_HOST", hostname)
+            object.__setattr__(self, "REDIS_CACHE_PORT", port)
+            object.__setattr__(self, "REDIS_CACHE_USERNAME", username)
+            object.__setattr__(self, "REDIS_CACHE_SSL", ssl_enabled)
+            if password:
+                object.__setattr__(self, "REDIS_CACHE_PASSWORD", SecretStr(password))
+            object.__setattr__(self, "REDIS_CACHE_URL", selected_url)
+        else:
+            scheme = "rediss" if self.REDIS_CACHE_SSL else "redis"
+            auth_segment = ""
+            username = self.REDIS_CACHE_USERNAME
+            password = self.REDIS_CACHE_PASSWORD.get_secret_value() if self.REDIS_CACHE_PASSWORD else None
+            if username or password:
+                user = username or "default"
+                if password:
+                    auth_segment = f"{user}:{password}@"
+                else:
+                    auth_segment = f"{user}@"
+            constructed_url = f"{scheme}://{auth_segment}{self.REDIS_CACHE_HOST}:{self.REDIS_CACHE_PORT}"
+            object.__setattr__(self, "REDIS_CACHE_URL", constructed_url)
 
 
 class ClientSideCacheSettings(BaseSettings):
@@ -87,12 +127,78 @@ class ClientSideCacheSettings(BaseSettings):
 class RedisQueueSettings(BaseSettings):
     REDIS_QUEUE_HOST: str = config("REDIS_QUEUE_HOST", default="localhost")
     REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
+    REDIS_QUEUE_USERNAME: str | None = config("REDIS_QUEUE_USERNAME", default=None)
+    REDIS_QUEUE_PASSWORD: SecretStr | None = config("REDIS_QUEUE_PASSWORD", default=None, cast=SecretStr)
+    REDIS_QUEUE_SSL: bool = config("REDIS_QUEUE_SSL", default=False)
+    REDIS_QUEUE_URL: str | None = config("REDIS_QUEUE_URL", default=None)
+    REDIS_URL: str | None = config("REDIS_URL", default=None)
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        selected_url = self.REDIS_QUEUE_URL or self.REDIS_URL
+        if selected_url:
+            parsed = urlparse(selected_url)
+            hostname = parsed.hostname or self.REDIS_QUEUE_HOST
+            port = parsed.port or self.REDIS_QUEUE_PORT
+            username = parsed.username or self.REDIS_QUEUE_USERNAME
+            password = parsed.password or (
+                self.REDIS_QUEUE_PASSWORD.get_secret_value() if self.REDIS_QUEUE_PASSWORD else None
+            )
+            ssl_enabled = parsed.scheme == "rediss" or self.REDIS_QUEUE_SSL
+
+            object.__setattr__(self, "REDIS_QUEUE_HOST", hostname)
+            object.__setattr__(self, "REDIS_QUEUE_PORT", port)
+            object.__setattr__(self, "REDIS_QUEUE_USERNAME", username)
+            object.__setattr__(self, "REDIS_QUEUE_SSL", ssl_enabled)
+            if password:
+                object.__setattr__(self, "REDIS_QUEUE_PASSWORD", SecretStr(password))
+            object.__setattr__(self, "REDIS_QUEUE_URL", selected_url)
 
 
 class RedisRateLimiterSettings(BaseSettings):
     REDIS_RATE_LIMIT_HOST: str = config("REDIS_RATE_LIMIT_HOST", default="localhost")
     REDIS_RATE_LIMIT_PORT: int = config("REDIS_RATE_LIMIT_PORT", default=6379)
-    REDIS_RATE_LIMIT_URL: str = f"redis://{REDIS_RATE_LIMIT_HOST}:{REDIS_RATE_LIMIT_PORT}"
+    REDIS_RATE_LIMIT_USERNAME: str | None = config("REDIS_RATE_LIMIT_USERNAME", default=None)
+    REDIS_RATE_LIMIT_PASSWORD: SecretStr | None = config(
+        "REDIS_RATE_LIMIT_PASSWORD", default=None, cast=SecretStr
+    )
+    REDIS_RATE_LIMIT_SSL: bool = config("REDIS_RATE_LIMIT_SSL", default=False)
+    REDIS_RATE_LIMIT_URL: str | None = config("REDIS_RATE_LIMIT_URL", default=None)
+    REDIS_URL: str | None = config("REDIS_URL", default=None)
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        selected_url = self.REDIS_RATE_LIMIT_URL or self.REDIS_URL
+        if selected_url:
+            parsed = urlparse(selected_url)
+            hostname = parsed.hostname or self.REDIS_RATE_LIMIT_HOST
+            port = parsed.port or self.REDIS_RATE_LIMIT_PORT
+            username = parsed.username or self.REDIS_RATE_LIMIT_USERNAME
+            password = parsed.password or (
+                self.REDIS_RATE_LIMIT_PASSWORD.get_secret_value() if self.REDIS_RATE_LIMIT_PASSWORD else None
+            )
+            ssl_enabled = parsed.scheme == "rediss" or self.REDIS_RATE_LIMIT_SSL
+
+            object.__setattr__(self, "REDIS_RATE_LIMIT_HOST", hostname)
+            object.__setattr__(self, "REDIS_RATE_LIMIT_PORT", port)
+            object.__setattr__(self, "REDIS_RATE_LIMIT_USERNAME", username)
+            object.__setattr__(self, "REDIS_RATE_LIMIT_SSL", ssl_enabled)
+            if password:
+                object.__setattr__(self, "REDIS_RATE_LIMIT_PASSWORD", SecretStr(password))
+            object.__setattr__(self, "REDIS_RATE_LIMIT_URL", selected_url)
+        else:
+            scheme = "rediss" if self.REDIS_RATE_LIMIT_SSL else "redis"
+            auth_segment = ""
+            username = self.REDIS_RATE_LIMIT_USERNAME
+            password = self.REDIS_RATE_LIMIT_PASSWORD.get_secret_value() if self.REDIS_RATE_LIMIT_PASSWORD else None
+            if username or password:
+                user = username or "default"
+                if password:
+                    auth_segment = f"{user}:{password}@"
+                else:
+                    auth_segment = f"{user}@"
+            constructed_url = f"{scheme}://{auth_segment}{self.REDIS_RATE_LIMIT_HOST}:{self.REDIS_RATE_LIMIT_PORT}"
+            object.__setattr__(self, "REDIS_RATE_LIMIT_URL", constructed_url)
 
 
 class DefaultRateLimitSettings(BaseSettings):
