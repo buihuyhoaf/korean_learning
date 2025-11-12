@@ -72,12 +72,29 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 redis_config["password"] = password_clean
 
         if settings.CRUD_ADMIN_REDIS_SSL:
+            tls_port = settings.CRUD_ADMIN_REDIS_PORT
+            forced_tls_port = False
+            if tls_port == 6379:
+                tls_port = 6380
+                forced_tls_port = True
+                logger.warning(
+                    "[ADMIN_INIT] CRUD_ADMIN_REDIS_PORT was 6379 with SSL enabled; using 6380 for Upstash-compatible TLS"
+                )
+
+            if "port" in redis_config:
+                redis_config["port"] = tls_port
+            if "host" in redis_config and forced_tls_port:
+                redis_config["host"] = settings.CRUD_ADMIN_REDIS_HOST
+
             if "url" in redis_config:
                 parsed = urlparse(redis_config["url"])
 
                 scheme = "rediss"
                 hostname = parsed.hostname or settings.CRUD_ADMIN_REDIS_HOST
-                port = parsed.port or settings.CRUD_ADMIN_REDIS_PORT
+                port = parsed.port or tls_port
+                if forced_tls_port and (parsed.port in (None, 6379)):
+                    port = tls_port
+
                 path = parsed.path or f"/{settings.CRUD_ADMIN_REDIS_DB}"
 
                 username = parsed.username or ("default" if password_clean else None)
@@ -116,7 +133,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 auth_segment = f"default:{quote(password)}@" if password else ""
                 redis_config["url"] = (
                     f"rediss://{auth_segment}"
-                    f"{settings.CRUD_ADMIN_REDIS_HOST}:{settings.CRUD_ADMIN_REDIS_PORT}/"
+                    f"{settings.CRUD_ADMIN_REDIS_HOST}:{tls_port}/"
                     f"{settings.CRUD_ADMIN_REDIS_DB}"
                 )
 
