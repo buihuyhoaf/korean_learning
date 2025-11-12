@@ -110,6 +110,7 @@ def _download_via_supabase(destination: Path) -> bool:
 
 def ensure_model() -> Optional[Path]:
     destination = _resolve_target_path()
+    logger.info("Resolved target path for model: %s", destination)
 
     if destination.exists() and not _should_force_download():
         logger.info("Model already present at %s. Skipping download.", destination)
@@ -119,6 +120,7 @@ def ensure_model() -> Optional[Path]:
     if http_url:
         try:
             _download_via_http(http_url, destination)
+            logger.info("HTTP download completed successfully.")
             return destination
         except Exception as exc:  # pragma: no cover - network errors
             logger.error("HTTP download failed: %s", exc)
