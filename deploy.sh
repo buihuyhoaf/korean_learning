@@ -20,6 +20,8 @@ else
 fi
 
 echo "[deploy] Starting application server..."
-exec gunicorn src.app.main:app -w 2 -k uvicorn.workers.UvicornWorker -b "0.0.0.0:${PORT:-8000}"
+WORKERS="${WEB_CONCURRENCY:-2}"
+echo "[deploy] Using ${WORKERS} worker(s)"
+exec gunicorn src.app.main:app -w "${WORKERS}" -k uvicorn.workers.UvicornWorker -b "0.0.0.0:${PORT:-8000}"
 
 
