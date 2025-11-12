@@ -209,20 +209,19 @@ def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
         predictions = np.expand_dims(predictions, axis=0)
     
     # Get top prediction
-    predicted_idx = int(np.argmax(predictions[0]))
-    raw_confidence = float(predictions[0][predicted_idx])
-    if predictions.shape[1] > 1:
-        confidences = predictions[0]
-        min_val = float(np.min(confidences))
-        max_val = float(np.max(confidences))
-        if max_val > min_val:
-            confidence = (raw_confidence - min_val) / (max_val - min_val)
-        else:
-            confidence = 1.0
-    else:
-        confidence = raw_confidence
+    logits = predictions[0].astype(np.float32)
+    predicted_idx = int(np.argmax(logits))
 
-    # Clamp to [0, 1] to avoid validation errors
+    # Convert logits to probabilities with stable softmax
+    logits_stable = logits - np.max(logits)
+    exp_logits = np.exp(logits_stable)
+    sum_exp = np.sum(exp_logits)
+    if sum_exp <= 0 or np.isnan(sum_exp) or np.isinf(sum_exp):
+        probabilities = np.full_like(exp_logits, 1.0 / exp_logits.size)
+    else:
+        probabilities = exp_logits / sum_exp
+
+    confidence = float(probabilities[predicted_idx])
     if np.isnan(confidence) or np.isinf(confidence):
         confidence = 0.0
     confidence = float(max(0.0, min(1.0, confidence)))
