@@ -34,21 +34,19 @@ async def analyze_stroke(stroke_input: StrokeInput) -> StrokeResult:
         analyzer = get_stroke_analyzer()
         
         # Run analysis
-        predicted_char, confidence, message = analyzer.analyze_stroke(
+        analysis = analyzer.analyze_stroke(
             points=stroke_input.points,
             image_base64=stroke_input.image_base64,
-            target_char=stroke_input.target_char
+            target_char=stroke_input.target_char,
         )
-        
+
         logger.info(
-            f"Prediction: {predicted_char} (confidence: {confidence:.2f})"
+            "Prediction: %s (confidence: %.2f)",
+            analysis.get("predicted_char", "?"),
+            analysis.get("confidence", 0.0),
         )
-        
-        return StrokeResult(
-            predicted_char=predicted_char,
-            confidence=confidence,
-            message=message
-        )
+
+        return StrokeResult(**analysis)
         
     except HTTPException:
         raise

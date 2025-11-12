@@ -170,79 +170,90 @@ def get_tflite_model(allow_mock: bool = True):
     return _loaded_interpreter
 
 
-def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
-    """
-    Run inference using TFLite interpreter.
-    
-    Args:
-        interpreter: TFLite Interpreter instance
-        input_data: Preprocessed image array (28, 28, 1) or (1, 28, 28, 1)
-        
-    Returns:
-        Tuple of (predicted_char, confidence)
-    """
+def _compute_probabilities(interpreter, input_data: np.ndarray) -> np.ndarray:
+    """Execute inference and return probability distribution."""
+
     global _input_details, _output_details
-    
-    # Ensure input is in correct shape
+
     if len(input_data.shape) == 3:
-        input_data = np.expand_dims(input_data, axis=0)  # Add batch dimension
-    
-    # Get input/output details if not cached
+        input_data = np.expand_dims(input_data, axis=0)
+
     if _input_details is None:
         _input_details = interpreter.get_input_details()
         _output_details = interpreter.get_output_details()
-    
-    # Get input tensor index and set input
-    input_index = _input_details[0]['index']
-    interpreter.set_tensor(input_index, input_data.astype(np.float32))
-    
-    # Run inference
-    interpreter.invoke()
-    
-    # Get output
-    output_index = _output_details[0]['index']
-    predictions = interpreter.get_tensor(output_index)
-    predictions = np.asarray(predictions)
-    if predictions.ndim == 0:
-        predictions = predictions.reshape(1)
-    if predictions.ndim == 1:
-        predictions = np.expand_dims(predictions, axis=0)
-    
-    # Get top prediction
-    logits = predictions[0].astype(np.float32)
-    predicted_idx = int(np.argmax(logits))
 
-    # Convert logits to probabilities with stable softmax
+    detail_by_name = {detail.get("name"): detail for detail in _input_details}
+
+    image_detail = detail_by_name.get("input") or _input_details[0]
+    interpreter.set_tensor(image_detail["index"], input_data.astype(np.float32))
+
+    keep_prob_detail = detail_by_name.get("keep_prob")
+    if keep_prob_detail is not None:
+        interpreter.set_tensor(keep_prob_detail["index"], np.array([1.0], dtype=np.float32))
+
+    interpreter.invoke()
+
+    output_index = _output_details[0]["index"]
+    raw_predictions = interpreter.get_tensor(output_index)
+    predictions = np.asarray(raw_predictions, dtype=np.float32)
+    if predictions.ndim == 0:
+        predictions = predictions.reshape(1, 1)
+    elif predictions.ndim == 1:
+        predictions = predictions.reshape(1, -1)
+
+    logits = predictions[0]
     logits_stable = logits - np.max(logits)
     exp_logits = np.exp(logits_stable)
     sum_exp = np.sum(exp_logits)
     if sum_exp <= 0 or np.isnan(sum_exp) or np.isinf(sum_exp):
-        probabilities = np.full_like(exp_logits, 1.0 / exp_logits.size)
-    else:
-        probabilities = exp_logits / sum_exp
+        return np.full_like(exp_logits, 1.0 / exp_logits.size)
+    return exp_logits / sum_exp
 
-    top_prob = float(probabilities[predicted_idx])
-    num_classes = float(probabilities.size)
-    baseline_prob = 1.0 / num_classes if num_classes > 0 else 0.0
 
-    confidence = (top_prob - baseline_prob) / max(1e-6, 1.0 - baseline_prob)
-    if probabilities.size > 1:
-        sorted_probs = np.sort(probabilities)[::-1]
-        gap = float(sorted_probs[0] - sorted_probs[1])
-        confidence = max(confidence, gap)
+def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
+    """Return the top prediction from the TFLite interpreter."""
 
-    if np.isnan(confidence) or np.isinf(confidence):
-        confidence = 0.0
-    confidence = float(max(0.0, min(1.0, confidence)))
-    
-    # Map to Hangul character
+    probabilities = _compute_probabilities(interpreter, input_data)
+    if probabilities.size == 0:
+        return "?", 0.0
+
+    predicted_idx = int(np.argmax(probabilities))
+    confidence = float(max(0.0, min(1.0, float(probabilities[predicted_idx]))))
+
     if predicted_idx < len(HANGUL_CHARS):
         predicted_char = HANGUL_CHARS[predicted_idx]
     else:
         predicted_char = "?"
-        logger.warning(f"Predicted index {predicted_idx} out of range for HANGUL_CHARS")
-    
+        logger.warning("Predicted index %s out of range for HANGUL_CHARS", predicted_idx)
+
     return predicted_char, confidence
+
+
+def predict_top_k(
+    interpreter,
+    input_data: np.ndarray,
+    k: int = 5,
+) -> list[dict[str, object]]:
+    """Return the top-k predictions with confidences."""
+
+    probabilities = _compute_probabilities(interpreter, input_data)
+    if probabilities.size == 0:
+        return []
+
+    top_indices = np.argsort(probabilities)[::-1][: max(1, k)]
+    results: list[dict[str, object]] = []
+    for idx in top_indices:
+        char = HANGUL_CHARS[idx] if idx < len(HANGUL_CHARS) else "?"
+        if char == "?":
+            logger.warning("Top-k index %s out of range for HANGUL_CHARS", idx)
+        results.append(
+            {
+                "index": int(idx),
+                "char": char,
+                "confidence": float(max(0.0, min(1.0, float(probabilities[idx])))),
+            }
+        )
+    return results
 
 
 def clear_cache():

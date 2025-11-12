@@ -164,7 +164,6 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
     # Only set initial_admin if explicitly provided via env vars (not defaults)
     # This prevents CRUDAdmin from trying to seed admin on every request
     initial_admin = None
-    import os
     
     # Check if we should force seed (even with defaults)
     force_seed = os.getenv("CRUDADMIN_FORCE_SEED", "false").lower() == "true"
