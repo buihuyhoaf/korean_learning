@@ -30,11 +30,40 @@ from ...schemas.writing import (
     WritingLessonResultItem,
     WritingLessonResultsResponse,
     WritingSubmissionMode,
+    WritingSubmissionCreate,
 )
 
 router = APIRouter(prefix="/writing", tags=["writing"])
 
 logger = logging.getLogger(__name__)
+
+
+@router.post("/{exercise_id}/submit", status_code=status.HTTP_200_OK)
+async def submit_writing_exercise(
+    exercise_id: UUID,
+    payload: WritingSubmissionCreate,
+    db: Annotated[AsyncSession, Depends(async_get_db)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> dict:
+    """
+    Submit a writing exercise. This forwards the request to the generic exercise
+    submission handler but ensures the payload structure aligns with writing requirements.
+    """
+
+    submission_data = {
+        "text": payload.text,
+        "mode": payload.mode.value,
+        "response": payload.text,  # Backward compatibility for older clients
+    }
+
+    from .exercises import submit_exercise as submit_exercise_handler
+
+    return await submit_exercise_handler(
+        exercise_id=exercise_id,
+        submission_data=submission_data,
+        db=db,
+        current_user=current_user,
+    )
 
 
 @router.post("/grade/{submission_id}", response_model=TeacherGradeResponseSchema)

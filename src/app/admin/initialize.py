@@ -1,5 +1,6 @@
 from typing import Optional, Annotated, Any
 from pathlib import Path
+import os
 from urllib.parse import quote, urlparse, urlunparse
 
 from crudadmin import CRUDAdmin
@@ -74,7 +75,8 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         if settings.CRUD_ADMIN_REDIS_SSL:
             tls_port = settings.CRUD_ADMIN_REDIS_PORT
             forced_tls_port = False
-            if tls_port == 6379:
+            force_tls_port_env = os.getenv("CRUD_ADMIN_REDIS_FORCE_TLS_PORT", "true").lower() == "true"
+            if force_tls_port_env and tls_port == 6379:
                 tls_port = 6380
                 forced_tls_port = True
                 logger.warning(
@@ -97,8 +99,12 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
 
                 path = parsed.path or f"/{settings.CRUD_ADMIN_REDIS_DB}"
 
-                username = parsed.username or ("default" if password_clean else None)
+                raw_username = parsed.username
                 password_in_url = parsed.password or password_clean
+
+                username = raw_username
+                if not username and (password_in_url or password_clean):
+                    username = "default"
 
                 if password_in_url:
                     password_in_url = quote(password_in_url)
@@ -136,6 +142,24 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                     f"{settings.CRUD_ADMIN_REDIS_HOST}:{tls_port}/"
                     f"{settings.CRUD_ADMIN_REDIS_DB}"
                 )
+
+
+        if redis_config:
+            sanitized_config = {}
+            for key, value in redis_config.items():
+                if key == "password" and value is not None:
+                    sanitized_config[key] = "***"
+                elif key == "url" and isinstance(value, str):
+                    masked = value
+                    if '://default:' in masked:
+                        masked = masked.replace('://default:', '://default:***')
+                    if '@' in masked:
+                        parts = masked.split('@', 1)
+                        masked = parts[0] + '@***@' + parts[1] if len(parts) > 1 else masked
+                    sanitized_config[key] = masked
+                else:
+                    sanitized_config[key] = value
+            logger.info("[ADMIN_INIT] Redis session config prepared: %s", sanitized_config)
 
     # Only set initial_admin if explicitly provided via env vars (not defaults)
     # This prevents CRUDAdmin from trying to seed admin on every request
