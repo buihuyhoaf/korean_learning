@@ -13,7 +13,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 import language_tool_python
-from language_tool_python import LanguageToolErrorException as LanguageToolError
+
+LanguageToolError = getattr(
+    language_tool_python,
+    "LanguageToolErrorException",
+    getattr(language_tool_python, "LanguageToolError", None),
+)
+if LanguageToolError is None:
+    class LanguageToolError(Exception):
+        """Fallback when language_tool_python does not expose an error type."""
+        pass
 
 logger = logging.getLogger(__name__)
 

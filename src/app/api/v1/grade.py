@@ -5,7 +5,16 @@ from functools import lru_cache
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import language_tool_python
-from language_tool_python import LanguageToolErrorException as LanguageToolError
+
+LanguageToolError = getattr(
+    language_tool_python,
+    "LanguageToolErrorException",
+    getattr(language_tool_python, "LanguageToolError", None),
+)
+if LanguageToolError is None:
+    class LanguageToolError(Exception):  # type: ignore[redefine-in-inner-scope]
+        """Fallback when language_tool_python does not expose an error type."""
+        pass
 
 # Khởi tạo router riêng cho chức năng chấm điểm
 router = APIRouter(prefix="/grade", tags=["grading"])
