@@ -7,11 +7,11 @@ import logging
 from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 from threading import Lock
-import numpy as np
+import numpy as np  # type: ignore[import-not-found]
 
 # Lazy import TFLite runtime to save memory on startup
 if TYPE_CHECKING:
-    import tflite_runtime.interpreter as tflite
+    import tflite_runtime.interpreter as tflite  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def load_tflite_model(model_path: Optional[str] = None, allow_mock: bool = True)
     """
     # Lazy import TFLite runtime to save memory (only import when actually needed)
     try:
-        import tflite_runtime.interpreter as tflite
+        import tflite_runtime.interpreter as tflite  # type: ignore[import-not-found]
     except ImportError:
         logger.error("tflite-runtime not installed. Install with: pip install tflite-runtime")
         if allow_mock:
@@ -219,15 +219,7 @@ def predict_tflite(interpreter, input_data: np.ndarray) -> tuple[str, float]:
 
 def clear_cache():
     """Clear the TFLite model cache (useful for testing or reloading). Thread-safe."""
-    global (
-        _loaded_interpreter,
-        _model_path,
-        _loading,
-        _input_details,
-        _output_details,
-        _labels_loaded,
-        _labels_path,
-    )
+    global _loaded_interpreter, _model_path, _loading, _input_details, _output_details, _labels_loaded, _labels_path
     with _load_lock:
         _loaded_interpreter = None
         _model_path = None
