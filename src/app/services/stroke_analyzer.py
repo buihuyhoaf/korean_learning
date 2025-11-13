@@ -231,23 +231,50 @@ class StrokeAnalyzer:
                     else np.expand_dims(input_data, axis=0)
                 )
                 
+                # Log input info for debugging
+                logger.info(f"Model type: {self.model_type}")
+                logger.info(f"Image size: {self.image_size}")
+                logger.info(f"Input shape: {batched_input.shape}")
+                
                 predictions = self.model.predict(batched_input, verbose=0)
                 
+                # Log predictions info for debugging
+                logits = predictions[0]
+                logger.info(f"Predictions shape: {predictions.shape}")
+                logger.info(f"Predictions min/max/sum: {logits.min():.4f} / {logits.max():.4f} / {np.sum(logits):.4f}")
+                
+                # Apply softmax if output is logits (not probabilities)
+                # Check if values are outside [0, 1] range or sum is not close to 1.0
+                if logits.min() < 0 or logits.max() > 1.0 or abs(np.sum(logits) - 1.0) > 0.1:
+                    # Likely logits, apply softmax
+                    exp_logits = np.exp(logits - np.max(logits))  # Numerical stability
+                    probabilities = exp_logits / np.sum(exp_logits)
+                    logger.info("Applied softmax to convert logits to probabilities")
+                else:
+                    # Already probabilities
+                    probabilities = logits
+                    logger.info("Using predictions as probabilities (no softmax needed)")
+                
                 # Get top prediction
-                predicted_idx = int(np.argmax(predictions[0]))
-                confidence = float(predictions[0][predicted_idx])
+                predicted_idx = int(np.argmax(probabilities))
+                confidence = float(probabilities[predicted_idx])
                 predicted_char = unicode_to_char(predicted_idx)
                 
                 # Get top-k predictions
-                top_k_indices = np.argsort(predictions[0])[-self.top_k:][::-1]
+                top_k_indices = np.argsort(probabilities)[-self.top_k:][::-1]
                 top_predictions = [
                     {
                         "index": int(idx),
                         "char": unicode_to_char(int(idx)),
-                        "confidence": float(predictions[0][idx])
+                        "confidence": float(probabilities[idx])
                     }
                     for idx in top_k_indices
                 ]
+                
+                # Log top predictions for debugging
+                logger.info(f"Top {self.top_k} indices: {top_k_indices}")
+                logger.info(f"Top {self.top_k} confidences: {[probabilities[idx] for idx in top_k_indices]}")
+                logger.info(f"Predicted char: {predicted_char} (confidence: {confidence:.4f})")
             elif self.model_type == 'tflite':
                 # Use TFLite
                 batched_input = (
