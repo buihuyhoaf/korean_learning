@@ -155,9 +155,21 @@ class StrokeAnalyzer:
         if max_y == min_y:
             max_y = min_y + 1
         
-        normalized_points = (points_array - np.array([min_x, min_y])) / np.array(
-            [max_x - min_x, max_y - min_y]
+        # Add padding (10%) to ensure character fits well in image
+        bbox_width = max_x - min_x
+        bbox_height = max_y - min_y
+        padding = 0.1
+        pad_x = bbox_width * padding
+        pad_y = bbox_height * padding
+        
+        # Normalize with padding, then scale to image size
+        normalized_points = (points_array - np.array([min_x - pad_x, min_y - pad_y])) / np.array(
+            [bbox_width + 2 * pad_x, bbox_height + 2 * pad_y]
         )
+        
+        # Scale to image size
+        normalized_points[:, 0] = normalized_points[:, 0] * width
+        normalized_points[:, 1] = normalized_points[:, 1] * height
         
         img = Image.new("L", size, 0)
         draw = ImageDraw.Draw(img)
@@ -170,28 +182,37 @@ class StrokeAnalyzer:
             for p in normalized_points
         ]
         
+        # Adjust stroke width based on image size
+        # For 64x64, use thicker strokes (3-4), for 28x28 use thinner (2)
+        stroke_width = max(2, int(min(width, height) / 20))
+        
         for index in range(len(scaled_points) - 1):
             draw.line(
                 [scaled_points[index], scaled_points[index + 1]],
                 fill=255,
-                width=2,
+                width=stroke_width,
             )
         
         img_array = np.array(img, dtype=np.float32) / 255.0
         
-        # IBM model typically uses white background (1) with black strokes (0)
-        # Current format is black background (0) with white strokes (1)
-        # For IBM TFLite model, we need to invert
-        if self.model_type == 'tflite':
-            # IBM model expects white background with black strokes
-            img_array = 1.0 - img_array
-            logger.debug("Inverted image for IBM TFLite model (white background, black strokes)")
+        # Log image stats before any transformation
+        logger.debug(f"Image stats - min: {img_array.min():.4f}, max: {img_array.max():.4f}, mean: {img_array.mean():.4f}")
+        logger.debug(f"Non-zero pixels: {np.count_nonzero(img_array > 0.1)} / {img_array.size}")
+        
+        # Try both formats: IBM model might need black background with white strokes
+        # (Many TFLite models are trained with black background)
+        # Comment out inversion to test with black background + white strokes first
+        # if self.model_type == 'tflite':
+        #     # Try white background with black strokes
+        #     img_array = 1.0 - img_array
+        #     logger.debug("Inverted image for IBM TFLite model (white background, black strokes)")
         
         if self.input_channels > 1:
             img_array = np.stack([img_array] * self.input_channels, axis=-1)
         else:
             img_array = img_array.reshape(height, width, 1)
         
+        logger.debug(f"Final image shape: {img_array.shape}, dtype: {img_array.dtype}")
         return img_array.astype(np.float32)
     
     def preprocess_image_base64(self, image_base64: str) -> np.ndarray:
@@ -207,10 +228,10 @@ class StrokeAnalyzer:
             img = img.resize(self.image_size, Image.Resampling.LANCZOS)
             img_array = np.array(img, dtype=np.float32) / 255.0
             
-            # IBM TFLite model expects white background with black strokes
-            if self.model_type == 'tflite':
-                img_array = 1.0 - img_array
-                logger.debug("Inverted base64 image for IBM TFLite model")
+            # Try without inversion first - IBM model might actually expect black background with white strokes
+            # if self.model_type == 'tflite':
+            #     img_array = 1.0 - img_array
+            #     logger.debug("Inverted base64 image for IBM TFLite model")
             
             if self.input_channels > 1:
                 if img_array.ndim == 2:

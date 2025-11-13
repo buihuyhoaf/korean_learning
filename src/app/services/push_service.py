@@ -102,6 +102,15 @@ async def send_push_notification(
     if not tokens:
         logger.info("No active FCM tokens for users=%s", [str(uid) for uid in user_ids])
         return PushSendResult(requested_tokens=0, success=0, failed=0)
+    
+    # Log token info for debugging
+    logger.info(
+        "Preparing to send push notifications to %s tokens (users=%s). "
+        "Token platforms: %s",
+        len(tokens),
+        [str(uid) for uid in user_ids],
+        [t.platform for t in tokens]
+    )
 
     success_count = 0
     failure_count = 0
@@ -158,9 +167,15 @@ async def send_push_notification(
                     "PERMISSION_DENIED for token %s. This usually means: "
                     "1. Service account lacks 'Firebase Admin' role or 'cloudmessaging.messages.create' permission. "
                     "2. FCM API is not enabled in Google Cloud Console. "
-                    "3. Token was registered with a different Firebase project.",
-                    token_model.token[:12]
+                    "3. Token was registered with a different Firebase project (most likely cause). "
+                    "Token length: %s, Platform: %s",
+                    token_model.token[:12],
+                    len(token_model.token),
+                    token_model.platform
                 )
+                # Mark token as inactive if PERMISSION_DENIED - likely from wrong project
+                token_model.is_active = False
+                logger.warning("Marked token=%s as inactive due to PERMISSION_DENIED (likely wrong Firebase project)", token_model.token[:12])
 
             if code in {"registration-token-not-registered", "invalid-registration-token"}:
                 token_model.is_active = False
