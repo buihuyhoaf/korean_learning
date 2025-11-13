@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.firebase import get_firebase_app, init_firebase
 from ..models.user_push_token import UserPushToken
+from ..models.notification import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +84,24 @@ async def send_push_notification(
     user_ids: Sequence[uuid.UUID],
     title: str,
     body: str,
+    notification_type: str = "system",
 ) -> PushSendResult:
     """
     Send an FCM notification to all active tokens associated with the provided user IDs.
+    Also saves the notification to the database for each user.
+
+    Parameters
+    ----------
+    db : AsyncSession
+        Database session
+    user_ids : Sequence[uuid.UUID]
+        List of user IDs to send notifications to
+    title : str
+        Notification title
+    body : str
+        Notification body/message
+    notification_type : str, optional
+        Type of notification (default: "system"). Can be "system", "reminder", "achievement", etc.
 
     Raises
     ------
@@ -104,6 +120,22 @@ async def send_push_notification(
         logger.info("Using Firebase project ID: %s for sending push notifications", project_id)
     except Exception:
         pass
+
+    # Save notifications to database for each user
+    logger.info("Saving notifications to database for %s users", len(user_ids))
+    for user_id in user_ids:
+        notification = Notification(
+            user_id=user_id,
+            title=title,
+            message=body,
+            type=notification_type,
+            is_read=False
+        )
+        db.add(notification)
+    
+    # Commit notifications to database before sending FCM
+    await db.commit()
+    logger.info("✅ Saved %s notifications to database", len(user_ids))
 
     tokens = await _fetch_active_tokens(db, user_ids)
     if not tokens:
