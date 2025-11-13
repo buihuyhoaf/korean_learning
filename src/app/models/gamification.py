@@ -72,9 +72,9 @@ class DailyMission(Base):
     mission_id: Mapped[str] = mapped_column(String(50))  # "m1", "m2", "m3"
     type: Mapped[str] = mapped_column(String(20))  # "lesson", "speaking", "listening"
     target: Mapped[int] = mapped_column(Integer)
+    date: Mapped[date] = mapped_column(Date, default_factory=lambda: datetime.now(UTC).date())
     progress: Mapped[int] = mapped_column(Integer, default=0)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    date: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
