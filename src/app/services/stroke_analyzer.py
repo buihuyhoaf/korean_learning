@@ -168,6 +168,10 @@ class StrokeAnalyzer:
         
         img_array = np.array(img, dtype=np.float32) / 255.0
         
+        # Note: Current format is black background (0) with white strokes (1)
+        # If the model was trained with white background and black strokes, uncomment below:
+        # img_array = 1.0 - img_array
+        
         if self.input_channels > 1:
             img_array = np.stack([img_array] * self.input_channels, axis=-1)
         else:

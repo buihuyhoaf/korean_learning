@@ -60,17 +60,21 @@ async def _fetch_active_tokens(db: AsyncSession, user_ids: Iterable[uuid.UUID]) 
 
 async def _send_multicast(tokens: Sequence[str], title: str, body: str) -> messaging.BatchResponse:
     """
-    Execute firebase_admin.messaging.send_multicast in a background thread.
+    Execute firebase_admin.messaging.send_each in a background thread.
 
     Firebase's Python SDK is synchronous; dispatch from the main event loop
     to avoid blocking using asyncio.to_thread.
+    
+    Note: send_multicast was removed in Firebase Admin SDK 7.0.0.
+    Using send_each() instead, which sends a list of messages.
     """
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(title=title, body=body),
-        tokens=list(tokens),
-    )
+    notification = messaging.Notification(title=title, body=body)
+    messages = [
+        messaging.Message(notification=notification, token=token)
+        for token in tokens
+    ]
 
-    return await asyncio.to_thread(messaging.send_multicast, message)
+    return await asyncio.to_thread(messaging.send_each, messages)
 
 
 async def send_push_notification(

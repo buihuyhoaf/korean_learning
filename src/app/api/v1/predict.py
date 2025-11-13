@@ -173,19 +173,33 @@ async def predict_stroke(request: PredictStrokeRequest) -> PredictStrokeResponse
                 detail="Model prediction failed"
             )
         
+        # Apply softmax if output is logits (not probabilities)
+        logits = predictions[0]
+        logger.debug(f"Predictions min/max/sum: {logits.min():.4f} / {logits.max():.4f} / {np.sum(logits):.4f}")
+        
+        if logits.min() < 0 or logits.max() > 1.0 or abs(np.sum(logits) - 1.0) > 0.1:
+            # Likely logits, apply softmax
+            exp_logits = np.exp(logits - np.max(logits))  # Numerical stability
+            probabilities = exp_logits / np.sum(exp_logits)
+            logger.debug("Applied softmax to convert logits to probabilities")
+        else:
+            # Already probabilities
+            probabilities = logits
+            logger.debug("Using predictions as probabilities (no softmax needed)")
+        
         # Get top prediction
-        predicted_idx = int(np.argmax(predictions[0]))
-        confidence = float(predictions[0][predicted_idx])
+        predicted_idx = int(np.argmax(probabilities))
+        confidence = float(probabilities[predicted_idx])
         
         # Convert index to Hangul character
         predicted_char = unicode_to_char(predicted_idx)
         
         # Get top 5 predictions for debugging/feedback
-        top_k_indices = np.argsort(predictions[0])[-5:][::-1]
+        top_k_indices = np.argsort(probabilities)[-5:][::-1]
         top_k = [
             {
                 "char": unicode_to_char(int(idx)),
-                "confidence": float(predictions[0][idx])
+                "confidence": float(probabilities[idx])
             }
             for idx in top_k_indices
         ]
