@@ -19,7 +19,6 @@ from .badges import router as badges_router
 from .daily_goals import router as daily_goals_router
 from .friends import router as friends_router
 from .leaderboard import router as leaderboard_router
-from .entry_test import router as entry_test_router
 from .upload import router as upload_router
 from .predict import router as predict_router
 from .grade import router as grade_router
@@ -48,7 +47,6 @@ router.include_router(badges_router)
 router.include_router(daily_goals_router)
 router.include_router(friends_router)
 router.include_router(leaderboard_router)
-router.include_router(entry_test_router)
 router.include_router(upload_router)
 router.include_router(predict_router)
 router.include_router(grade_router)

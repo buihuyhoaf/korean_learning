@@ -12,7 +12,6 @@ from .question_pronunciation import QuestionPronunciation
 from .question_blank import QuestionBlank
 from .user_answer import UserAnswer
 from .exercise import Exercise, ExerciseQuestion, ExerciseQuestionOption  # New unified exercise model
-from .entry_test import EntryTest, EntryTestQuestion, EntryTestQuestionOption, UserEntryTestResult, EntryTestResult, UserEntryTestHistory
 
 # Import TokenBlacklist model
 from ..core.db.token_blacklist import TokenBlacklist

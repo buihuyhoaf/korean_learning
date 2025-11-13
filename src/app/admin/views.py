@@ -36,14 +36,6 @@ from ..models.notification import Notification
 from ..models.user_push_token import UserPushToken
 from ..models.rate_limit import RateLimit
 from ..models.user_answer import UserAnswer
-from ..models.entry_test import (
-    EntryTest, 
-    EntryTestQuestion, 
-    EntryTestQuestionOption, 
-    UserEntryTestResult, 
-    EntryTestResult, 
-    UserEntryTestHistory
-)
 
 # Import schemas
 from ..schemas.user import UserCreate, UserCreateInternal, UserUpdate
@@ -104,20 +96,6 @@ from ..schemas.notification_schemas import (
     NotificationCreate,
     NotificationUpdate,
     AdminPushNotificationRequest,
-)
-from ..schemas.entry_test import (
-    EntryTestCreate, 
-    EntryTestUpdate,
-    EntryTestQuestionCreateAdmin,
-    EntryTestQuestionUpdate,
-    EntryTestQuestionOptionCreate,
-    EntryTestQuestionOptionUpdate,
-    EntryTestScoreRangeCreate,
-    EntryTestScoreRangeUpdate,
-    EntryTestScoreRangeRead,
-    UserEntryTestHistoryRead,
-    UserEntryTestHistoryCreate,
-    UserEntryTestHistoryUpdate
 )
 
 
@@ -199,46 +177,6 @@ def register_admin_views(admin: CRUDAdmin) -> None:
         model=QuestionType,
         create_schema=QuestionTypeCreate,
         update_schema=QuestionTypeUpdate,
-        allowed_actions={"view"},
-    )
-
-    # Entry Test Management
-    admin.add_view(
-        model=EntryTest,
-        create_schema=EntryTestCreate,
-        update_schema=EntryTestUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
-    )
-
-    # Entry Test Question Management
-    admin.add_view(
-        model=EntryTestQuestion,
-        create_schema=EntryTestQuestionCreateAdmin,
-        update_schema=EntryTestQuestionUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
-    )
-
-    # Entry Test Question Option Management
-    admin.add_view(
-        model=EntryTestQuestionOption,
-        create_schema=EntryTestQuestionOptionCreate,
-        update_schema=EntryTestQuestionOptionUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
-    )
-
-    # Entry Test Result Management (Score Range Mapping)
-    admin.add_view(
-        model=EntryTestResult,
-        create_schema=EntryTestScoreRangeCreate,
-        update_schema=EntryTestScoreRangeUpdate,
-        allowed_actions={"view", "create", "update", "delete"},
-    )
-
-    # User Entry Test History (Read-only)
-    admin.add_view(
-        model=UserEntryTestHistory,
-        create_schema=UserEntryTestHistoryCreate,
-        update_schema=UserEntryTestHistoryUpdate,
         allowed_actions={"view"},
     )
 
