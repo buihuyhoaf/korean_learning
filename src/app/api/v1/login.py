@@ -1,8 +1,9 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.config import settings
@@ -26,13 +27,77 @@ from ...api.dependencies import get_current_user
 router = APIRouter(tags=["login"])
 
 
+class LoginRequest(BaseModel):
+    """Login request schema for JSON requests"""
+    username: str
+    password: str
+
+
+async def get_login_credentials(
+    request: Request,
+) -> tuple[str, str]:
+    """
+    Extract username and password from request.
+    Supports both JSON (application/json) and form-urlencoded (application/x-www-form-urlencoded).
+    """
+    content_type = request.headers.get("content-type", "").lower()
+    
+    # Try JSON first (for mobile apps)
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            username = body.get("username") or body.get("email")  # Support both username and email keys
+            password = body.get("password")
+            
+            if not username or not password:
+                raise UnauthorizedException("Username/email and password are required.")
+            
+            return username, password
+        except UnauthorizedException:
+            raise
+        except Exception as e:
+            raise UnauthorizedException(f"Invalid JSON request: {str(e)}")
+    
+    # Fallback to form-urlencoded (for web apps)
+    # FastAPI will automatically parse form data if Content-Type is form-urlencoded
+    try:
+        form_data = await request.form()
+        username = form_data.get("username")
+        password = form_data.get("password")
+        
+        if not username or not password:
+            raise UnauthorizedException("Username and password are required.")
+        
+        return username, password
+    except UnauthorizedException:
+        raise
+    except Exception as e:
+        raise UnauthorizedException(f"Invalid form request: {str(e)}")
+
+
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
     response: Response,
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request,
     db: Annotated[AsyncSession, Depends(async_get_db)],
 ) -> dict[str, str]:
-    user = await authenticate_user(username_or_email=form_data.username, password=form_data.password, db=db)
+    """
+    Login endpoint that supports both JSON and form-urlencoded requests.
+    
+    JSON format:
+    {
+        "username": "user123" or "user@example.com",
+        "password": "password123"
+    }
+    
+    Form-urlencoded format:
+    username=user123&password=password123
+    """
+    # Get credentials from request (supports both JSON and form)
+    username_or_email, password = await get_login_credentials(request)
+    
+    # Authenticate user
+    user = await authenticate_user(username_or_email=username_or_email, password=password, db=db)
     if not user:
         raise UnauthorizedException("Wrong username, email or password.")
 
@@ -41,10 +106,10 @@ async def login_for_access_token(
     access_token = await create_access_token(data={"sub": user["username"]}, expires_delta=access_token_expires)
 
     # Get user ID for refresh token storage
-    if "@" in form_data.username:
-        db_user = await crud_users.get(db=db, email=form_data.username, is_deleted=False)
+    if "@" in username_or_email:
+        db_user = await crud_users.get(db=db, email=username_or_email, is_deleted=False)
     else:
-        db_user = await crud_users.get(db=db, username=form_data.username, is_deleted=False)
+        db_user = await crud_users.get(db=db, username=username_or_email, is_deleted=False)
     
     if not db_user:
         raise UnauthorizedException("User not found.")
