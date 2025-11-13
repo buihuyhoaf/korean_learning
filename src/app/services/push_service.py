@@ -168,6 +168,47 @@ async def send_push_notification(
                 error_message,
             )
             
+            # Log detailed error for NOT_FOUND (404)
+            if code == "NOT_FOUND" or "NOT_FOUND" in error_message or "404" in error_message:
+                # Get current project ID for comparison
+                current_project = None
+                try:
+                    firebase_app = get_firebase_app()
+                    if firebase_app:
+                        current_project = firebase_app.project_id if hasattr(firebase_app, 'project_id') else None
+                except:
+                    pass
+                
+                logger.error(
+                    "❌ NOT_FOUND (404) error for token %s (platform=%s, user_id=%s)\n"
+                    "   Current Firebase project: %s\n"
+                    "   Expected project: korean-learning-474814\n\n"
+                    "   Possible causes:\n"
+                    "   1. ⚠️  FCM API not enabled in Google Cloud Console\n"
+                    "      → Enable: https://console.cloud.google.com/apis/library/fcm.googleapis.com?project=korean-learning-474814\n\n"
+                    "   2. ⚠️  Service account lacks permissions\n"
+                    "      → Check IAM: https://console.cloud.google.com/iam-admin/iam?project=korean-learning-474814\n"
+                    "      → Required role: 'Firebase Admin SDK Administrator Service Agent'\n\n"
+                    "   3. ⚠️  Token registered from different Firebase project\n"
+                    "      → Token was registered when Android app used different project\n"
+                    "      → Solution: Users need to re-login to register new token\n\n"
+                    "   💡 Quick checks:\n"
+                    "   - Run: python scripts/test_fcm_send.py\n"
+                    "   - Check logs for 'Firebase initialized successfully'\n"
+                    "   - Verify FCM API is enabled in Google Cloud Console",
+                    token_model.token[:12],
+                    token_model.platform,
+                    token_model.user_id,
+                    current_project or "unknown"
+                )
+                # Mark token as inactive - likely from wrong project or API not enabled
+                token_model.is_active = False
+                logger.warning(
+                    "Marked token=%s as inactive due to NOT_FOUND. "
+                    "Possible causes: FCM API not enabled, missing permissions, or token from wrong project",
+                    token_model.token[:12]
+                )
+            
             # Log detailed error for permission denied
             if code == "PERMISSION_DENIED" or "PERMISSION_DENIED" in error_message:
                 # Check if it's a SenderId mismatch (most common cause)

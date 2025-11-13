@@ -4,10 +4,8 @@ set -euo pipefail
 echo "[deploy] Running database migrations..."
 alembic upgrade head
 
-echo "[deploy] Ensuring TFLite stroke model is available..."
-python /code/src/scripts/download_stroke_model.py || {
-  echo "[deploy] WARNING: Failed to download TFLite model." >&2
-}
+# Removed TFLite model download - inference now runs locally on Android device
+# This reduces deployment time and backend storage requirements
 
 if [[ -n "${FIREBASE_SERVICE_ACCOUNT_B64:-}" ]]; then
   FIREBASE_CREDENTIALS_PATH="/code/firebase-service-account.json"

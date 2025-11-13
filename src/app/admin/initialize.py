@@ -311,7 +311,6 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
 
     @admin.app.get(
         "/progress-tracker/api/users",
-        response_model=list[UserSummary],
     )
     async def admin_progress_tracker_users(
         request: Request,
@@ -319,12 +318,30 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         limit: Annotated[int, Query(ge=1, le=25)] = 10,
         db: AsyncSession = Depends(async_get_db),
         current_admin: dict = Depends(admin.admin_authentication.get_current_user),
-    ) -> list[UserSummary]:
-        return await fetch_progress_tracker_users(db=db, search_term=search, limit=limit)
+    ) -> JSONResponse:
+        try:
+            users = await fetch_progress_tracker_users(db=db, search_term=search, limit=limit)
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=[user.model_dump() for user in users],
+                media_type="application/json"
+            )
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                media_type="application/json"
+            )
+        except Exception as exc:
+            logger.error(f"Error in admin_progress_tracker_users: {exc}", exc_info=True)
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Internal server error"},
+                media_type="application/json"
+            )
 
     @admin.app.get(
         "/progress-tracker/api/exp-series",
-        response_model=ExpSeriesResponse,
     )
     async def admin_progress_tracker_exp_series(
         request: Request,
@@ -332,17 +349,45 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
         days: Annotated[int, Query(ge=1, le=365)] = 30,
         db: AsyncSession = Depends(async_get_db),
         current_admin: dict = Depends(admin.admin_authentication.get_current_user),
-    ) -> ExpSeriesResponse:
-        raw_ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
-        if not raw_ids:
-            return await build_exp_series_response(db=db, target_ids=[], days=days)
-
+    ) -> JSONResponse:
         try:
-            target_ids = [UUID(uid) for uid in raw_ids]
-        except ValueError as exc:
-            raise NotFoundException("One or more user IDs are invalid") from exc
+            raw_ids = [uid.strip() for uid in user_ids.split(",") if uid.strip()]
+            if not raw_ids:
+                result = await build_exp_series_response(db=db, target_ids=[], days=days)
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content=result.model_dump(),
+                    media_type="application/json"
+                )
 
-        return await build_exp_series_response(db=db, target_ids=target_ids, days=days)
+            try:
+                target_ids = [UUID(uid) for uid in raw_ids]
+            except ValueError as exc:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": "One or more user IDs are invalid"},
+                    media_type="application/json"
+                )
+
+            result = await build_exp_series_response(db=db, target_ids=target_ids, days=days)
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=result.model_dump(),
+                media_type="application/json"
+            )
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                media_type="application/json"
+            )
+        except Exception as exc:
+            logger.error(f"Error in admin_progress_tracker_exp_series: {exc}", exc_info=True)
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Internal server error"},
+                media_type="application/json"
+            )
 
     @admin.app.get("/writing-submissions", response_class=HTMLResponse)
     async def admin_writing_submissions_page(

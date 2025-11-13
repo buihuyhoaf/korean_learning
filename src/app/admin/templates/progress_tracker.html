@@ -512,9 +512,11 @@
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
           const body = await response.text();
-          if (response.url.includes('/login') || body.includes('form') && body.includes('csrf_token')) {
-            window.location.href = response.url;
-            return Promise.reject(new Error('Session expired'));
+          // Check if it's an HTML error page or login redirect
+          if (response.url.includes('/login') || (body.includes('<!DOCTYPE html>') || body.includes('<html'))) {
+            console.error('Received HTML response instead of JSON, likely authentication issue');
+            window.location.href = response.url.includes('/login') ? response.url : window.location.origin + '{{ admin_mount }}/login';
+            return Promise.reject(new Error('Session expired - redirecting to login'));
           }
           throw new Error(body || 'Unexpected non-JSON response');
         }
@@ -535,18 +537,40 @@
         setLoading(true);
         try {
           const response = await fetch(API_PREFIX + '/exp-series?' + params.toString(), {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json'
+            }
           });
           if (handleAuthRedirect(response)) {
             return;
           }
-          if (!response.ok) {
-            throw new Error(await response.text() || 'Request failed');
+          
+          // Check content type before parsing
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+              console.error('Server returned HTML instead of JSON. Session may have expired.');
+              window.location.href = '{{ admin_mount }}/login';
+              return;
+            }
+            throw new Error(`Expected JSON but got ${contentType}: ${text.substring(0, 200)}`);
           }
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `Request failed with status ${response.status}`);
+          }
+          
           const data = await parseJsonResponse(response);
           updateChart(data);
         } catch (error) {
           console.error('Failed to load EXP series', error);
+          if (error.message.includes('Session expired') || error.message.includes('redirecting to login')) {
+            // Already handled redirect
+            return;
+          }
           showMessage('Failed to load progress data. Please refresh the page to ensure your admin session is active.');
         } finally {
           setLoading(false);
@@ -565,18 +589,40 @@
         try {
           const params = new URLSearchParams({ search: term, limit: '10' });
           const response = await fetch(API_PREFIX + '/users?' + params.toString(), {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json'
+            }
           });
           if (handleAuthRedirect(response)) {
             return;
           }
-          if (!response.ok) {
-            throw new Error(await response.text() || 'Request failed');
+          
+          // Check content type before parsing
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+              console.error('Server returned HTML instead of JSON. Session may have expired.');
+              window.location.href = '{{ admin_mount }}/login';
+              return;
+            }
+            throw new Error(`Expected JSON but got ${contentType}: ${text.substring(0, 200)}`);
           }
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `Request failed with status ${response.status}`);
+          }
+          
           const users = await parseJsonResponse(response);
           renderSearchResults(users);
         } catch (error) {
           console.error('Search failed', error);
+          if (error.message.includes('Session expired') || error.message.includes('redirecting to login')) {
+            // Already handled redirect
+            return;
+          }
           renderSearchResults([]);
           showMessage('Unable to load data. Please refresh the page and confirm your admin session is still active.');
         } finally {

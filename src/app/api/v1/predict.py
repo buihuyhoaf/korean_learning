@@ -106,8 +106,10 @@ class PredictStrokeResponse(BaseModel):
         }
 
 
-@router.post("/stroke", response_model=PredictStrokeResponse)
-async def predict_stroke(request: PredictStrokeRequest) -> PredictStrokeResponse:
+# DISABLED: Stroke prediction endpoint - inference now runs locally on Android device
+# This reduces backend load and improves response time
+# @router.post("/stroke", response_model=PredictStrokeResponse)
+async def predict_stroke_disabled(request: PredictStrokeRequest) -> PredictStrokeResponse:
     """
     Predict Hangul character from stroke data.
     

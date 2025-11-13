@@ -11,17 +11,17 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 
 # Install dependencies first (for better layer caching)
-# Try to install with ML support, but continue if tflite-runtime unavailable
+# Removed ML support (tflite-runtime) - inference now runs locally on Android
 RUN --mount=type=cache,target=/root/.cache/uv \
-    (uv sync --no-install-project --extra ml || uv sync --no-install-project) || true
+    uv sync --no-install-project
 
 # Copy the project source code
 COPY . /app
 
 # Install the project in non-editable mode
-# Try with ML support first, fallback to regular install
+# Removed ML support (tflite-runtime) - inference now runs locally on Android
 RUN --mount=type=cache,target=/root/.cache/uv \
-    (uv sync --no-editable --extra ml || uv sync --no-editable) || true
+    uv sync --no-editable
 
 # --------- Final Stage ---------
 FROM python:3.11-slim
@@ -46,12 +46,8 @@ COPY --from=builder --chown=app:app /app/deploy.sh /code/deploy.sh
 # Ensure the virtual environment is in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Try to install tflite-runtime if it wasn't installed during builder stage
-# Use system pip to install into the venv's site-packages (uv venv doesn't include pip)
-RUN if ! /app/.venv/bin/python -c "import tflite_runtime" 2>/dev/null; then \
-        VENV_SITE=$(/app/.venv/bin/python -c "import site; print(site.getsitepackages()[0])") && \
-        python -m pip install --target="$VENV_SITE" --no-cache-dir "tflite-runtime==2.16.1" || true; \
-    fi
+# Removed tflite-runtime installation - inference now runs locally on Android device
+# This reduces backend memory usage and makes deployment faster
 
 # Set default port (can be overridden by Render/Railway)
 ENV PORT=8000
