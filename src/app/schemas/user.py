@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from ..core.schemas import PersistentDeletion, TimestampSchema, UUIDSchema
 
@@ -48,7 +48,30 @@ class UserCreate(BaseModel):
     
     username: Annotated[str, Field(min_length=2, max_length=50, pattern=r"^[a-z0-9]+$", examples=["userson"])]
     email: Annotated[EmailStr, Field(examples=["user.userson@example.com"])]
-    password: Annotated[str, Field(pattern=r"^(?=.*[0-9])(?=.*[A-Z])(?=.*[a-z])(?=.*[^a-zA-Z0-9]).{8,}$", examples=["Str1ngst!"])]
+    password: Annotated[str, Field(min_length=8, examples=["Str1ngst!"])]
+    
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password meets security requirements."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        
+        has_digit = any(c.isdigit() for c in v)
+        has_upper = any(c.isupper() for c in v)
+        has_lower = any(c.islower() for c in v)
+        has_special = any(not c.isalnum() for c in v)
+        
+        if not has_digit:
+            raise ValueError("Password must contain at least one digit")
+        if not has_upper:
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not has_lower:
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not has_special:
+            raise ValueError("Password must contain at least one special character")
+        
+        return v
 
 
 class UserCreateInternal(BaseModel):
