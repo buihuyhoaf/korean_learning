@@ -429,15 +429,3 @@ def register_admin_views(admin: CRUDAdmin) -> None:
         update_schema=RateLimitUpdate,
         allowed_actions={"view", "create", "update", "delete"},
     )
-
-    # ============================================================================
-    # Entry Test Results (Additional)
-    # ============================================================================
-    
-    # User Entry Test Results (View-only)
-    admin.add_view(
-        model=UserEntryTestResult,
-        create_schema=EntryTestScoreRangeCreate,
-        update_schema=EntryTestScoreRangeUpdate,
-        allowed_actions={"view"},
-    )
