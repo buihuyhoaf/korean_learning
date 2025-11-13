@@ -130,9 +130,9 @@ def register_admin_views(admin: CRUDAdmin) -> None:
 
     password_transformer = PasswordTransformer(
         password_field="password",
-        hashed_field="hashed_password",
+        hashed_field="password",
         hash_function=get_password_hash,
-        required_fields=["username", "email"],
+        required_fields=["username", "email", "password"],
     )
 
     admin.add_view(
