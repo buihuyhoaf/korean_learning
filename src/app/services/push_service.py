@@ -97,6 +97,13 @@ async def send_push_notification(
     if firebase_app is None:
         logger.warning("Attempt to send push notification without Firebase initialised.")
         raise FirebaseNotInitializedError("Firebase not initialized")
+    
+    # Log Firebase project info for debugging
+    try:
+        project_id = firebase_app.project_id if hasattr(firebase_app, 'project_id') else None
+        logger.info("Using Firebase project ID: %s for sending push notifications", project_id)
+    except Exception:
+        pass
 
     tokens = await _fetch_active_tokens(db, user_ids)
     if not tokens:
@@ -163,19 +170,30 @@ async def send_push_notification(
             
             # Log detailed error for permission denied
             if code == "PERMISSION_DENIED" or "PERMISSION_DENIED" in error_message:
+                # Check if it's a SenderId mismatch (most common cause)
+                is_sender_id_mismatch = "SenderId" in error_message or "sender" in error_message.lower()
+                
                 logger.error(
-                    "PERMISSION_DENIED for token %s. This usually means: "
-                    "1. Service account lacks 'Firebase Admin' role or 'cloudmessaging.messages.create' permission. "
-                    "2. FCM API is not enabled in Google Cloud Console. "
-                    "3. Token was registered with a different Firebase project (most likely cause). "
-                    "Token length: %s, Platform: %s",
+                    "PERMISSION_DENIED for token %s. Error: %s. "
+                    "Token length: %s, Platform: %s, User ID: %s. "
+                    "%s",
                     token_model.token[:12],
+                    error_message,
                     len(token_model.token),
-                    token_model.platform
+                    token_model.platform,
+                    token_model.user_id,
+                    "⚠️ SENDERID MISMATCH: Token was registered with a different Firebase project than the service account. "
+                    "User needs to re-login to register a new token from the correct project." 
+                    if is_sender_id_mismatch 
+                    else "Possible causes: 1) Service account lacks permissions, 2) FCM API not enabled, 3) Token from wrong project."
                 )
                 # Mark token as inactive if PERMISSION_DENIED - likely from wrong project
                 token_model.is_active = False
-                logger.warning("Marked token=%s as inactive due to PERMISSION_DENIED (likely wrong Firebase project)", token_model.token[:12])
+                logger.warning(
+                    "Marked token=%s as inactive due to PERMISSION_DENIED%s",
+                    token_model.token[:12],
+                    " (SenderId mismatch - wrong Firebase project)" if is_sender_id_mismatch else ""
+                )
 
             if code in {"registration-token-not-registered", "invalid-registration-token"}:
                 token_model.is_active = False

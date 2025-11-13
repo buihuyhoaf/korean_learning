@@ -162,18 +162,18 @@ class StrokeAnalyzer:
         pad_x = bbox_width * padding
         pad_y = bbox_height * padding
         
-        # Normalize with padding, then scale to image size
+        # Normalize with padding to [0, 1] range
         normalized_points = (points_array - np.array([min_x - pad_x, min_y - pad_y])) / np.array(
             [bbox_width + 2 * pad_x, bbox_height + 2 * pad_y]
         )
         
-        # Scale to image size
-        normalized_points[:, 0] = normalized_points[:, 0] * width
-        normalized_points[:, 1] = normalized_points[:, 1] * height
+        # Clip to [0, 1] range to ensure points are within bounds
+        normalized_points = np.clip(normalized_points, 0.0, 1.0)
         
         img = Image.new("L", size, 0)
         draw = ImageDraw.Draw(img)
         
+        # Scale normalized points [0, 1] to image coordinates [0, width-1] x [0, height-1]
         scaled_points = [
             (
                 min(max(int(p[0] * width), 0), width - 1),
@@ -181,6 +181,11 @@ class StrokeAnalyzer:
             )
             for p in normalized_points
         ]
+        
+        # Log for debugging
+        logger.debug(f"Points: {len(points)} -> Scaled: {len(scaled_points)}")
+        if len(scaled_points) > 0:
+            logger.debug(f"Scaled points range: x=[{min(p[0] for p in scaled_points)}, {max(p[0] for p in scaled_points)}], y=[{min(p[1] for p in scaled_points)}, {max(p[1] for p in scaled_points)}]")
         
         # Adjust stroke width based on image size
         # For 64x64, use thicker strokes (3-4), for 28x28 use thinner (2)
