@@ -44,26 +44,26 @@ class StrokeAnalyzer:
                 logger.warning("TFLite model not available, using mock mode")
                 return
 
-                self._use_mock = False
-                self.model_loaded = True
-                logger.info("TFLite model loaded successfully")
+            self._use_mock = False
+            self.model_loaded = True
+            logger.info("TFLite model loaded successfully")
 
-                try:
-                    input_details = self.interpreter.get_input_details()
-                    if input_details:
-                        shape = input_details[0].get("shape")
-                        if shape is not None and len(shape) >= 3:
-                            height = int(shape[1]) if int(shape[1]) > 0 else self.image_size[1]
-                            width = int(shape[2]) if int(shape[2]) > 0 else self.image_size[0]
-                            self.image_size = (width, height)
-                        if shape is not None and len(shape) >= 4 and int(shape[3]) > 0:
-                            self.input_channels = int(shape[3])
-                    logger.info(
-                        "Configured stroke analyzer input: %sx%s (channels=%s)",
-                        self.image_size[0],
-                        self.image_size[1],
-                        self.input_channels,
-                    )
+            try:
+                input_details = self.interpreter.get_input_details()
+                if input_details:
+                    shape = input_details[0].get("shape")
+                    if shape is not None and len(shape) >= 3:
+                        height = int(shape[1]) if int(shape[1]) > 0 else self.image_size[1]
+                        width = int(shape[2]) if int(shape[2]) > 0 else self.image_size[0]
+                        self.image_size = (width, height)
+                    if shape is not None and len(shape) >= 4 and int(shape[3]) > 0:
+                        self.input_channels = int(shape[3])
+                logger.info(
+                    "Configured stroke analyzer input: %sx%s (channels=%s)",
+                    self.image_size[0],
+                    self.image_size[1],
+                    self.input_channels,
+                )
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.warning("Could not determine TFLite input shape: %s", exc)
         except Exception as exc:
@@ -269,7 +269,7 @@ class StrokeAnalyzer:
         jongseong: str,
     ) -> str:
         syllable_breakdown = f"{choseong}{jungseong}{jongseong}".strip()
-                if confidence >= 0.9:
+        if confidence >= 0.9:
             return f"Mô hình rất tự tin đây là {predicted_char} ({syllable_breakdown})."
         if confidence >= 0.75:
             return f"Khá chắc chắn: {predicted_char}."
