@@ -24,7 +24,7 @@ class StrokeInput(BaseModel):
         json_schema_extra = {
             "example": {
                 "image_base64": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHe...",
-                "target_char": null
+                "target_char": None
             }
         }
 
