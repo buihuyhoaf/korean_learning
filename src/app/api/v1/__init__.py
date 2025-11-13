@@ -17,6 +17,7 @@ from .user_progress import router as user_progress_router
 from .mistakes import router as mistakes_router
 from .badges import router as badges_router
 from .daily_goals import router as daily_goals_router
+from .missions import router as missions_router
 from .friends import router as friends_router
 from .leaderboard import router as leaderboard_router
 from .upload import router as upload_router
@@ -45,6 +46,7 @@ router.include_router(user_progress_router)
 router.include_router(mistakes_router)
 router.include_router(badges_router)
 router.include_router(daily_goals_router)
+router.include_router(missions_router)
 router.include_router(friends_router)
 router.include_router(leaderboard_router)
 router.include_router(upload_router)

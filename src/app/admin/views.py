@@ -36,6 +36,7 @@ from ..models.notification import Notification
 from ..models.user_push_token import UserPushToken
 from ..models.rate_limit import RateLimit
 from ..models.user_answer import UserAnswer
+from ..models.writing_submission import WritingSubmission
 
 # Import schemas
 from ..schemas.user import UserCreate, UserCreateInternal, UserUpdate
@@ -96,6 +97,9 @@ from ..schemas.notification_schemas import (
     NotificationCreate,
     NotificationUpdate,
     AdminPushNotificationRequest,
+)
+from ..schemas.writing import (
+    WritingSubmissionResponse,
 )
 
 
@@ -349,26 +353,16 @@ def register_admin_views(admin: CRUDAdmin) -> None:
     )
 
     # ============================================================================
-    # Writing Evaluation (Teacher Grading) - Skeleton
+    # Writing Evaluation (Teacher Grading)
     # ============================================================================
-    #
-    # Future admin screen should:
-    #   * Fetch `WritingSubmission` rows where status in {"submitted", "ai_graded"}.
-    #   * Render a grading form with fields from `TeacherGradeSchema`.
-    #   * Submit the form to POST /api/v1/writing/grade/{submission_id}.
-    #   * Refresh the list when status transitions to `teacher_graded`.
-    #
-    # Compose / React admin clients can hook into this router by building a custom
-    # page; CRUDAdmin view registration is omitted intentionally until design is ready.
-    #
-    # Example (pseudocode):
-    #
-    # admin.add_custom_view(
-    #     name="Writing Submissions",
-    #     path="/writing-submissions",
-    #     template="writing_submissions.html",
-    # )
-    #
+    
+    # Writing Submission Management (View-only for now, grading done via custom page)
+    admin.add_view(
+        model=WritingSubmission,
+        create_schema=WritingSubmissionResponse,
+        update_schema=WritingSubmissionResponse,
+        allowed_actions={"view"},
+    )
 
     # ============================================================================
     # Social Features (View-only)
