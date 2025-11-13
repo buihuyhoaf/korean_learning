@@ -28,8 +28,12 @@ def init_firebase() -> Optional[firebase_admin.App]:
 
     try:
         cred = credentials.Certificate(credentials_path)
+        # Log project ID for debugging
+        project_id = cred.project_id if hasattr(cred, 'project_id') else None
+        logger.info("Firebase credentials loaded - Project ID: %s", project_id)
+        
         _firebase_app = firebase_admin.initialize_app(cred)
-        logger.info("✅ Firebase initialized successfully")
+        logger.info("✅ Firebase initialized successfully (Project: %s)", project_id)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to initialize Firebase Admin SDK: %s", exc)
         _firebase_app = None

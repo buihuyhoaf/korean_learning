@@ -115,7 +115,22 @@ async def send_push_notification(
         try:
             response = await _send_multicast(token_values, title, body)
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Failed to send FCM batch: %s", exc)
+            error_code = getattr(exc, 'code', None)
+            error_message = str(exc)
+            logger.error(
+                "Failed to send FCM batch: %s (code=%s, message=%s)",
+                exc,
+                error_code,
+                error_message
+            )
+            # Log more details for permission errors
+            if 'PERMISSION_DENIED' in error_message or error_code == 'PERMISSION_DENIED':
+                logger.error(
+                    "PERMISSION_DENIED error detected. Please check: "
+                    "1. Service account has 'Firebase Admin' role or 'cloudmessaging.messages.create' permission. "
+                    "2. FCM API is enabled in Google Cloud Console. "
+                    "3. Service account project ID matches Firebase project ID."
+                )
             failure_count += len(chunk)
             continue
 
@@ -127,12 +142,25 @@ async def send_push_notification(
                 continue
 
             failure_count += 1
-            code = getattr(send_response.exception, "code", "unknown")
+            exception = send_response.exception
+            code = getattr(exception, "code", "unknown")
+            error_message = str(exception) if exception else "Unknown error"
             logger.warning(
-                "Failed to send push notification to token=%s (code=%s)",
+                "Failed to send push notification to token=%s (code=%s, error=%s)",
                 token_model.token[:12],
                 code,
+                error_message,
             )
+            
+            # Log detailed error for permission denied
+            if code == "PERMISSION_DENIED" or "PERMISSION_DENIED" in error_message:
+                logger.error(
+                    "PERMISSION_DENIED for token %s. This usually means: "
+                    "1. Service account lacks 'Firebase Admin' role or 'cloudmessaging.messages.create' permission. "
+                    "2. FCM API is not enabled in Google Cloud Console. "
+                    "3. Token was registered with a different Firebase project.",
+                    token_model.token[:12]
+                )
 
             if code in {"registration-token-not-registered", "invalid-registration-token"}:
                 token_model.is_active = False
