@@ -1,11 +1,13 @@
 """
-ML-based stroke analyzer service using TensorFlow Lite
+ML-based stroke analyzer service using TensorFlow or TensorFlow Lite
 Handles preprocessing, model inference, and prediction with minimal memory footprint
 """
 import base64
 import io
 import logging
+import os
 import time
+from pathlib import Path
 from threading import Lock
 from typing import List, Optional, Tuple
 
@@ -19,58 +21,106 @@ logger = logging.getLogger(__name__)
 
 
 class StrokeAnalyzer:
-    """Service for analyzing hand-drawn Hangul strokes using TensorFlow Lite."""
+    """Service for analyzing hand-drawn Hangul strokes using TensorFlow or TensorFlow Lite."""
     
     def __init__(self) -> None:
-        self.interpreter = None
+        self.interpreter = None  # For TFLite
+        self.model = None  # For TensorFlow Keras/SavedModel
         self.model_loaded = False
+        self.model_type: Optional[str] = None  # 'tf_keras' or 'tflite'
         self.inference_times: list[float] = []
         self._use_mock = False
-        self.image_size: Tuple[int, int] = (28, 28)
+        self.image_size: Tuple[int, int] = (28, 28)  # Default, will be auto-detected
         self.input_channels: int = 1
         self.top_k: int = 5
     
     def load_model(self, model_path: Optional[str] = None) -> None:
-        """Lazy-load the TFLite model and capture expected input shape."""
+        """Lazy-load the model - TensorFlow Keras/SavedModel first if available, then TFLite fallback."""
         
+        from ..core.config import settings
+        
+        # Get model path from config or use default
+        if model_path is None:
+            model_path = settings.STROKE_MODEL_PATH
+            if model_path is None:
+                # Try TensorFlow SavedModel/Keras first, then TFLite
+                default_tf = Path(__file__).parent.parent.parent / "models" / "hangul_cnn_model"
+                default_tflite = Path(__file__).parent.parent.parent / "models" / "hangul_stroke_model.tflite"
+                
+                if default_tf.exists() and default_tf.is_dir():
+                    model_path = str(default_tf)
+                elif default_tflite.exists():
+                    model_path = str(default_tflite)
+                else:
+                    model_path = str(default_tf)  # Default to TensorFlow SavedModel path
+        
+        # Try TensorFlow Keras/SavedModel first (if it's a directory or .h5 file)
+        is_tf_model = (
+            (os.path.isdir(model_path) and not model_path.endswith('.tflite')) or
+            model_path.endswith('.h5') or
+            model_path.endswith('.keras')
+        )
+        
+        if is_tf_model:
+            try:
+                from ..ml.model_loader import load_model
+                
+                if os.path.exists(model_path):
+                    self.model = load_model(model_path=model_path, allow_mock=True)
+                    
+                    if self.model is not None and not hasattr(self.model, '_is_mock'):
+                        self.model_type = 'tf_keras'
+                        self._use_mock = False
+                        self.model_loaded = True
+                        # TensorFlow model typically uses 64x64 for IBM model
+                        self.image_size = (64, 64)
+                        
+                        logger.info("TensorFlow Keras/SavedModel loaded successfully")
+                        logger.info(f"Model path: {model_path}")
+                        return
+            except Exception as exc:
+                logger.warning(f"Failed to load TensorFlow model: {exc}")
+                logger.debug("Falling back to TFLite...")
+        
+        # Fallback to TFLite
         try:
             from ..ml.tflite_loader import get_tflite_model
             
             self.interpreter = get_tflite_model(allow_mock=True)
             
-            if self.interpreter is None:
-                self._use_mock = True
-                self.model_loaded = False
-                logger.warning("TFLite model not available, using mock mode")
+            if self.interpreter is not None:
+                self.model_type = 'tflite'
+                self._use_mock = False
+                self.model_loaded = True
+                logger.info("TFLite model loaded successfully")
+
+                try:
+                    input_details = self.interpreter.get_input_details()
+                    if input_details:
+                        shape = input_details[0].get("shape")
+                        if shape is not None and len(shape) >= 3:
+                            height = int(shape[1]) if int(shape[1]) > 0 else self.image_size[1]
+                            width = int(shape[2]) if int(shape[2]) > 0 else self.image_size[0]
+                            self.image_size = (width, height)
+                        if shape is not None and len(shape) >= 4 and int(shape[3]) > 0:
+                            self.input_channels = int(shape[3])
+                    logger.info(
+                        "Configured stroke analyzer input: %sx%s (channels=%s) - TFLite",
+                        self.image_size[0],
+                        self.image_size[1],
+                        self.input_channels,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    logger.warning("Could not determine TFLite input shape: %s", exc)
                 return
-
-            self._use_mock = False
-            self.model_loaded = True
-            logger.info("TFLite model loaded successfully")
-
-            try:
-                input_details = self.interpreter.get_input_details()
-                if input_details:
-                    shape = input_details[0].get("shape")
-                    if shape is not None and len(shape) >= 3:
-                        height = int(shape[1]) if int(shape[1]) > 0 else self.image_size[1]
-                        width = int(shape[2]) if int(shape[2]) > 0 else self.image_size[0]
-                        self.image_size = (width, height)
-                    if shape is not None and len(shape) >= 4 and int(shape[3]) > 0:
-                        self.input_channels = int(shape[3])
-                logger.info(
-                    "Configured stroke analyzer input: %sx%s (channels=%s)",
-                    self.image_size[0],
-                    self.image_size[1],
-                    self.input_channels,
-                )
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.warning("Could not determine TFLite input shape: %s", exc)
         except Exception as exc:
-            logger.error("Failed to load TFLite model: %s", exc)
-            self._use_mock = True
-            self.model_loaded = False
-            logger.warning("Using mock mode for inference")
+            logger.debug(f"TFLite model not available: {exc}")
+        
+        # No model available
+        self._use_mock = True
+        self.model_loaded = False
+        self.model_type = None
+        logger.warning("No model available, using mock mode")
     
     def preprocess_points(
         self,
@@ -166,12 +216,40 @@ class StrokeAnalyzer:
         start_time = time.time()
         
         try:
-            if not self.model_loaded and self.interpreter is None:
+            if not self.model_loaded:
                 self.load_model()
 
-            if self._use_mock or self.interpreter is None:
+            if self._use_mock or not self.model_loaded:
                 predicted_char, confidence, top_predictions = self._mock_predict(input_data)
-            else:
+            elif self.model_type == 'tf_keras':
+                # Use TensorFlow Keras/SavedModel
+                from ..ml.preprocessor import unicode_to_char
+                
+                batched_input = (
+                    input_data
+                    if input_data.ndim == 4
+                    else np.expand_dims(input_data, axis=0)
+                )
+                
+                predictions = self.model.predict(batched_input, verbose=0)
+                
+                # Get top prediction
+                predicted_idx = int(np.argmax(predictions[0]))
+                confidence = float(predictions[0][predicted_idx])
+                predicted_char = unicode_to_char(predicted_idx)
+                
+                # Get top-k predictions
+                top_k_indices = np.argsort(predictions[0])[-self.top_k:][::-1]
+                top_predictions = [
+                    {
+                        "index": int(idx),
+                        "char": unicode_to_char(int(idx)),
+                        "confidence": float(predictions[0][idx])
+                    }
+                    for idx in top_k_indices
+                ]
+            elif self.model_type == 'tflite':
+                # Use TFLite
                 batched_input = (
                     input_data
                     if input_data.ndim == 4
@@ -184,6 +262,8 @@ class StrokeAnalyzer:
                     confidence = float(best.get("confidence", 0.0))
                 else:
                     predicted_char, confidence = "?", 0.0
+            else:
+                predicted_char, confidence, top_predictions = self._mock_predict(input_data)
             
             inference_time = time.time() - start_time
             self.inference_times.append(inference_time)
@@ -222,7 +302,7 @@ class StrokeAnalyzer:
     ) -> dict[str, object]:
         """Analyze provided stroke input and return a structured breakdown."""
 
-        if not self.model_loaded and self.interpreter is None:
+        if not self.model_loaded:
             self.load_model()
 
         if image_base64:
