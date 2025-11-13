@@ -21,7 +21,6 @@ class Course(Base):
     # Relationships
     units = relationship("Unit", back_populates="course")
     user_progress = relationship("UserCourseProgress", back_populates="course")
-    entry_tests = relationship("EntryTest", back_populates="related_course")
 
 
 class Unit(Base):

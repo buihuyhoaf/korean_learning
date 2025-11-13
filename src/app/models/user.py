@@ -29,7 +29,6 @@ class User(Base):
     # Relationships
     course_progress = relationship("UserCourseProgress", back_populates="user")
     current_course = relationship("Course", foreign_keys=[current_course_id])
-    entry_test_results = relationship("UserEntryTestResult", back_populates="user")
     unit_progress = relationship("UserUnitProgress", back_populates="user")
     lesson_progress = relationship("UserLessonProgress", back_populates="user")
     question_errors = relationship("UserQuestionError", back_populates="user")
