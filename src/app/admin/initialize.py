@@ -323,7 +323,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             users = await fetch_progress_tracker_users(db=db, search_term=search, limit=limit)
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
-                content=[user.model_dump() for user in users],
+                content=[user.model_dump(mode='json') for user in users],
                 media_type="application/json"
             )
         except HTTPException as exc:
@@ -356,7 +356,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 result = await build_exp_series_response(db=db, target_ids=[], days=days)
                 return JSONResponse(
                     status_code=status.HTTP_200_OK,
-                    content=result.model_dump(),
+                    content=result.model_dump(mode='json'),
                     media_type="application/json"
                 )
 
@@ -372,7 +372,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             result = await build_exp_series_response(db=db, target_ids=target_ids, days=days)
             return JSONResponse(
                 status_code=status.HTTP_200_OK,
-                content=result.model_dump(),
+                content=result.model_dump(mode='json'),
                 media_type="application/json"
             )
         except HTTPException as exc:

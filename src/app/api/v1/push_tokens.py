@@ -38,6 +38,14 @@ async def register_push_token(
 
     user_id = uuid.UUID(str(current_user["id"]))
     now = datetime.now(UTC)
+    
+    logger.info(
+        "📱 FCM token registration request - user_id=%s, platform=%s, token_length=%d, token_preview=%s",
+        user_id,
+        payload.platform,
+        len(payload.token),
+        payload.token[:20] + "..." if len(payload.token) > 20 else payload.token
+    )
 
     result = await db.execute(select(UserPushToken).where(UserPushToken.token == payload.token))
     push_token = result.scalar_one_or_none()
@@ -47,7 +55,7 @@ async def register_push_token(
         push_token.platform = payload.platform
         push_token.last_seen = now
         push_token.is_active = True
-        logger.info("Reactivated FCM token for user_id=%s platform=%s", user_id, payload.platform)
+        logger.info("✅ Reactivated FCM token for user_id=%s platform=%s token_id=%s", user_id, payload.platform, push_token.id)
     else:
         push_token = UserPushToken(
             user_id=user_id,
@@ -57,9 +65,17 @@ async def register_push_token(
             is_active=True,
         )
         db.add(push_token)
-        logger.info("Registered new FCM token for user_id=%s platform=%s", user_id, payload.platform)
+        logger.info("✅ Registered new FCM token for user_id=%s platform=%s", user_id, payload.platform)
 
     await db.commit()
+    
+    # Verify it was saved
+    verify_result = await db.execute(select(UserPushToken).where(UserPushToken.token == payload.token))
+    verified_token = verify_result.scalar_one_or_none()
+    if verified_token:
+        logger.info("✅ Verified: Token saved successfully - id=%s, is_active=%s", verified_token.id, verified_token.is_active)
+    else:
+        logger.error("❌ ERROR: Token was not saved to database!")
 
     return {"message": "Token registered"}
 
