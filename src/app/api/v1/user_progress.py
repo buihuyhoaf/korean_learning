@@ -135,7 +135,8 @@ async def build_exp_series_response(
             UserExpSeries(
                 user_id=user_id,
                 username=user_info["username"],
-                baseline_exp=baseline_exp,
+                starting_exp=baseline_exp,
+                total_exp=user_info["total_exp"],
                 series=points,
             )
         )

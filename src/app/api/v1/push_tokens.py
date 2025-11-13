@@ -38,7 +38,7 @@ async def register_push_token(
 
     user_id = uuid.UUID(str(current_user["id"]))
     now = datetime.now(UTC)
-    
+
     logger.info(
         "📱 FCM token registration request - user_id=%s, platform=%s, token_length=%d, token_preview=%s",
         user_id,
