@@ -148,10 +148,10 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
                 redis_tls_url = redis_config["url"]
 
 
-        if redis_tls_url:
+        if redis_tls_url and redis_config is not None:
             final_parsed = urlparse(redis_tls_url)
             redis_config["host"] = final_parsed.hostname or settings.CRUD_ADMIN_REDIS_HOST
-            redis_config["port"] = final_parsed.port or settings.CRUD_ADMIN_REDIS_PORT
+            redis_config["port"] = final_parsed.port or tls_port
             if final_parsed.path and final_parsed.path != "/":
                 try:
                     redis_config["db"] = int(final_parsed.path.lstrip("/"))

@@ -174,14 +174,14 @@ def _compute_probabilities(interpreter, input_data: np.ndarray) -> np.ndarray:
     """Execute inference and return probability distribution."""
 
     global _input_details, _output_details
-
+    
     if len(input_data.shape) == 3:
         input_data = np.expand_dims(input_data, axis=0)
-
+    
     if _input_details is None:
         _input_details = interpreter.get_input_details()
         _output_details = interpreter.get_output_details()
-
+    
     detail_by_name = {detail.get("name"): detail for detail in _input_details}
 
     image_detail = detail_by_name.get("input") or _input_details[0]

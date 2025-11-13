@@ -39,13 +39,13 @@ async def analyze_stroke(stroke_input: StrokeInput) -> StrokeResult:
             image_base64=stroke_input.image_base64,
             target_char=stroke_input.target_char,
         )
-
+        
         logger.info(
             "Prediction: %s (confidence: %.2f)",
             analysis.get("predicted_char", "?"),
             analysis.get("confidence", 0.0),
         )
-
+        
         return StrokeResult(**analysis)
         
     except HTTPException:

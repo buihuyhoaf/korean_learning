@@ -9,11 +9,11 @@ class StrokeInput(BaseModel):
     """Input schema for stroke analysis"""
     points: Optional[List[List[float]]] = Field(
         None,
-        description="List of stroke points as [[x1, y1], [x2, y2], ...]"
+        description="Legacy stroke points as [[x1, y1], [x2, y2], ...] (optional)"
     )
     image_base64: Optional[str] = Field(
         None,
-        description="Base64 encoded image of the drawn character"
+        description="Base64 encoded 64x64 grayscale image (preferred input)"
     )
     target_char: Optional[str] = Field(
         None,
@@ -23,8 +23,8 @@ class StrokeInput(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "points": [[100.0, 100.0], [150.0, 150.0], [200.0, 100.0]],
-                "target_char": "가"
+                "image_base64": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHe...",
+                "target_char": null
             }
         }
 
