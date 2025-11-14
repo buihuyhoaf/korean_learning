@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 
-from ...api.dependencies import get_current_user, get_current_superuser
+from ...api.dependencies import get_current_user, get_current_superuser, get_optional_user
 from ...core.db.database import async_get_db
 from ...core.exceptions.http_exceptions import NotFoundException
 from ...models.user import User
@@ -25,6 +25,9 @@ from ...schemas.weekly_leaderboard import (
     WeeklyLeaderboardUpdateResponse
 )
 from ...core.utils.weekly_leaderboard_redis import WeeklyLeaderboardRedis
+from ...core.logger import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["weekly_leaderboard"])
 
@@ -161,10 +164,12 @@ async def rerank_weekly_leaderboard(
 @router.get("/leaderboard/weekly", response_model=WeeklyLeaderboardResponse)
 async def get_weekly_leaderboard(
     request: Request,
-    db: Annotated[AsyncSession, Depends(async_get_db)],
-    current_user: Annotated[dict, Depends(get_current_user)] = None
+    db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> WeeklyLeaderboardResponse:
     """Get current week's leaderboard - Always includes current user in top 20"""
+    # Get optional user (doesn't require authentication)
+    current_user = await get_optional_user(request, db)
+    
     week_start = get_week_start()
     
     # Get all entries for this week, sorted by XP descending
@@ -207,11 +212,14 @@ async def get_weekly_leaderboard(
     
     if current_user:
         user_id = UUID(str(current_user["id"]))
+        logger.info(f"[Leaderboard] Looking for user entry: user_id={user_id}, week_start={week_start}")
+        
         # Find user entry in existing entries
         for entry in entries:
             if not entry.is_dummy and entry.user_id == user_id:
                 current_user_entry = entry
                 current_user_rank = entry.rank
+                logger.info(f"[Leaderboard] Found existing user entry: rank={entry.rank}, xp={entry.xp}")
                 # Get previous rank from Redis or DB
                 previous_rank = await WeeklyLeaderboardRedis.get_previous_rank(
                     week_start, 
@@ -219,6 +227,7 @@ async def get_weekly_leaderboard(
                 )
                 if previous_rank:
                     rank_change = previous_rank - entry.rank  # Positive = moved up
+                    logger.info(f"[Leaderboard] Rank change: {previous_rank} -> {entry.rank} (change={rank_change})")
                 # Update Redis with current rank
                 await WeeklyLeaderboardRedis.set_previous_rank(
                     week_start,
@@ -229,6 +238,7 @@ async def get_weekly_leaderboard(
         
         # If user entry doesn't exist, create it with 0 XP
         if not current_user_entry:
+            logger.info(f"[Leaderboard] User entry not found, creating new entry for user_id={user_id}")
             # Get user info
             user_query = select(User).where(User.id == user_id)
             user_result = await db.execute(user_query)
@@ -284,6 +294,7 @@ async def get_weekly_leaderboard(
                 
                 # Update current_user_entry rank
                 current_user_rank = current_user_entry.rank
+                logger.info(f"[Leaderboard] Created new user entry: rank={current_user_rank}, xp={current_user_entry.xp}")
                 
                 await db.commit()
     
@@ -291,11 +302,14 @@ async def get_weekly_leaderboard(
     leaderboard_entries = []
     user_in_top_20 = False
     
+    # Re-sort entries after potential new user entry creation
+    entries = sorted(entries, key=lambda e: e.xp, reverse=True)
+    
     # First, collect top 20 entries
-    top_20_entries = entries[:20]
+    top_20_entries = list(entries[:20])  # Make a list copy to avoid modifying original
     
     # Check if user is in top 20
-    if current_user_entry:
+    if current_user_entry and user_id:
         user_in_top_20 = any(
             not entry.is_dummy and entry.user_id == user_id 
             for entry in top_20_entries
@@ -304,14 +318,28 @@ async def get_weekly_leaderboard(
     # If user is not in top 20, replace the last dummy entry with user entry
     user_replaced_index = None
     if current_user_entry and not user_in_top_20:
+        logger.info(f"[Leaderboard] User not in top 20 (actual rank={current_user_rank}), replacing dummy entry")
         # Find the last dummy entry in top 20 to replace
+        replaced = False
         for i in range(len(top_20_entries) - 1, -1, -1):
             if top_20_entries[i].is_dummy:
                 # Replace this dummy with user entry
                 top_20_entries[i] = current_user_entry
                 user_replaced_index = i
+                replaced = True
+                logger.info(f"[Leaderboard] Replaced dummy entry at index {i} with user entry")
                 # Note: current_user_rank still holds the actual rank
                 break
+        
+        # If no dummy found (shouldn't happen, but safety check), replace last entry
+        if not replaced and len(top_20_entries) > 0:
+            top_20_entries[-1] = current_user_entry
+            user_replaced_index = len(top_20_entries) - 1
+            logger.warning(f"[Leaderboard] No dummy found, replaced last entry at index {user_replaced_index}")
+    elif current_user_entry and user_in_top_20:
+        logger.info(f"[Leaderboard] User is in top 20 at rank {current_user_rank}")
+    elif not current_user_entry:
+        logger.warning(f"[Leaderboard] No current_user_entry found, user will not appear in leaderboard")
     
     # Build response entries
     for index, entry in enumerate(top_20_entries):
