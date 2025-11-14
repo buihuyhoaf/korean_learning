@@ -14,6 +14,8 @@ from functools import lru_cache
 
 import language_tool_python
 
+from ..core.config import settings
+
 LanguageToolError = getattr(
     language_tool_python,
     "LanguageToolErrorException",
@@ -46,10 +48,25 @@ SPELLING_CATEGORY_HINTS = {"TYPOS", "TYPOGRAPHY", "MISSPELLING", "CASING"}
 
 
 @lru_cache(maxsize=1)
-def _get_language_tool() -> language_tool_python.LanguageToolPublicAPI:
-    """Reuse a single LanguageTool client for Korean to avoid cold starts."""
-
-    return language_tool_python.LanguageToolPublicAPI("ko")
+def _get_language_tool() -> language_tool_python.LanguageTool | language_tool_python.LanguageToolPublicAPI:
+    """
+    Reuse a single LanguageTool client for Korean to avoid cold starts.
+    
+    Returns:
+        LanguageTool instance (local server) or LanguageToolPublicAPI (public API)
+    """
+    if settings.LANGUAGETOOL_USE_LOCAL:
+        # Sử dụng local server (chạy trong cùng container)
+        local_url = f"http://localhost:{settings.LANGUAGETOOL_PORT}"
+        logger.info(f"Using LanguageTool local server: {local_url}")
+        return language_tool_python.LanguageTool(
+            language=settings.LANGUAGETOOL_LANG,
+            remote_server=local_url
+        )
+    else:
+        # Sử dụng public API (fallback)
+        logger.info("Using LanguageTool public API")
+        return language_tool_python.LanguageToolPublicAPI(settings.LANGUAGETOOL_LANG)
 
 
 def _categorize_matches(matches: list[language_tool_python.Match]) -> tuple[int, int]:
@@ -104,10 +121,9 @@ async def evaluate_writing_with_ai(text: str) -> WritingAiEvaluationResult:
 
     Notes
     -----
-    - Uses LanguageTool public API for Korean to detect spelling/grammar issues.
+    - Uses LanguageTool local server (if configured) or public API as fallback.
     - Wraps LanguageTool failures and returns safe fallback feedback.
     """
-
     text = text.strip()
     if not text:
         return WritingAiEvaluationResult(
@@ -137,8 +153,34 @@ async def evaluate_writing_with_ai(text: str) -> WritingAiEvaluationResult:
             grammar_score=grammar_score,
             corrected_text=corrected_text if corrected_text != text else None,
         )
-    except LanguageToolError as exc:
+    except (LanguageToolError, ConnectionError, TimeoutError) as exc:
         logger.warning("LanguageTool evaluation failed: %s", exc)
+        
+        # Fallback: thử public API nếu local server fail
+        if settings.LANGUAGETOOL_USE_LOCAL:
+            logger.info("Falling back to public API due to local server error")
+            try:
+                public_tool = language_tool_python.LanguageToolPublicAPI(settings.LANGUAGETOOL_LANG)
+                matches = public_tool.check(text)
+                corrected_text = public_tool.correct(text)
+                
+                spelling_errors, grammar_errors = _categorize_matches(matches)
+                total_tokens = max(len(text.split()), 1)
+                spelling_score = _score_from_counts(spelling_errors, total_tokens)
+                grammar_score = _score_from_counts(grammar_errors, total_tokens)
+                overall_score = round((spelling_score + grammar_score) / 2.0, 2)
+                feedback = _build_feedback(spelling_errors, grammar_errors, corrected_text)
+                
+                return WritingAiEvaluationResult(
+                    score=overall_score,
+                    feedback=feedback + " (Sử dụng public API do local server không khả dụng)",
+                    spelling_score=spelling_score,
+                    grammar_score=grammar_score,
+                    corrected_text=corrected_text if corrected_text != text else None,
+                )
+            except Exception as fallback_exc:
+                logger.error("Public API fallback also failed: %s", fallback_exc)
+        
         return WritingAiEvaluationResult(
             score=None,
             feedback="Không thể kết nối tới dịch vụ kiểm tra ngôn ngữ. Vui lòng thử lại sau.",

@@ -23,6 +23,7 @@ from .config import (
     DatabaseSettings,
     EnvironmentOption,
     EnvironmentSettings,
+    LanguageToolSettings,
     RedisCacheSettings,
     RedisQueueSettings,
     RedisRateLimiterSettings,
@@ -139,6 +140,7 @@ def lifespan_factory(
         | RedisQueueSettings
         | RedisRateLimiterSettings
         | EnvironmentSettings
+        | LanguageToolSettings
     ),
     create_tables_on_start: bool = True,
 ) -> Callable[[FastAPI], _AsyncGeneratorContextManager[Any]]:
@@ -176,6 +178,20 @@ def lifespan_factory(
             if create_tables_on_start:
                 await create_tables()
 
+            # Start LanguageTool server if using local mode
+            if isinstance(settings, LanguageToolSettings) and settings.LANGUAGETOOL_USE_LOCAL:
+                from ..services.languagetool_server import start_languagetool_server
+                # Start in background thread (non-blocking)
+                import threading
+                def start_lt():
+                    success = start_languagetool_server(port=settings.LANGUAGETOOL_PORT)
+                    if not success:
+                        logger.warning("LanguageTool local server failed to start, will fallback to public API")
+                
+                thread = threading.Thread(target=start_lt, daemon=True)
+                thread.start()
+                logger.info("LanguageTool server startup initiated in background")
+
             # ML model loading: DISABLED on startup to save memory (512MB limit on Render free tier)
             # Model will be loaded lazily on first request via get_model() in stroke_api.py
             # This prevents OOM errors during deployment
@@ -194,6 +210,11 @@ def lifespan_factory(
 
             if isinstance(settings, RedisRateLimiterSettings):
                 await close_redis_rate_limit_pool()
+            
+            # Stop LanguageTool server
+            if isinstance(settings, LanguageToolSettings) and settings.LANGUAGETOOL_USE_LOCAL:
+                from ..services.languagetool_server import stop_languagetool_server
+                stop_languagetool_server()
 
     return lifespan
 
@@ -209,6 +230,7 @@ def create_application(
         | RedisQueueSettings
         | RedisRateLimiterSettings
         | EnvironmentSettings
+        | LanguageToolSettings
     ),
     create_tables_on_start: bool = True,
     lifespan: Callable[[FastAPI], _AsyncGeneratorContextManager[Any]] | None = None,

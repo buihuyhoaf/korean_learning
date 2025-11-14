@@ -29,6 +29,7 @@ from .routes.notification import router as notification_router
 from .user_notifications import router as user_notifications_router
 from .push_tokens import router as push_tokens_router
 from .writing import router as writing_router
+from .health import router as health_router
 
 router = APIRouter(prefix="/v1")
 
@@ -59,3 +60,4 @@ router.include_router(push_tokens_router)
 router.include_router(notification_router)
 router.include_router(user_notifications_router)
 router.include_router(writing_router)
+router.include_router(health_router)

@@ -19,6 +19,13 @@ services:
         fromDatabase:
           name: korean-learning-db
           property: connectionString
+      # LanguageTool configuration
+      - key: LANGUAGETOOL_USE_LOCAL
+        value: "true"
+      - key: LANGUAGETOOL_PORT
+        value: "8010"
+      - key: LANGUAGETOOL_LANG
+        value: "ko"
     healthCheckPath: /health
     # Uncomment nếu muốn chạy migrations tự động khi deploy
     # buildCommand: alembic upgrade head

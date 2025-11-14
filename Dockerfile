@@ -26,13 +26,24 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # --------- Final Stage ---------
 FROM python:3.11-slim
 
-# Update package lists and install basic dependencies
+# Update package lists and install dependencies + Java (cho LanguageTool)
 RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
 RUN groupadd --gid 1000 app \
     && useradd --uid 1000 --gid app --shell /bin/bash --create-home app
+
+# Download và setup LanguageTool (as root, then chown)
+RUN mkdir -p /opt/languagetool && \
+    cd /opt/languagetool && \
+    curl -L https://languagetool.org/download/LanguageTool-stable.zip -o languagetool.zip && \
+    unzip languagetool.zip && \
+    rm languagetool.zip && \
+    chown -R app:app /opt/languagetool
 
 # Copy the virtual environment from the builder stage
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
@@ -51,6 +62,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Set default port (can be overridden by Render/Railway)
 ENV PORT=8000
+ENV LANGUAGETOOL_PORT=8010
 
 # Make deployment script executable
 RUN chmod +x /code/deploy.sh

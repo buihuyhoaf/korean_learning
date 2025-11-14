@@ -257,6 +257,16 @@ class MLModelSettings(BaseSettings):
     PRONUNCIATION_SCORE_THRESHOLD: float = config("PRONUNCIATION_SCORE_THRESHOLD", default=0.6)
 
 
+class LanguageToolSettings(BaseSettings):
+    """Settings for LanguageTool integration."""
+    # Sử dụng local server hay public API
+    LANGUAGETOOL_USE_LOCAL: bool = config("LANGUAGETOOL_USE_LOCAL", default=False, cast=bool)
+    # Port của local server (internal, không cần expose)
+    LANGUAGETOOL_PORT: int = config("LANGUAGETOOL_PORT", default=8010, cast=int)
+    # Language code (mặc định là "ko" cho tiếng Hàn)
+    LANGUAGETOOL_LANG: str = config("LANGUAGETOOL_LANG", default="ko")
+
+
 class Settings(
     AppSettings,
     SQLiteSettings,
@@ -274,6 +284,7 @@ class Settings(
     EnvironmentSettings,
     SupabaseSettings,
     MLModelSettings,
+    LanguageToolSettings,
 ):
     pass
 

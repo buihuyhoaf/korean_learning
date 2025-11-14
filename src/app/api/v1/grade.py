@@ -1,10 +1,15 @@
 """Endpoints for grading Korean writing exercises."""
 
+import logging
 from functools import lru_cache
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import language_tool_python
+
+from ...core.config import settings
+
+logger = logging.getLogger(__name__)
 
 LanguageToolError = getattr(
     language_tool_python,
@@ -41,10 +46,19 @@ SPELLING_CATEGORY_HINTS = {"TYPOS", "TYPOGRAPHY", "MISSPELLING", "CASING"}
 
 
 @lru_cache(maxsize=1)
-def get_tool() -> language_tool_python.LanguageToolPublicAPI:
-    """Reuse a single LanguageTool public API client for Korean."""
-
-    return language_tool_python.LanguageToolPublicAPI("ko")
+def get_tool() -> language_tool_python.LanguageTool | language_tool_python.LanguageToolPublicAPI:
+    """Reuse a single LanguageTool client for Korean."""
+    
+    if settings.LANGUAGETOOL_USE_LOCAL:
+        local_url = f"http://localhost:{settings.LANGUAGETOOL_PORT}"
+        logger.info(f"Using LanguageTool local server: {local_url}")
+        return language_tool_python.LanguageTool(
+            language=settings.LANGUAGETOOL_LANG,
+            remote_server=local_url
+        )
+    else:
+        logger.info("Using LanguageTool public API")
+        return language_tool_python.LanguageToolPublicAPI(settings.LANGUAGETOOL_LANG)
 
 
 def _categorize_matches(matches: list[language_tool_python.Match]) -> tuple[int, int]:

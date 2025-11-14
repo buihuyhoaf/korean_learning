@@ -228,7 +228,41 @@ async def get_weekly_leaderboard(
         for entry in entries:
             if not entry.is_dummy and entry.user_id == user_id:
                 current_user_entry = entry
-                current_user_rank = entry.rank
+                
+                # FIX LỖI 1: Tính lại XP từ UserExpLog để đảm bảo chính xác
+                week_start_datetime = datetime.combine(week_start, datetime.min.time()).replace(tzinfo=UTC)
+                week_xp_query = select(func.sum(UserExpLog.amount)).where(
+                    UserExpLog.user_id == user_id,
+                    UserExpLog.created_at >= week_start_datetime
+                )
+                week_xp_result = await db.execute(week_xp_query)
+                recalculated_week_xp = week_xp_result.scalar() or 0
+                
+                # Cập nhật XP nếu khác với giá trị cũ
+                if entry.xp != recalculated_week_xp:
+                    logger.info(f"[Leaderboard] Updating XP: {entry.xp} -> {recalculated_week_xp}")
+                    entry.xp = recalculated_week_xp
+                    entry.updated_at = datetime.now(UTC)
+                    
+                    # Re-sort và re-rank lại sau khi cập nhật XP
+                    entries = sorted(entries, key=lambda e: e.xp, reverse=True)
+                    previous_xp = None
+                    new_rank = 0
+                    for e in entries:
+                        if previous_xp is not None and previous_xp == e.xp:
+                            e.rank = new_rank
+                        else:
+                            new_rank += 1
+                            e.rank = new_rank
+                        previous_xp = e.xp
+                    
+                    # Cập nhật lại current_user_rank sau khi re-rank
+                    current_user_rank = entry.rank
+                    # Flush để đảm bảo thay đổi được ghi nhận trong session
+                    await db.flush()
+                else:
+                    current_user_rank = entry.rank
+                
                 logger.info(f"[Leaderboard] Found existing user entry: rank={entry.rank}, xp={entry.xp}")
                 # Get previous rank from Redis or DB
                 previous_rank = await WeeklyLeaderboardRedis.get_previous_rank(
@@ -364,11 +398,24 @@ async def get_weekly_leaderboard(
         if is_current_user and rank_change is not None:
             entry_rank_change = rank_change
         
-        # Use displayed rank (index+1 if user was replaced, otherwise actual rank)
-        if is_current_user and user_replaced_index is not None:
-            displayed_rank = user_replaced_index + 1
-        else:
-            displayed_rank = entry.rank
+        # FIX LỖI 2: Tính displayed_rank dựa trên vị trí trong list (xử lý ties)
+        displayed_rank = index + 1
+        if index > 0:
+            # Nếu entry trước có cùng XP, dùng cùng rank
+            prev_entry = top_20_entries[index - 1]
+            if prev_entry.xp == entry.xp:
+                # Tìm rank của entry đầu tiên có cùng XP
+                for i in range(index - 1, -1, -1):
+                    if top_20_entries[i].xp != entry.xp:
+                        displayed_rank = i + 2
+                        break
+                    if i == 0:
+                        displayed_rank = 1
+                        break
+        
+        # Cập nhật current_user_rank để nhất quán với displayed_rank
+        if is_current_user:
+            current_user_rank = displayed_rank
         
         # Get streak_days from User if entry has user_id, or from Redis if dummy
         entry_streak_days = None
