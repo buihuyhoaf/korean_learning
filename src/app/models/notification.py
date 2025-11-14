@@ -16,9 +16,9 @@ class Notification(Base):
     title: Mapped[str] = mapped_column(String(200))
     message: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(50))  # system, reminder, achievement
+    metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)  # JSON field để lưu lesson_id, submission_id, etc.
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-    metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # JSON field để lưu lesson_id, submission_id, etc.
 
     # Relationships
     user = relationship("User", back_populates="notifications")
