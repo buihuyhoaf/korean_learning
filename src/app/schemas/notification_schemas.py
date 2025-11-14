@@ -20,7 +20,7 @@ class NotificationBase(BaseModel):
     message: str = Field(..., description="Notification message")
     type: str = Field(..., max_length=50, description="Notification type: system, reminder, achievement")
     is_read: bool = Field(default=False, description="Whether the notification has been read")
-    metadata: Optional[dict] = Field(None, description="Notification metadata (JSON) - e.g., lesson_id, submission_id")
+    notification_metadata: Optional[dict] = Field(None, alias="metadata", description="Notification metadata (JSON) - e.g., lesson_id, submission_id")
 
 
 class NotificationCreate(NotificationBase):

@@ -129,7 +129,7 @@ async def notify_writing_graded(
             message=body,
             type="writing_graded",
             is_read=False,
-            metadata={
+            notification_metadata={
                 "lesson_id": str(lesson_id),
                 "submission_id": str(submission_id) if submission_id else None,
             }

@@ -72,12 +72,13 @@ async def get_user_notifications(
     notifications_data = []
     for notification in notifications:
         notification_dict = {
-            "id": notification.id,
+            "id": str(notification.id),
             "title": notification.title,
             "message": notification.message,
             "type": notification.type,
             "is_read": notification.is_read,
-            "created_at": notification.created_at
+            "created_at": notification.created_at.isoformat() if notification.created_at else None,
+            "metadata": notification.notification_metadata  # Include metadata in response
         }
         notifications_data.append(notification_dict)
     
