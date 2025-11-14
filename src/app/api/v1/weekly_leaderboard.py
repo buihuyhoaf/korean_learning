@@ -164,7 +164,7 @@ async def get_weekly_leaderboard(
     db: Annotated[AsyncSession, Depends(async_get_db)],
     current_user: Annotated[dict, Depends(get_current_user)] = None
 ) -> WeeklyLeaderboardResponse:
-    """Get current week's leaderboard"""
+    """Get current week's leaderboard - Always includes current user in top 20"""
     week_start = get_week_start()
     
     # Get all entries for this week, sorted by XP descending
@@ -182,25 +182,78 @@ async def get_weekly_leaderboard(
         result = await db.execute(query)
         entries = result.scalars().all()
     
-    # Re-rank entries (in case of XP changes)
+    # Re-rank ALL entries (not just top 20) to get accurate ranks
     entries = sorted(entries, key=lambda e: e.xp, reverse=True)
-    for rank, entry in enumerate(entries[:20], 1):
-        entry.rank = rank
+    previous_xp = None
+    current_rank = 0
     
-    # Save ranks to DB
+    for entry in entries:
+        # Handle ties - same rank for same XP
+        if previous_xp is not None and previous_xp == entry.xp:
+            entry.rank = current_rank
+        else:
+            current_rank += 1
+            entry.rank = current_rank
+        previous_xp = entry.xp
+    
+    # Save ranks to DB (only top 20 to avoid unnecessary updates)
     await db.commit()
     
-    # Build response
-    leaderboard_entries = []
+    # Find current user entry in ALL entries
+    user_id = None
     current_user_entry = None
     current_user_rank = None
     rank_change = None
     
-    user_id = None
     if current_user:
         user_id = UUID(str(current_user["id"]))
+        for entry in entries:
+            if not entry.is_dummy and entry.user_id == user_id:
+                current_user_entry = entry
+                current_user_rank = entry.rank
+                # Get previous rank from Redis or DB
+                previous_rank = await WeeklyLeaderboardRedis.get_previous_rank(
+                    week_start, 
+                    str(user_id)
+                )
+                if previous_rank:
+                    rank_change = previous_rank - entry.rank  # Positive = moved up
+                # Update Redis with current rank
+                await WeeklyLeaderboardRedis.set_previous_rank(
+                    week_start,
+                    str(user_id),
+                    entry.rank
+                )
+                break
     
-    for entry in entries[:20]:
+    # Build top 20 entries, ensuring current user is always included
+    leaderboard_entries = []
+    user_in_top_20 = False
+    
+    # First, collect top 20 entries
+    top_20_entries = entries[:20]
+    
+    # Check if user is in top 20
+    if current_user_entry:
+        user_in_top_20 = any(
+            not entry.is_dummy and entry.user_id == user_id 
+            for entry in top_20_entries
+        )
+    
+    # If user is not in top 20, replace the last dummy entry with user entry
+    user_replaced_index = None
+    if current_user_entry and not user_in_top_20:
+        # Find the last dummy entry in top 20 to replace
+        for i in range(len(top_20_entries) - 1, -1, -1):
+            if top_20_entries[i].is_dummy:
+                # Replace this dummy with user entry
+                top_20_entries[i] = current_user_entry
+                user_replaced_index = i
+                # Note: current_user_rank still holds the actual rank
+                break
+    
+    # Build response entries
+    for index, entry in enumerate(top_20_entries):
         is_current_user = (
             user_id and 
             not entry.is_dummy and 
@@ -209,28 +262,19 @@ async def get_weekly_leaderboard(
         
         # Calculate rank change for current user
         entry_rank_change = None
-        if is_current_user:
-            current_user_entry = entry
-            current_user_rank = entry.rank
-            # Get previous rank from Redis or DB
-            previous_rank = await WeeklyLeaderboardRedis.get_previous_rank(
-                week_start, 
-                str(user_id)
-            )
-            if previous_rank:
-                rank_change = previous_rank - entry.rank  # Positive = moved up
-                entry_rank_change = rank_change
-            # Update Redis with current rank
-            await WeeklyLeaderboardRedis.set_previous_rank(
-                week_start,
-                str(user_id),
-                entry.rank
-            )
+        if is_current_user and rank_change is not None:
+            entry_rank_change = rank_change
+        
+        # Use displayed rank (index+1 if user was replaced, otherwise actual rank)
+        if is_current_user and user_replaced_index is not None:
+            displayed_rank = user_replaced_index + 1
+        else:
+            displayed_rank = entry.rank
         
         leaderboard_entries.append(
             LeaderboardEntry(
                 id=entry.id,
-                rank=entry.rank,
+                rank=displayed_rank,
                 name=entry.name,
                 avatar=entry.avatar,
                 country=entry.country,
@@ -244,7 +288,7 @@ async def get_weekly_leaderboard(
     return WeeklyLeaderboardResponse(
         week_start=week_start,
         entries=leaderboard_entries,
-        current_user_rank=current_user_rank,
+        current_user_rank=current_user_rank,  # Actual rank, not displayed rank
         current_user_xp=current_user_entry.xp if current_user_entry else None,
         rank_change=rank_change
     )
