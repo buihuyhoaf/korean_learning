@@ -1015,6 +1015,22 @@ def _check_answer_correctness(question: Question, request: dict) -> tuple[bool, 
                 correct_answer_payload = [
                     opt.id for opt in question.options if opt.is_correct
                 ]
+    elif "sentence_order" in request or (isinstance(request.get("answer"), list) and question_type_code == "SENTENCE_ORDER"):
+        # Handle SENTENCE_ORDER: user submits array of strings in their order
+        user_sequence = request.get("sentence_order") or request.get("answer", [])
+        
+        if question.sentence_order:
+            correct_sequence = question.sentence_order.correct_sequence
+            user_sequence_str = [str(item).strip() for item in user_sequence]
+            correct_sequence_str = [str(item).strip() for item in correct_sequence]
+            
+            is_correct = user_sequence_str == correct_sequence_str
+            user_answer_str = " → ".join(user_sequence_str)
+            correct_answer_payload = correct_sequence
+        else:
+            is_correct = False
+            user_answer_str = " → ".join([str(item) for item in user_sequence])
+            correct_answer_payload = None
     elif "answer" in request:
         # Text-based answer
         user_answer_str = str(request.get("answer", "")).strip()

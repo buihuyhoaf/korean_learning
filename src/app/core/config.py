@@ -263,8 +263,9 @@ class LanguageToolSettings(BaseSettings):
     LANGUAGETOOL_USE_LOCAL: bool = config("LANGUAGETOOL_USE_LOCAL", default=False, cast=bool)
     # Port của local server (internal, không cần expose)
     LANGUAGETOOL_PORT: int = config("LANGUAGETOOL_PORT", default=8010, cast=int)
-    # Language code (mặc định là "ko" cho tiếng Hàn)
-    LANGUAGETOOL_LANG: str = config("LANGUAGETOOL_LANG", default="ko")
+    # Language code (mặc định là "auto" vì LanguageTool có thể không hỗ trợ tốt tiếng Hàn)
+    # Các tùy chọn: "ko", "ko-KR", "ko_KR", "auto" (auto-detect)
+    LANGUAGETOOL_LANG: str = config("LANGUAGETOOL_LANG", default="auto")
 
 
 class Settings(

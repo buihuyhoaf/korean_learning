@@ -47,26 +47,55 @@ class WritingAiEvaluationError(Exception):
 SPELLING_CATEGORY_HINTS = {"TYPOS", "TYPOGRAPHY", "MISSPELLING", "CASING"}
 
 
-@lru_cache(maxsize=1)
+# Không cache để có thể thử các language code khác nhau
 def _get_language_tool() -> language_tool_python.LanguageTool | language_tool_python.LanguageToolPublicAPI:
     """
     Reuse a single LanguageTool client for Korean to avoid cold starts.
     
     Returns:
         LanguageTool instance (local server) or LanguageToolPublicAPI (public API)
+    
+    Note:
+        LanguageTool may not fully support Korean ('ko'). If 'ko' fails, 
+        we try 'en-US' as fallback or use auto-detect.
     """
+    lang_code = settings.LANGUAGETOOL_LANG
+    
     if settings.LANGUAGETOOL_USE_LOCAL:
         # Sử dụng local server (chạy trong cùng container)
         local_url = f"http://localhost:{settings.LANGUAGETOOL_PORT}"
-        logger.info(f"Using LanguageTool local server: {local_url}")
+        logger.info(f"Using LanguageTool local server: {local_url} with language: {lang_code}")
+        
+        # Thử các mã ngôn ngữ khác nhau cho tiếng Hàn
+        korean_codes = [lang_code, "ko-KR", "ko_KR", "auto"]
+        
+        for code in korean_codes:
+            try:
+                tool = language_tool_python.LanguageTool(
+                    language=code,
+                    remote_server=local_url
+                )
+                if code != lang_code:
+                    logger.info(f"LanguageTool initialized with language code: {code} (fallback from {lang_code})")
+                return tool
+            except (ValueError, KeyError) as e:
+                logger.debug(f"LanguageTool failed with code '{code}': {e}")
+                if code == korean_codes[-1]:  # Last attempt
+                    raise
+        # Should not reach here, but just in case
         return language_tool_python.LanguageTool(
-            language=settings.LANGUAGETOOL_LANG,
+            language="auto",
             remote_server=local_url
         )
     else:
         # Sử dụng public API (fallback)
-        logger.info("Using LanguageTool public API")
-        return language_tool_python.LanguageToolPublicAPI(settings.LANGUAGETOOL_LANG)
+        logger.info(f"Using LanguageTool public API with language: {lang_code}")
+        # Public API cũng có thể không hỗ trợ 'ko', thử 'auto' nếu fail
+        try:
+            return language_tool_python.LanguageToolPublicAPI(lang_code)
+        except (ValueError, KeyError):
+            logger.warning(f"Language code '{lang_code}' not supported, using 'auto' instead")
+            return language_tool_python.LanguageToolPublicAPI("auto")
 
 
 def _categorize_matches(matches: list[language_tool_python.Match]) -> tuple[int, int]:

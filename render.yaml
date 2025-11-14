@@ -25,7 +25,7 @@ services:
       - key: LANGUAGETOOL_PORT
         value: "8010"
       - key: LANGUAGETOOL_LANG
-        value: "ko"
+        value: "auto"  # Use "auto" as LanguageTool may not fully support Korean
     healthCheckPath: /health
     # Uncomment nếu muốn chạy migrations tự động khi deploy
     # buildCommand: alembic upgrade head
