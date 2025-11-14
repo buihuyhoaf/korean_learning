@@ -46,9 +46,7 @@ async def _generate_daily_missions(
             mission_id=f"m{i+1}",
             type=mission_type,
             target=random.choice(target_options),
-            progress=0,
-            date=target_date,
-            created_at=datetime.now(UTC)
+            date=target_date
         )
         missions.append(mission)
         db.add(mission)
