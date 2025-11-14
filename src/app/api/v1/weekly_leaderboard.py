@@ -199,7 +199,7 @@ async def get_weekly_leaderboard(
     # Save ranks to DB (only top 20 to avoid unnecessary updates)
     await db.commit()
     
-    # Find current user entry in ALL entries
+    # Find current user entry in ALL entries, create if not exists
     user_id = None
     current_user_entry = None
     current_user_rank = None
@@ -207,6 +207,7 @@ async def get_weekly_leaderboard(
     
     if current_user:
         user_id = UUID(str(current_user["id"]))
+        # Find user entry in existing entries
         for entry in entries:
             if not entry.is_dummy and entry.user_id == user_id:
                 current_user_entry = entry
@@ -225,6 +226,66 @@ async def get_weekly_leaderboard(
                     entry.rank
                 )
                 break
+        
+        # If user entry doesn't exist, create it with 0 XP
+        if not current_user_entry:
+            # Get user info
+            user_query = select(User).where(User.id == user_id)
+            user_result = await db.execute(user_query)
+            user = user_result.scalar_one_or_none()
+            
+            if user:
+                # Calculate week XP from UserExpLog
+                week_start_datetime = datetime.combine(week_start, datetime.min.time()).replace(tzinfo=UTC)
+                week_xp_query = select(func.sum(UserExpLog.amount)).where(
+                    UserExpLog.user_id == user_id,
+                    UserExpLog.created_at >= week_start_datetime
+                )
+                week_xp_result = await db.execute(week_xp_query)
+                week_xp = week_xp_result.scalar() or 0
+                
+                # Get baseline XP
+                baseline_query = select(func.sum(UserExpLog.amount)).where(
+                    UserExpLog.user_id == user_id,
+                    UserExpLog.created_at < week_start_datetime
+                )
+                baseline_result = await db.execute(baseline_query)
+                baseline_xp = baseline_result.scalar() or 0
+                
+                # Create entry with current week XP
+                current_user_entry = WeeklyLeaderboard(
+                    week_start=week_start,
+                    user_id=user_id,
+                    is_dummy=False,
+                    name=user.username or user.email or "User",
+                    avatar=user.picture,
+                    country=None,
+                    xp=week_xp,
+                    xp_week_start=baseline_xp,
+                    rank=21  # Will be updated after re-ranking
+                )
+                db.add(current_user_entry)
+                await db.flush()
+                
+                # Re-add to entries list and re-sort
+                entries.append(current_user_entry)
+                entries = sorted(entries, key=lambda e: e.xp, reverse=True)
+                
+                # Re-rank all entries
+                previous_xp = None
+                new_rank = 0
+                for entry in entries:
+                    if previous_xp is not None and previous_xp == entry.xp:
+                        entry.rank = new_rank
+                    else:
+                        new_rank += 1
+                        entry.rank = new_rank
+                    previous_xp = entry.xp
+                
+                # Update current_user_entry rank
+                current_user_rank = current_user_entry.rank
+                
+                await db.commit()
     
     # Build top 20 entries, ensuring current user is always included
     leaderboard_entries = []
