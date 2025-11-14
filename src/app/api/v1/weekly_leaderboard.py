@@ -82,6 +82,9 @@ async def initialize_weekly_leaderboard(
         # Baseline XP: random between 500-2000
         baseline_xp = [random.randint(500, 2000) for _ in range(19)]
         
+        # Baseline streak_days: random between 1-365 (follow similar algorithm to XP)
+        baseline_streak_days = [random.randint(1, 365) for _ in range(19)]
+        
         # Select Phase 1 pool (10 dummies)
         phase1_pool = random.sample(dummy_ids, 10)
         
@@ -101,6 +104,7 @@ async def initialize_weekly_leaderboard(
         # Create dummy entries in DB
         for i, dummy_id in enumerate(dummy_ids):
             dummy_xp = baseline_xp[i]
+            dummy_streak_days = baseline_streak_days[i]
             
             # Save to Redis
             dummy_data = {
@@ -110,7 +114,8 @@ async def initialize_weekly_leaderboard(
                 "country": shuffled_countries[i],
                 "phase": 1 if dummy_id in phase1_pool else 0,
                 "pool": "phase1_pool" if dummy_id in phase1_pool else None,
-                "baseline_xp": dummy_xp
+                "baseline_xp": dummy_xp,
+                "streak_days": dummy_streak_days
             }
             await WeeklyLeaderboardRedis.set_dummy(week_start, dummy_id, dummy_data)
             
@@ -364,10 +369,15 @@ async def get_weekly_leaderboard(
         else:
             displayed_rank = entry.rank
         
-        # Get streak_days from User if entry has user_id
+        # Get streak_days from User if entry has user_id, or from Redis if dummy
         entry_streak_days = None
         if not entry.is_dummy and entry.user_id and entry.user:
             entry_streak_days = entry.user.streak_days
+        elif entry.is_dummy and entry.dummy_id:
+            # Get streak_days from Redis for dummy users
+            dummy_data = await WeeklyLeaderboardRedis.get_dummy(week_start, entry.dummy_id)
+            if dummy_data and "streak_days" in dummy_data:
+                entry_streak_days = dummy_data["streak_days"]
         
         leaderboard_entries.append(
             LeaderboardEntry(
