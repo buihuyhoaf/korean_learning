@@ -380,6 +380,9 @@ async def get_weekly_leaderboard(
             top_20_entries[-1] = current_user_entry
             user_replaced_index = len(top_20_entries) - 1
             logger.warning(f"[Leaderboard] No dummy found, replaced last entry at index {user_replaced_index}")
+        
+        # FIX: Sắp xếp lại top_20_entries theo XP sau khi replace để đảm bảo thứ tự đúng
+        top_20_entries = sorted(top_20_entries, key=lambda e: e.xp, reverse=True)
     elif current_user_entry and user_in_top_20:
         logger.info(f"[Leaderboard] User is in top 20 at rank {current_user_rank}")
     elif not current_user_entry:
@@ -387,7 +390,8 @@ async def get_weekly_leaderboard(
     
     # Build response entries
     for index, entry in enumerate(top_20_entries):
-        is_current_user = (
+        # FIX: Đảm bảo is_current_user luôn là boolean, không bao giờ None
+        is_current_user = bool(
             user_id and 
             not entry.is_dummy and 
             entry.user_id == user_id
@@ -399,9 +403,10 @@ async def get_weekly_leaderboard(
             entry_rank_change = rank_change
         
         # FIX LỖI 2: Tính displayed_rank dựa trên vị trí trong list (xử lý ties)
+        # Sau khi đã sắp xếp lại top_20_entries, chỉ cần tính rank dựa trên vị trí và XP
         displayed_rank = index + 1
         if index > 0:
-            # Nếu entry trước có cùng XP, dùng cùng rank
+            # Nếu entry trước có cùng XP, dùng cùng rank (xử lý ties)
             prev_entry = top_20_entries[index - 1]
             if prev_entry.xp == entry.xp:
                 # Tìm rank của entry đầu tiên có cùng XP
