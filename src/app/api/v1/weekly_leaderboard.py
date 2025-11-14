@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
+from sqlalchemy.orm import selectinload
 
 from ...api.dependencies import get_current_user, get_current_superuser, get_optional_user
 from ...core.db.database import async_get_db
@@ -173,7 +174,10 @@ async def get_weekly_leaderboard(
     week_start = get_week_start()
     
     # Get all entries for this week, sorted by XP descending
-    query = select(WeeklyLeaderboard).where(
+    # Eager load user relationship to avoid N+1 queries
+    query = select(WeeklyLeaderboard).options(
+        selectinload(WeeklyLeaderboard.user)
+    ).where(
         WeeklyLeaderboard.week_start == week_start
     ).order_by(desc(WeeklyLeaderboard.xp))
     
@@ -360,6 +364,11 @@ async def get_weekly_leaderboard(
         else:
             displayed_rank = entry.rank
         
+        # Get streak_days from User if entry has user_id
+        entry_streak_days = None
+        if not entry.is_dummy and entry.user_id and entry.user:
+            entry_streak_days = entry.user.streak_days
+        
         leaderboard_entries.append(
             LeaderboardEntry(
                 id=entry.id,
@@ -370,7 +379,8 @@ async def get_weekly_leaderboard(
                 xp=entry.xp,
                 is_dummy=entry.is_dummy,
                 is_current_user=is_current_user,
-                rank_change=entry_rank_change
+                rank_change=entry_rank_change,
+                streak_days=entry_streak_days
             )
         )
     

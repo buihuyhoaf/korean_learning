@@ -14,6 +14,7 @@ class LeaderboardEntry(BaseModel):
     is_dummy: bool
     is_current_user: bool = False
     rank_change: Optional[int] = None  # Only for current user
+    streak_days: Optional[int] = None  # User's streak days
 
 
 class WeeklyLeaderboardResponse(BaseModel):
