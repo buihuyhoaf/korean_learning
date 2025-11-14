@@ -176,6 +176,7 @@ async def get_weekly_leaderboard(
     """Get current week's leaderboard - Always includes current user in top 20"""
     # Get optional user (doesn't require authentication)
     current_user = await get_optional_user(request, db)
+    logger.info(f"[Leaderboard] current_user: {current_user is not None}, has token: {request.headers.get('Authorization') is not None}")
     
     week_start = get_week_start()
     
@@ -222,7 +223,7 @@ async def get_weekly_leaderboard(
     
     if current_user:
         user_id = UUID(str(current_user["id"]))
-        logger.info(f"[Leaderboard] Looking for user entry: user_id={user_id}, week_start={week_start}")
+        logger.info(f"[Leaderboard] Looking for user entry: user_id={user_id}, week_start={week_start}, user_email={current_user.get('email', 'N/A')}")
         
         # Find user entry in existing entries
         for entry in entries:
@@ -342,51 +343,36 @@ async def get_weekly_leaderboard(
                 
                 await db.commit()
     
-    # Build top 20 entries, ensuring current user is always included
+    # Build top 20 entries: lấy top 19 entries (bỏ qua user entry), thêm user entry, sắp xếp lại
     leaderboard_entries = []
-    user_in_top_20 = False
     
     # Re-sort entries after potential new user entry creation
     entries = sorted(entries, key=lambda e: e.xp, reverse=True)
     
-    # First, collect top 20 entries
-    top_20_entries = list(entries[:20])  # Make a list copy to avoid modifying original
-    
-    # Check if user is in top 20
-    if current_user_entry and user_id:
-        user_in_top_20 = any(
-            not entry.is_dummy and entry.user_id == user_id 
-            for entry in top_20_entries
-        )
-    
-    # If user is not in top 20, replace the last dummy entry with user entry
-    user_replaced_index = None
-    if current_user_entry and not user_in_top_20:
-        logger.info(f"[Leaderboard] User not in top 20 (actual rank={current_user_rank}), replacing dummy entry")
-        # Find the last dummy entry in top 20 to replace
-        replaced = False
-        for i in range(len(top_20_entries) - 1, -1, -1):
-            if top_20_entries[i].is_dummy:
-                # Replace this dummy with user entry
-                top_20_entries[i] = current_user_entry
-                user_replaced_index = i
-                replaced = True
-                logger.info(f"[Leaderboard] Replaced dummy entry at index {i} with user entry")
-                # Note: current_user_rank still holds the actual rank
-                break
+    # Lấy top 19 entries, bỏ qua user entry nếu có
+    top_19_entries = []
+    for entry in entries:
+        # Bỏ qua user entry (sẽ thêm lại sau)
+        if current_user_entry and user_id and not entry.is_dummy and entry.user_id == user_id:
+            continue
         
-        # If no dummy found (shouldn't happen, but safety check), replace last entry
-        if not replaced and len(top_20_entries) > 0:
-            top_20_entries[-1] = current_user_entry
-            user_replaced_index = len(top_20_entries) - 1
-            logger.warning(f"[Leaderboard] No dummy found, replaced last entry at index {user_replaced_index}")
-        
-        # FIX: Sắp xếp lại top_20_entries theo XP sau khi replace để đảm bảo thứ tự đúng
-        top_20_entries = sorted(top_20_entries, key=lambda e: e.xp, reverse=True)
-    elif current_user_entry and user_in_top_20:
-        logger.info(f"[Leaderboard] User is in top 20 at rank {current_user_rank}")
-    elif not current_user_entry:
-        logger.warning(f"[Leaderboard] No current_user_entry found, user will not appear in leaderboard")
+        if len(top_19_entries) < 19:
+            top_19_entries.append(entry)
+        else:
+            break
+    
+    # Thêm user entry vào và sắp xếp lại
+    if current_user_entry:
+        top_19_entries.append(current_user_entry)
+        top_20_entries = sorted(top_19_entries, key=lambda e: e.xp, reverse=True)
+        logger.info(f"[Leaderboard] Added user entry to top 19, total entries: {len(top_20_entries)}")
+    else:
+        # Nếu không có user entry, chỉ lấy top 19
+        top_20_entries = top_19_entries
+        logger.warning(f"[Leaderboard] No current_user_entry found, showing top {len(top_20_entries)} entries only")
+    
+    # User luôn có trong top 20 nếu có current_user_entry
+    user_in_top_20 = current_user_entry is not None
     
     # Build response entries
     for index, entry in enumerate(top_20_entries):

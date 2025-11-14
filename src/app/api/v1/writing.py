@@ -116,18 +116,103 @@ async def grade_writing_submission(
     await db.commit()
     await db.refresh(updated_submission)
 
-    # Send FCM notification and save notification record
+    # Get exercise and lesson_id for EXP and progress update
+    from ...models.exercise import Exercise
+    from sqlalchemy import select
+    
+    exercise_query = select(Exercise).where(Exercise.id == updated_submission.exercise_id)
+    exercise_result = await db.execute(exercise_query)
+    exercise = exercise_result.scalar_one_or_none()
+    
+    lesson_id = None
+    if exercise:
+        lesson_id = exercise.lesson_id
+    
+    # Calculate EXP based on final score
+    # 50 EXP nếu đạt 8.0+ (Xuất sắc)
+    # 30 EXP nếu 6.0-7.9 (Tốt)
+    # 10 EXP nếu <6.0 (Cần cải thiện)
+    if final_score >= 8.0:
+        exp_to_add = 50
+    elif final_score >= 6.0:
+        exp_to_add = 30
+    else:
+        exp_to_add = 10
+    
+    # Add EXP to user
     try:
-        from ...services.writing_notifications import notify_writing_graded
-        from ...models.exercise import Exercise
-        from sqlalchemy import select
+        from ...models.user import User
+        from ...models.gamification import UserExpLog
         
-        # Get lesson_id from exercise
-        exercise_query = select(Exercise).where(Exercise.id == updated_submission.exercise_id)
-        exercise_result = await db.execute(exercise_query)
-        exercise = exercise_result.scalar_one_or_none()
+        user_query = select(User).filter(User.id == updated_submission.user_id)
+        user_result = await db.execute(user_query)
+        user = user_result.scalar_one_or_none()
         
-        if exercise:
+        if user:
+            user.exp += exp_to_add
+            
+            # Log EXP gain
+            exp_log = UserExpLog(
+                user_id=updated_submission.user_id,
+                source="writing_teacher_graded",
+                amount=exp_to_add
+            )
+            db.add(exp_log)
+            
+            logger.info(
+                "Added %s EXP for teacher-graded writing submission (submission_id=%s, score=%.2f)",
+                exp_to_add,
+                submission_id,
+                final_score
+            )
+    except Exception as exc:  # noqa: BLE001
+        # Log error but don't fail the grading request
+        logger.error(
+            "Failed to add EXP for teacher-graded writing (submission_id=%s): %s",
+            submission_id,
+            exc,
+            exc_info=True,
+        )
+    
+    # Update lesson progress with writing_exp
+    if lesson_id:
+        try:
+            from ...crud.progress_tracking import ProgressTrackingCRUD, LessonExpBreakdown
+            
+            exp_breakdown = LessonExpBreakdown(
+                question_exp=0.0,
+                listening_exp=0.0,
+                speaking_exp=0.0,
+                writing_exp=float(exp_to_add)
+            )
+            
+            await ProgressTrackingCRUD.update_all_progress(
+                db=db,
+                user_id=updated_submission.user_id,
+                lesson_id=lesson_id,
+                exp_breakdown=exp_breakdown
+            )
+            
+            logger.info(
+                "Updated lesson progress for teacher-graded writing (submission_id=%s, lesson_id=%s, exp=%s)",
+                submission_id,
+                lesson_id,
+                exp_to_add
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Log error but don't fail the grading request
+            logger.error(
+                "Failed to update lesson progress for teacher-graded writing (submission_id=%s): %s",
+                submission_id,
+                exc,
+                exc_info=True,
+            )
+    
+    # Send FCM notification and save notification record
+    if exercise:
+        try:
+            from ...services.writing_notifications import notify_writing_graded
+            
             await notify_writing_graded(
                 db=db,
                 user_id=updated_submission.user_id,
@@ -136,17 +221,17 @@ async def grade_writing_submission(
                 title="Bài viết đã được chấm",
                 body="Giáo viên đã chấm bài viết của bạn",
             )
-            await db.commit()
-    except Exception as exc:  # noqa: BLE001
-        # Log error but don't fail the grading request
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(
-            "Failed to send writing graded notification (submission_id=%s): %s",
-            updated_submission.id,
-            exc,
-            exc_info=True,
-        )
+        except Exception as exc:  # noqa: BLE001
+            # Log error but don't fail the grading request
+            logger.error(
+                "Failed to send writing graded notification (submission_id=%s): %s",
+                updated_submission.id,
+                exc,
+                exc_info=True,
+            )
+    
+    # Commit all changes (EXP, progress, notification, etc.)
+    await db.commit()
 
     return TeacherGradeResponseSchema(
         final_score=final_score,
