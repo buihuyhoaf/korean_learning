@@ -359,6 +359,40 @@ async def get_user_exp_history(
     return response
 
 
+@router.get(
+    "/user/{username}/exp-series",
+    response_model=ExpSeriesResponse,
+)
+async def get_user_exp_series(
+    request: Request,
+    username: str,
+    days: Annotated[int, Query(ge=1, le=365)] = 7,
+    db: Annotated[AsyncSession, Depends(async_get_db)] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] = None
+) -> ExpSeriesResponse:
+    """Get user's EXP time-series data grouped by day
+    
+    Returns EXP data grouped by day for the specified number of days.
+    Default is 7 days (1 week).
+    """
+    
+    # Check permissions
+    if current_user["username"] != username and current_user["role"] != "admin":
+        raise ForbiddenException("You can only view your own EXP series")
+    
+    user_result = await db.execute(select(User).where(User.username == username))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise NotFoundException("User not found")
+    
+    # Use existing helper function to build the response
+    return await build_exp_series_response(
+        db=db,
+        target_ids=[user.id],
+        days=days
+    )
+
+
 @router.post("/user/{username}/update-streak", response_model=dict)
 async def update_user_streak(
     request: Request,
