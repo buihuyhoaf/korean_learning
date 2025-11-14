@@ -39,6 +39,7 @@ class User(Base):
     friends = relationship("Friend", back_populates="user", foreign_keys="Friend.user_id")
     friend_of = relationship("Friend", back_populates="friend", foreign_keys="Friend.friend_user_id")
     leaderboard = relationship("Leaderboard", back_populates="user")
+    weekly_leaderboard = relationship("WeeklyLeaderboard", back_populates="user")
     ai_logs = relationship("AiLog", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     refresh_tokens = relationship("UserRefreshToken", back_populates="user", cascade="all, delete-orphan")

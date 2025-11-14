@@ -1,7 +1,13 @@
 from arq.connections import RedisSettings
+from arq.cron import CronJob
 
 from ...core.config import settings
-from .functions import sample_background_task, shutdown, startup
+from .functions import (
+    sample_background_task,
+    shutdown,
+    startup,
+    update_weekly_leaderboard_dummy_xp
+)
 
 REDIS_QUEUE_HOST = settings.REDIS_QUEUE_HOST
 REDIS_QUEUE_PORT = settings.REDIS_QUEUE_PORT
@@ -13,3 +19,13 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     handle_signals = False
+    
+    # Cron jobs - run daily at 00:00 UTC
+    cron_jobs = [
+        CronJob(
+            update_weekly_leaderboard_dummy_xp,
+            minute=0,
+            hour=0,
+            run_at_startup=False
+        )
+    ]

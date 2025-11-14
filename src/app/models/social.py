@@ -1,7 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, date
 import uuid
 
-from sqlalchemy import DateTime, String, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import DateTime, String, Integer, ForeignKey, UniqueConstraint, Boolean, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,5 +37,31 @@ class Leaderboard(Base):
 
     # Relationships
     user = relationship("User", back_populates="leaderboard")
+
+
+class WeeklyLeaderboard(Base):
+    __tablename__ = "weekly_leaderboard"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    is_dummy: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    dummy_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    rank_previous: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    xp_week_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
+    # Relationships
+    user = relationship("User", back_populates="weekly_leaderboard")
+
+    __table_args__ = (
+        UniqueConstraint('week_start', 'user_id', 'is_dummy', 'dummy_id', name='unique_weekly_entry'),
+    )
 
 

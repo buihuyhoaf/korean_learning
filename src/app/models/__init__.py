@@ -28,7 +28,7 @@ from .gamification import (
     DailyGoal,
     DailyMission
 )
-from .social import Friend, Leaderboard
+from .social import Friend, Leaderboard, WeeklyLeaderboard
 from .ai_log import AiLog
 from .notification import Notification
 from .user_push_token import UserPushToken
