@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import random
 from datetime import date, datetime, UTC
@@ -115,6 +116,13 @@ async def update_weekly_leaderboard_dummy_xp(ctx: Worker) -> str:
                 entry.xp += xp_increase
                 dummy_data["xp"] = entry.xp
                 dummy_data["phase"] = phase
+                
+                # Ensure streak_days exists (create if missing, following algorithm)
+                if "streak_days" not in dummy_data or dummy_data.get("streak_days") is None:
+                    # Generate deterministic streak_days based on dummy_id and week_start
+                    streak_seed = int(hashlib.md5(f"{week_start.isoformat()}_{entry.dummy_id}".encode()).hexdigest()[:8], 16) % (2**31)
+                    random.seed(streak_seed)
+                    dummy_data["streak_days"] = random.randint(1, 365)
                 
                 # Save to Redis
                 await WeeklyLeaderboardRedis.set_dummy(week_start, entry.dummy_id, dummy_data)

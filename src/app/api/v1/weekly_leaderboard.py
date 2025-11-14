@@ -4,6 +4,7 @@ Weekly Leaderboard API
 Endpoints for managing weekly leaderboard with 19 dummy users + 1 real user.
 """
 import random
+import hashlib
 from typing import Annotated
 from datetime import date, timedelta, datetime, UTC
 from uuid import UUID
@@ -376,8 +377,18 @@ async def get_weekly_leaderboard(
         elif entry.is_dummy and entry.dummy_id:
             # Get streak_days from Redis for dummy users
             dummy_data = await WeeklyLeaderboardRedis.get_dummy(week_start, entry.dummy_id)
-            if dummy_data and "streak_days" in dummy_data:
-                entry_streak_days = dummy_data["streak_days"]
+            if dummy_data:
+                if "streak_days" in dummy_data and dummy_data["streak_days"] is not None:
+                    entry_streak_days = dummy_data["streak_days"]
+                else:
+                    # Generate streak_days if missing (follow algorithm)
+                    streak_seed = int(hashlib.md5(f"{week_start.isoformat()}_{entry.dummy_id}".encode()).hexdigest()[:8], 16) % (2**31)
+                    random.seed(streak_seed)
+                    entry_streak_days = random.randint(1, 365)
+                    # Save back to Redis
+                    if "streak_days" not in dummy_data:
+                        dummy_data["streak_days"] = entry_streak_days
+                        await WeeklyLeaderboardRedis.set_dummy(week_start, entry.dummy_id, dummy_data)
         
         leaderboard_entries.append(
             LeaderboardEntry(
