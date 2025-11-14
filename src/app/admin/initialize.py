@@ -416,7 +416,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             db=db,
             current_user=current_admin,
         )
-        return JSONResponse(status_code=status.HTTP_200_OK, content=response.model_dump())
+        return JSONResponse(status_code=status.HTTP_200_OK, content=response.model_dump(mode='json'))
 
     @admin.app.post("/writing-submissions/api/grade/{submission_id}")
     async def admin_writing_submission_grade(
@@ -431,7 +431,7 @@ def create_admin_interface() -> Optional[CRUDAdmin]:
             db=db,
             current_user=current_admin,
         )
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result.model_dump())
+        return JSONResponse(status_code=status.HTTP_200_OK, content=result.model_dump(mode='json'))
 
     @admin.app.get("/push-notifications", response_class=HTMLResponse)
     async def admin_push_notifications_page(
