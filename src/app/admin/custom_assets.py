@@ -466,6 +466,20 @@ function createPushNotificationElements() {
     return { link, item };
 }
 
+function createWritingSubmissionsElements() {
+    const link = document.createElement('a');
+    link.href = ADMIN_BASE_PATH + '/writing-submissions';
+    link.textContent = 'Writing Submissions';
+    link.classList.add('sidebar-link', 'nav-link');
+    link.setAttribute('data-writing-submissions-link', 'true');
+
+    const item = document.createElement('li');
+    item.classList.add('sidebar-item', 'nav-item');
+    item.appendChild(link);
+
+    return { link, item };
+}
+
 function insertProgressTrackerLink() {
     if (document.querySelector('[data-progress-tracker-link]')) {
         return true;
@@ -585,6 +599,67 @@ function ensurePushNotificationsLink() {
         setTimeout(insertPushNotificationsLink, 300);
         setTimeout(insertPushNotificationsLink, 1200);
         setTimeout(insertPushNotificationsLink, 3000);
+    }
+}
+
+function insertWritingSubmissionsLink() {
+    if (document.querySelector('[data-writing-submissions-link]')) {
+        return true;
+    }
+
+    const listSelectors = [
+        '.app-sidebar nav ul',
+        '.app-sidebar .sidebar-nav ul',
+        '.app-sidebar ul',
+        '.sidebar nav ul',
+        '.sidebar-nav ul',
+        'nav.sidebar-nav ul',
+        '.sidebar-menu ul',
+        'nav ul.sidebar-menu'
+    ];
+
+    for (const selector of listSelectors) {
+        const container = document.querySelector(selector);
+        if (!container) {
+            continue;
+        }
+
+        const { item } = createWritingSubmissionsElements();
+        container.appendChild(item);
+        return true;
+    }
+
+    const navSelectors = [
+        '.app-sidebar nav',
+        'nav.sidebar-nav',
+        '.sidebar-nav',
+        '.sidebar',
+        '.app-sidebar'
+    ];
+
+    for (const selector of navSelectors) {
+        const container = document.querySelector(selector);
+        if (!container) {
+            continue;
+        }
+
+        if (container.querySelector('[data-writing-submissions-link]')) {
+            return true;
+        }
+
+        const { link } = createWritingSubmissionsElements();
+        container.appendChild(link);
+        return true;
+    }
+
+    return false;
+}
+
+function ensureWritingSubmissionsLink() {
+    if (!insertWritingSubmissionsLink()) {
+        setTimeout(insertWritingSubmissionsLink, 300);
+        setTimeout(insertWritingSubmissionsLink, 1200);
+        setTimeout(insertWritingSubmissionsLink, 3000);
     }
 }
 
@@ -1040,6 +1115,11 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (err) {
         console.warn('Unable to inject push notifications link', err);
     }
+    try {
+        ensureWritingSubmissionsLink();
+    } catch (err) {
+        console.warn('Unable to inject writing submissions link', err);
+    }
     
     // Animate cards on load
     const cards = document.querySelectorAll('.card');
@@ -1145,6 +1225,7 @@ new MutationObserver(() => {
         setTimeout(initializeImageUploadWidget, 500);
         setTimeout(ensureProgressTrackerLink, 100);
         setTimeout(ensurePushNotificationsLink, 150);
+        setTimeout(ensureWritingSubmissionsLink, 200);
     }
 }).observe(document, { subtree: true, childList: true });
 
@@ -1154,6 +1235,7 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     setTimeout(initializeImageUploadWidget, 100);
     setTimeout(ensureProgressTrackerLink, 150);
     setTimeout(ensurePushNotificationsLink, 200);
+    setTimeout(ensureWritingSubmissionsLink, 250);
 });
 
 document.body.addEventListener('htmx:load', function(event) {
@@ -1161,6 +1243,7 @@ document.body.addEventListener('htmx:load', function(event) {
     setTimeout(initializeImageUploadWidget, 100);
     setTimeout(ensureProgressTrackerLink, 150);
     setTimeout(ensurePushNotificationsLink, 200);
+    setTimeout(ensureWritingSubmissionsLink, 250);
 });
 
 // Also try initializing periodically for dynamic content (especially for HTMX-loaded forms)
@@ -1177,6 +1260,7 @@ const initInterval = setInterval(function() {
         initializeCourseImageUpload();
         ensureProgressTrackerLink();
         ensurePushNotificationsLink();
+        ensureWritingSubmissionsLink();
     } else {
         clearInterval(initInterval);
         console.log('⏹️ [Upload Widget] Stopped periodic initialization after max attempts');
