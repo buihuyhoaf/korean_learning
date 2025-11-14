@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 import uuid
 
-from sqlalchemy import DateTime, String, Integer, Text, Boolean, ForeignKey
+from sqlalchemy import DateTime, String, Integer, Text, Boolean, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +18,7 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(String(50))  # system, reminder, achievement
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
+    metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # JSON field để lưu lesson_id, submission_id, etc.
 
     # Relationships
     user = relationship("User", back_populates="notifications")

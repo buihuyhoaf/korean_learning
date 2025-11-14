@@ -73,9 +73,9 @@ async def notify_writing_graded(
                     # Using send_each() instead, which sends a list of messages
                     notification = messaging.Notification(title=title, body=body)
                     data_payload = {
-                        "type": "writing_graded",
-                        "lesson_id": str(lesson_id),
-                        "submission_id": str(submission_id),
+                            "type": "writing_graded",
+                            "lesson_id": str(lesson_id),
+                            "submission_id": str(submission_id),
                     }
                     
                     messages = [
@@ -129,6 +129,10 @@ async def notify_writing_graded(
             message=body,
             type="writing_graded",
             is_read=False,
+            metadata={
+                "lesson_id": str(lesson_id),
+                "submission_id": str(submission_id) if submission_id else None,
+            }
         )
         db.add(notification)
         await db.flush()
