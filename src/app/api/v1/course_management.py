@@ -17,7 +17,7 @@ from ...core.exceptions.http_exceptions import NotFoundException
 from ...crud.progress_tracking import ProgressTrackingCRUD, LessonExpBreakdown
 from ...models.course import Course, Lesson, Unit
 from ...models.exercise import Exercise, ExerciseQuestion
-from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress
+from ...models.progress import UserCourseProgress, UserUnitProgress, UserLessonProgress, UserQuestionError
 from ...models.question import Question
 from ...models.question_type import QuestionType
 from ...models.user import User
@@ -1094,6 +1094,30 @@ async def submit_practice_question_answer(
         await _increment_lesson_progress(db, user_id, lesson_id)
     else:
         diagnostic_codes.append(660)
+        
+        # Create or update UserQuestionError for lesson questions only
+        mistake_query = select(UserQuestionError).where(
+            UserQuestionError.user_id == user_id,
+            UserQuestionError.question_id == question_id
+        )
+        mistake_result = await db.execute(mistake_query)
+        mistake = mistake_result.scalar_one_or_none()
+        
+        if mistake:
+            # Update existing mistake record
+            mistake.error_count += 1
+            mistake.last_wrong_answer = user_answer_str
+            mistake.last_wrong_at = datetime.now(UTC)
+        else:
+            # Create new mistake record
+            mistake = UserQuestionError(
+                user_id=user_id,
+                question_id=question_id,
+                error_count=1,
+                last_wrong_answer=user_answer_str,
+                last_wrong_at=datetime.now(UTC)
+            )
+            db.add(mistake)
     
     await db.commit()
     
