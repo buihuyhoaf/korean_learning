@@ -68,19 +68,27 @@ async def notify_writing_graded(
                 tokens = list(result.scalars().all())
                 
                 if tokens:
-                    # Create FCM message with data payload
-                    message = messaging.MulticastMessage(
-                        notification=messaging.Notification(title=title, body=body),
-                        data={
-                            "type": "writing_graded",
-                            "lesson_id": str(lesson_id),
-                            "submission_id": str(submission_id),
-                        },
-                        tokens=[token.token for token in tokens],
-                    )
+                    # Create FCM messages with data payload
+                    # Note: send_multicast was removed in Firebase Admin SDK 7.0.0+
+                    # Using send_each() instead, which sends a list of messages
+                    notification = messaging.Notification(title=title, body=body)
+                    data_payload = {
+                        "type": "writing_graded",
+                        "lesson_id": str(lesson_id),
+                        "submission_id": str(submission_id),
+                    }
+                    
+                    messages = [
+                        messaging.Message(
+                            notification=notification,
+                            data=data_payload,
+                            token=token.token
+                        )
+                        for token in tokens
+                    ]
                     
                     # Send in background thread
-                    response = await asyncio.to_thread(messaging.send_multicast, message)
+                    response = await asyncio.to_thread(messaging.send_each, messages)
                     
                     success_count = sum(1 for r in response.responses if r.success)
                     failed_count = len(response.responses) - success_count
