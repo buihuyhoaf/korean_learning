@@ -43,17 +43,24 @@ class WeeklyLeaderboard(Base):
     __tablename__ = "weekly_leaderboard"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
+    
+    # --- REQUIRED FIELDS (NON-DEFAULT ARGUMENTS) ---
     week_start: Mapped[date] = mapped_column(Date, nullable=False)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, default=None)
     is_dummy: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    dummy_id: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0) # Note: default=0 is fine, but it must be ordered after the other required ones
+
+    # --- OPTIONAL FIELDS (DEFAULT ARGUMENTS) ---
+    # These all have a default value or are explicitly nullable (None)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, default=None)
+    dummy_id: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True, default=None)
     country: Mapped[str | None] = mapped_column(String(10), nullable=True, default=None)
-    rank: Mapped[int] = mapped_column(Integer, nullable=False)
-    xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rank_previous: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     xp_week_start: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    
+    # --- INTERNAL FIELDS (init=False or onupdate) ---
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), init=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
@@ -63,5 +70,3 @@ class WeeklyLeaderboard(Base):
     __table_args__ = (
         UniqueConstraint('week_start', 'user_id', 'is_dummy', 'dummy_id', name='unique_weekly_entry'),
     )
-
-
