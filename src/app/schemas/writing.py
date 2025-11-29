@@ -131,6 +131,7 @@ class WritingAdminSubmissionItem(BaseModel):
     mode: WritingSubmissionMode
     ai_score: float | None = None
     ai_feedback: str | None = None
+    final_score: float | None = None  # Teacher's final score (if graded)
     created_at: datetime
     updated_at: datetime
 

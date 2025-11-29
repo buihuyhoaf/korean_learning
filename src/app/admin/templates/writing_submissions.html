@@ -122,6 +122,14 @@
         background: rgba(139, 92, 246, 0.16);
         color: #6d28d9;
       }
+      .badge-graded {
+        background: rgba(34, 197, 94, 0.16);
+        color: #15803d;
+      }
+      .badge-new {
+        background: rgba(239, 68, 68, 0.16);
+        color: #dc2626;
+      }
       .submission-text {
         background: rgba(15, 23, 42, 0.035);
         border-radius: 12px;
@@ -365,6 +373,12 @@
           const aiReviewedBadge = isAiReviewed 
             ? '<span class="badge badge-ai-reviewed">AI reviewed</span>' 
             : '';
+          
+          // Check if graded (has final_score)
+          const isGraded = submission.final_score !== null && submission.final_score !== undefined;
+          const gradeLabel = isGraded 
+            ? '<span class="badge badge-graded">Graded</span>' 
+            : '<span class="badge badge-new">New</span>';
 
           card.innerHTML = `
             <div class="submission-header">
@@ -374,6 +388,7 @@
                 <div>
                   <span class="badge badge-status">${submission.status}</span>
                   <span class="badge ${modeBadgeClass}">Mode: ${submission.mode}</span>
+                  ${gradeLabel}
                   ${aiReviewedBadge}
                 </div>
               </div>
@@ -385,11 +400,13 @@
             </div>
             <div class="submission-text">${submission.text || "(Không có nội dung)"}</div>
             <div style="display:flex; justify-content:flex-end;">
-              <button class="btn btn-primary" data-grade-id="${submission.submission_id}">Chấm điểm</button>
+              <button class="btn btn-primary" data-grade-id="${submission.submission_id}" ${isGraded ? 'disabled' : ''}>${isGraded ? 'Đã chấm' : 'Chấm điểm'}</button>
             </div>
           `;
 
-          card.querySelector("button[data-grade-id]").addEventListener("click", () => openGradeModal(submission));
+          if (!isGraded) {
+            card.querySelector("button[data-grade-id]").addEventListener("click", () => openGradeModal(submission));
+          }
 
           submissionsContainer.appendChild(card);
         });

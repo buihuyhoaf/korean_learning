@@ -258,14 +258,21 @@ async def list_pending_submissions(
     without issuing additional API calls.
     """
 
+    # Get all submissions (both pending and graded) that are Teacher mode
+    # Teacher mode submissions are:
+    # 1. Already teacher-graded (have final_score) - definitely Teacher mode
+    # 2. Status SUBMITTED (no AI grading) - likely Teacher mode
+    # 3. Status AI_GRADED but no final_score - could be Teacher mode with AI review
+    # We'll include all that could be Teacher mode, excluding only pure AI-only submissions
+    
     status_filter = WritingSubmission.status.in_(
         (
             WritingSubmissionStatus.SUBMITTED,
             WritingSubmissionStatus.AI_GRADED,
+            WritingSubmissionStatus.TEACHER_GRADED,
         )
     )
 
-    # Get all pending submissions
     pending_query = (
         select(WritingSubmission, Exercise, Lesson, User)
         .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
@@ -280,10 +287,21 @@ async def list_pending_submissions(
     # Filter to only include Teacher mode submissions
     submissions: list[WritingAdminSubmissionItem] = []
     for submission, exercise, lesson, user in rows:
-        inferred_mode = _infer_submission_mode(submission)
+        # Determine if this is Teacher mode
+        is_teacher_mode = False
         
-        # Only include submissions with Mode: Teacher
-        if inferred_mode != WritingSubmissionMode.TEACHER:
+        # If already teacher-graded, it's definitely Teacher mode
+        if submission.final_score is not None or submission.status == WritingSubmissionStatus.TEACHER_GRADED:
+            is_teacher_mode = True
+        # If status is SUBMITTED (no AI grading yet), it's likely Teacher mode
+        elif submission.status == WritingSubmissionStatus.SUBMITTED:
+            is_teacher_mode = True
+        # If status is AI_GRADED but no final_score, it could be Teacher mode that was AI-reviewed
+        # We include it to ensure Teacher submissions with AI review are shown
+        elif submission.status == WritingSubmissionStatus.AI_GRADED and submission.final_score is None:
+            is_teacher_mode = True
+        
+        if not is_teacher_mode:
             continue
         
         submissions.append(
@@ -298,9 +316,10 @@ async def list_pending_submissions(
                 lesson_title=lesson.title,
                 text=submission.text,
                 status=submission.status,
-                mode=inferred_mode,
+                mode=WritingSubmissionMode.TEACHER,  # Always Teacher mode in admin queue
                 ai_score=submission.ai_score,
                 ai_feedback=submission.ai_feedback,
+                final_score=submission.final_score,  # Include final_score for frontend
                 created_at=submission.created_at,
                 updated_at=submission.updated_at,
             )
