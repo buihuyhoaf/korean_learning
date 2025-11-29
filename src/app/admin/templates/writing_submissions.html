@@ -118,6 +118,10 @@
         background: rgba(16, 185, 129, 0.16);
         color: #047857;
       }
+      .badge-ai-reviewed {
+        background: rgba(139, 92, 246, 0.16);
+        color: #6d28d9;
+      }
       .submission-text {
         background: rgba(15, 23, 42, 0.035);
         border-radius: 12px;
@@ -353,6 +357,14 @@
           card.className = "submission-card";
 
           const modeBadgeClass = submission.mode === "Teacher" ? "badge-mode" : "badge-status";
+          
+          // Check if AI reviewed (has ai_score or ai_feedback)
+          const isAiReviewed = submission.ai_score !== null && submission.ai_score !== undefined ||
+                               (submission.ai_feedback !== null && submission.ai_feedback !== undefined && submission.ai_feedback.trim() !== "");
+          
+          const aiReviewedBadge = isAiReviewed 
+            ? '<span class="badge badge-ai-reviewed">AI reviewed</span>' 
+            : '';
 
           card.innerHTML = `
             <div class="submission-header">
@@ -362,6 +374,7 @@
                 <div>
                   <span class="badge badge-status">${submission.status}</span>
                   <span class="badge ${modeBadgeClass}">Mode: ${submission.mode}</span>
+                  ${aiReviewedBadge}
                 </div>
               </div>
               <div class="submission-meta" style="text-align: right;">

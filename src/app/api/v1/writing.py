@@ -249,6 +249,10 @@ async def list_pending_submissions(
 ) -> WritingAdminPendingResponse:
     """
     Retrieve writing submissions awaiting teacher grading.
+    
+    Only returns submissions with Mode: Teacher. If a submission has been
+    AI-reviewed (ai_score or ai_feedback exists), it will be marked as such
+    but still shown if it's waiting for teacher grading.
 
     Returns learner/exercise context so the admin interface can render a queue
     without issuing additional API calls.
@@ -261,17 +265,7 @@ async def list_pending_submissions(
         )
     )
 
-    total_query = (
-        select(func.count())
-        .select_from(WritingSubmission)
-        .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
-        .where(status_filter)
-    )
-    total = (await db.execute(total_query)).scalar_one()
-
-    if total == 0:
-        return WritingAdminPendingResponse(total=0, submissions=[])
-
+    # Get all pending submissions
     pending_query = (
         select(WritingSubmission, Exercise, Lesson, User)
         .join(Exercise, WritingSubmission.exercise_id == Exercise.id)
@@ -279,14 +273,19 @@ async def list_pending_submissions(
         .join(User, WritingSubmission.user_id == User.id)
         .where(status_filter)
         .order_by(WritingSubmission.created_at.desc())
-        .offset(skip)
-        .limit(limit)
     )
 
     rows = (await db.execute(pending_query)).all()
 
+    # Filter to only include Teacher mode submissions
     submissions: list[WritingAdminSubmissionItem] = []
     for submission, exercise, lesson, user in rows:
+        inferred_mode = _infer_submission_mode(submission)
+        
+        # Only include submissions with Mode: Teacher
+        if inferred_mode != WritingSubmissionMode.TEACHER:
+            continue
+        
         submissions.append(
             WritingAdminSubmissionItem(
                 submission_id=submission.id,
@@ -299,7 +298,7 @@ async def list_pending_submissions(
                 lesson_title=lesson.title,
                 text=submission.text,
                 status=submission.status,
-                mode=_infer_submission_mode(submission),
+                mode=inferred_mode,
                 ai_score=submission.ai_score,
                 ai_feedback=submission.ai_feedback,
                 created_at=submission.created_at,
@@ -307,7 +306,11 @@ async def list_pending_submissions(
             )
         )
 
-    return WritingAdminPendingResponse(total=total, submissions=submissions)
+    # Apply pagination after filtering
+    total = len(submissions)
+    paginated_submissions = submissions[skip : skip + limit]
+
+    return WritingAdminPendingResponse(total=total, submissions=paginated_submissions)
 
 
 @router.get("/results/{lesson_id}", response_model=WritingLessonResultsResponse)
