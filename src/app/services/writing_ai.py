@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 import language_tool_python
+from langdetect import detect, LangDetectException
 
 from ..core.config import settings
 
@@ -45,6 +46,38 @@ class WritingAiEvaluationError(Exception):
 
 
 SPELLING_CATEGORY_HINTS = {"TYPOS", "TYPOGRAPHY", "MISSPELLING", "CASING"}
+
+# Mã ngôn ngữ tiếng Hàn được chấp nhận
+KOREAN_LANGUAGE_CODES = {"ko", "kor"}
+
+
+def _detect_language(text: str) -> tuple[str | None, bool]:
+    """
+    Phát hiện ngôn ngữ của văn bản.
+    
+    Args:
+        text: Văn bản cần phát hiện ngôn ngữ
+        
+    Returns:
+        Tuple (detected_lang, is_korean):
+        - detected_lang: Mã ngôn ngữ được phát hiện (ví dụ: 'ko', 'vi', 'en') hoặc None nếu không thể phát hiện
+        - is_korean: True nếu là tiếng Hàn, False nếu không
+    """
+    if not text or len(text.strip()) < 3:
+        # Văn bản quá ngắn, không thể phát hiện chính xác
+        return None, False
+    
+    try:
+        detected_lang = detect(text)
+        is_korean = detected_lang.lower() in KOREAN_LANGUAGE_CODES
+        logger.info(f"Detected language: {detected_lang}, is_korean: {is_korean}")
+        return detected_lang, is_korean
+    except LangDetectException as e:
+        logger.warning(f"Language detection failed: {e}")
+        return None, False
+    except Exception as e:
+        logger.error(f"Unexpected error during language detection: {e}")
+        return None, False
 
 
 # Không cache để có thể thử các language code khác nhau
@@ -152,6 +185,7 @@ async def evaluate_writing_with_ai(text: str) -> WritingAiEvaluationResult:
     -----
     - Uses LanguageTool local server (if configured) or public API as fallback.
     - Wraps LanguageTool failures and returns safe fallback feedback.
+    - Validates that the input text is in Korean before evaluation.
     """
     text = text.strip()
     if not text:
@@ -160,6 +194,43 @@ async def evaluate_writing_with_ai(text: str) -> WritingAiEvaluationResult:
             feedback="Không có nội dung để chấm.",
             spelling_score=10.0,
             grammar_score=10.0,
+            corrected_text=None,
+        )
+
+    # Phát hiện ngôn ngữ trước khi chấm
+    detected_lang, is_korean = _detect_language(text)
+    
+    if not is_korean:
+        # Xác định tên ngôn ngữ để hiển thị thông báo
+        lang_names = {
+            "vi": "tiếng Việt",
+            "en": "tiếng Anh",
+            "zh": "tiếng Trung",
+            "ja": "tiếng Nhật",
+            "th": "tiếng Thái",
+            "es": "tiếng Tây Ban Nha",
+            "fr": "tiếng Pháp",
+            "de": "tiếng Đức",
+        }
+        lang_name = lang_names.get(detected_lang.lower() if detected_lang else "", "ngôn ngữ khác")
+        
+        if detected_lang:
+            feedback_msg = (
+                f"Phát hiện bài viết của bạn là {lang_name} (mã: {detected_lang}), "
+                "không phải tiếng Hàn. Vui lòng viết lại bằng tiếng Hàn để được chấm điểm chính xác."
+            )
+        else:
+            feedback_msg = (
+                "Không thể xác định ngôn ngữ của bài viết. "
+                "Vui lòng đảm bảo bạn đang viết bằng tiếng Hàn để được chấm điểm chính xác."
+            )
+        
+        logger.warning(f"Non-Korean text detected: lang={detected_lang}, text_preview={text[:50]}...")
+        return WritingAiEvaluationResult(
+            score=None,
+            feedback=feedback_msg,
+            spelling_score=None,
+            grammar_score=None,
             corrected_text=None,
         )
 
