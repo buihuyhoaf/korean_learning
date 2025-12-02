@@ -285,7 +285,8 @@ async def list_pending_submissions(
     rows = (await db.execute(pending_query)).all()
 
     # Filter to only include Teacher mode submissions
-    submissions: list[WritingAdminSubmissionItem] = []
+    # Group by (user_id, exercise_id) to avoid duplicates
+    submissions_dict: dict[tuple[UUID, UUID], WritingAdminSubmissionItem] = {}
     for submission, exercise, lesson, user in rows:
         # Determine if this is Teacher mode
         is_teacher_mode = False
@@ -295,17 +296,27 @@ async def list_pending_submissions(
             is_teacher_mode = True
         # If status is SUBMITTED (no AI grading yet), it's likely Teacher mode
         elif submission.status == WritingSubmissionStatus.SUBMITTED:
-            is_teacher_mode = True
+            # Chỉ coi là Teacher mode nếu không có ai_feedback
+            # (Nếu có ai_feedback thì đây là AI submission bị fail, không phải Teacher submission)
+            if not submission.ai_feedback:
+                is_teacher_mode = True
         # If status is AI_GRADED but no final_score, it could be Teacher mode that was AI-reviewed
-        # We include it to ensure Teacher submissions with AI review are shown
+        # NHƯNG: Nếu có ai_feedback và không có ai_score → đây là AI submission bị fail, không phải Teacher
         elif submission.status == WritingSubmissionStatus.AI_GRADED and submission.final_score is None:
-            is_teacher_mode = True
+            # Chỉ coi là Teacher mode nếu có ai_score (AI đã chấm thành công)
+            # Nếu chỉ có ai_feedback mà không có ai_score → đây là AI submission bị fail
+            if submission.ai_score is not None:
+                is_teacher_mode = True
         
         if not is_teacher_mode:
             continue
         
-        submissions.append(
-            WritingAdminSubmissionItem(
+        # Key để group: (user_id, exercise_id)
+        key = (user.id, exercise.id)
+        
+        # Nếu chưa có submission cho cặp (user, exercise) này, thêm vào
+        if key not in submissions_dict:
+            submissions_dict[key] = WritingAdminSubmissionItem(
                 submission_id=submission.id,
                 user_id=user.id,
                 learner_name=getattr(user, "username", None),
@@ -323,7 +334,67 @@ async def list_pending_submissions(
                 created_at=submission.created_at,
                 updated_at=submission.updated_at,
             )
-        )
+        else:
+            # Đã có submission cho cặp này, merge thông tin:
+            # - Ưu tiên submission có final_score (teacher graded)
+            # - Nếu không, ưu tiên submission mới nhất
+            # - Merge ai_score/ai_feedback nếu submission hiện tại chưa có
+            existing = submissions_dict[key]
+            
+            # Ưu tiên submission có final_score
+            if submission.final_score is not None and existing.final_score is None:
+                # Submission mới có final_score, thay thế
+                submissions_dict[key] = WritingAdminSubmissionItem(
+                    submission_id=submission.id,
+                    user_id=user.id,
+                    learner_name=getattr(user, "username", None),
+                    learner_email=getattr(user, "email", None),
+                    exercise_id=exercise.id,
+                    exercise_title=exercise.title or "",
+                    lesson_id=lesson.id,
+                    lesson_title=lesson.title,
+                    text=submission.text,
+                    status=submission.status,
+                    mode=WritingSubmissionMode.TEACHER,
+                    ai_score=submission.ai_score or existing.ai_score,
+                    ai_feedback=submission.ai_feedback or existing.ai_feedback,
+                    final_score=submission.final_score,
+                    created_at=submission.created_at,
+                    updated_at=submission.updated_at,
+                )
+            elif existing.final_score is None:
+                # Cả 2 đều chưa có final_score, chọn submission mới nhất
+                if submission.created_at > existing.created_at:
+                    submissions_dict[key] = WritingAdminSubmissionItem(
+                        submission_id=submission.id,
+                        user_id=user.id,
+                        learner_name=getattr(user, "username", None),
+                        learner_email=getattr(user, "email", None),
+                        exercise_id=exercise.id,
+                        exercise_title=exercise.title or "",
+                        lesson_id=lesson.id,
+                        lesson_title=lesson.title,
+                        text=submission.text,
+                        status=submission.status,
+                        mode=WritingSubmissionMode.TEACHER,
+                        ai_score=submission.ai_score or existing.ai_score,
+                        ai_feedback=submission.ai_feedback or existing.ai_feedback,
+                        final_score=submission.final_score,
+                        created_at=submission.created_at,
+                        updated_at=submission.updated_at,
+                    )
+                else:
+                    # Giữ submission cũ, nhưng merge ai_score/ai_feedback nếu có
+                    if not existing.ai_score and submission.ai_score:
+                        existing.ai_score = submission.ai_score
+                    if not existing.ai_feedback and submission.ai_feedback:
+                        existing.ai_feedback = submission.ai_feedback
+
+    # Convert dict to list
+    submissions = list(submissions_dict.values())
+
+    # Sort by created_at descending (newest first)
+    submissions.sort(key=lambda x: x.created_at, reverse=True)
 
     # Apply pagination after filtering
     total = len(submissions)
