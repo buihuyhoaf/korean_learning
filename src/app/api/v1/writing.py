@@ -375,12 +375,25 @@ async def list_writing_results(
 
 
 def _infer_submission_mode(submission) -> WritingSubmissionMode:
-    """Best-effort classification of submission mode."""
+    """
+    Best-effort classification of submission mode.
+    
+    Logic:
+    - If has final_score or status = TEACHER_GRADED → TEACHER mode
+    - If has ai_score or ai_feedback → AI mode (even if status = "submitted" due to AI failure)
+    - Otherwise → default to TEACHER mode
+    """
 
     if submission.final_score is not None or submission.status == WritingSubmissionStatus.TEACHER_GRADED:
         return WritingSubmissionMode.TEACHER
 
-    if submission.status == WritingSubmissionStatus.AI_GRADED or submission.ai_score is not None:
+    # Nếu có ai_score hoặc ai_feedback → đây là AI mode
+    # (kể cả khi status = "submitted" do AI chấm thất bại, ví dụ: phát hiện ngôn ngữ không phải tiếng Hàn)
+    if (
+        submission.status == WritingSubmissionStatus.AI_GRADED
+        or submission.ai_score is not None
+        or submission.ai_feedback  # Có ai_feedback nghĩa là đã gọi AI service
+    ):
         return WritingSubmissionMode.AI
 
     # Default to teacher when waiting for manual grading.

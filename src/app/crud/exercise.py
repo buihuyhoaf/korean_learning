@@ -44,7 +44,7 @@ class ExerciseCRUD:
             Exercise,
             exercise_id,
             options=[selectinload(Exercise.questions).selectinload(ExerciseQuestion.options)],
-        )
+            )
         return exercise
     
     @staticmethod
