@@ -25,20 +25,6 @@ class Friend(Base):
     __table_args__ = (UniqueConstraint('user_id', 'friend_user_id'),)
 
 
-class Leaderboard(Base):
-    __tablename__ = "leaderboard"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, init=False)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    season: Mapped[str] = mapped_column(String(50))
-    rank: Mapped[int] = mapped_column(Integer)
-    exp: Mapped[int] = mapped_column(Integer)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default_factory=lambda: datetime.now(UTC))
-
-    # Relationships
-    user = relationship("User", back_populates="leaderboard")
-
-
 class WeeklyLeaderboard(Base):
     __tablename__ = "weekly_leaderboard"
 

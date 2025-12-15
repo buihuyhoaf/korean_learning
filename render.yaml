@@ -4,7 +4,7 @@ services:
     env: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: starter  # free plan - có thể sleep sau 15 phút không dùng
+    plan: free  # free plan - có thể sleep sau 15 phút không dùng
     # region: singapore  # region chỉ có trên paid plans
     envVars:
       - key: DATABASE_URL

@@ -30,7 +30,7 @@ from ..models.gamification import (
     UserBadge, 
     DailyGoal
 )
-from ..models.social import Friend, Leaderboard
+from ..models.social import Friend
 from ..models.ai_log import AiLog
 from ..models.notification import Notification
 from ..models.user_push_token import UserPushToken
@@ -371,14 +371,6 @@ def register_admin_views(admin: CRUDAdmin) -> None:
     # Friends
     admin.add_view(
         model=Friend,
-        create_schema=ProgressCreate,
-        update_schema=ProgressUpdate,
-        allowed_actions={"view"},
-    )
-
-    # Leaderboard
-    admin.add_view(
-        model=Leaderboard,
         create_schema=ProgressCreate,
         update_schema=ProgressUpdate,
         allowed_actions={"view"},
