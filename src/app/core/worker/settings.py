@@ -24,6 +24,7 @@ class WorkerSettings:
     cron_jobs = [
         CronJob(
             # arq CronJob signature in this project requires these args
+            name="update_weekly_leaderboard_dummy_xp",
             coroutine=update_weekly_leaderboard_dummy_xp,
             month=None,
             day=None,
