@@ -23,9 +23,21 @@ class WorkerSettings:
     # Cron jobs - run daily at 00:00 UTC
     cron_jobs = [
         CronJob(
-            update_weekly_leaderboard_dummy_xp,
-            minute=0,
+            # arq CronJob signature in this project requires these args
+            coroutine=update_weekly_leaderboard_dummy_xp,
+            month=None,
+            day=None,
+            weekday=None,
             hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+            unique=False,
+            job_id=None,
+            timeout_s=300,
+            keep_result_s=3600,
+            keep_result_forever=False,
+            max_tries=5,
             run_at_startup=False
         )
     ]
